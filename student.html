@@ -2096,6 +2096,44 @@
                 box-shadow: 0 4px 14px rgba(30,122,52,0.4);
             }
 
+            /* ─── SPATIAL DATA LIBRARY (new) ─── */
+            .ds-search-bar { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+            .ds-search-bar input[type="text"] { flex:1; min-width:200px; padding:12px 16px; border-radius:12px; border:1px solid var(--border); background:var(--bg2); color:var(--text); font-family:'Tajawal',sans-serif; font-size:13px; }
+            .ds-search-bar button { padding:12px 20px; border-radius:12px; border:none; background:linear-gradient(135deg,var(--g4),var(--g3)); color:#fff; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+            .ds-cat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:14px; }
+            .ds-cat-card { background:linear-gradient(160deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)); border:1px solid var(--border); border-radius:16px; padding:20px 14px; text-align:center; cursor:pointer; transition:all .25s; }
+            .ds-cat-card:hover { border-color:var(--g3); transform:translateY(-3px); background:linear-gradient(160deg, rgba(30,122,52,0.11), rgba(212,160,23,0.045)); }
+            body.light-mode .ds-cat-card { background:#fff; }
+            .ds-cat-card .ico { font-size:28px; margin-bottom:10px; }
+            .ds-cat-card h4 { font-size:12.5px; font-weight:800; }
+            .ds-cat-card .cnt { font-size:10.5px; color:var(--muted); margin-top:4px; }
+            .ds-proj-strip { display:flex; gap:14px; overflow-x:auto; padding-bottom:8px; }
+            .ds-proj-card { flex:0 0 auto; width:220px; border-radius:16px; padding:18px; cursor:pointer; border:1px solid var(--border2); background:linear-gradient(160deg, rgba(212,160,23,0.10), rgba(30,122,52,0.06)); transition:all .25s; }
+            .ds-proj-card:hover { transform:translateY(-3px); border-color:var(--gold3); }
+            .ds-proj-card .ico { font-size:22px; margin-bottom:8px; }
+            .ds-proj-card h4 { font-size:13px; font-weight:800; margin-bottom:4px; }
+            .ds-proj-card p { font-size:11px; color:var(--muted); line-height:1.5; min-height:32px; }
+            .ds-proj-card .cnt { font-size:10.5px; color:var(--gold4); margin-top:8px; font-weight:700; }
+            .ds-breadcrumb { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); margin-bottom:14px; }
+            .ds-breadcrumb .crumb { cursor:pointer; color:var(--g4); font-weight:700; }
+            .ds-breadcrumb .crumb:hover { text-decoration:underline; }
+            .ds-sub-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+            .ds-sub-chip { padding:7px 14px; border-radius:99px; border:1px solid var(--border); background:var(--bg2); font-size:12px; font-weight:700; cursor:pointer; color:var(--muted); transition:all .2s; }
+            .ds-sub-chip.active, .ds-sub-chip:hover { border-color:var(--g3); color:var(--g4); background:rgba(30,122,52,0.1); }
+            .ds-filters-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+            .ds-filters-bar select, .ds-filters-bar input { padding:9px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg2); color:var(--text); font-family:'Tajawal',sans-serif; font-size:12.5px; }
+            .ds-empty { text-align:center; padding:40px 20px; color:var(--muted); border:1px dashed var(--border); border-radius:14px; font-size:13px; }
+            .dd-wrap { background:var(--card); border:1px solid var(--border); border-radius:18px; overflow:hidden; }
+            .dd-preview { width:100%; height:240px; object-fit:cover; background:var(--bg3); display:block; }
+            .dd-body { padding:22px; }
+            .dd-title { font-size:19px; font-weight:900; margin-bottom:6px; }
+            .dd-desc { font-size:13px; color:var(--muted); line-height:1.8; margin:14px 0; }
+            .dd-meta-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin:16px 0; }
+            .dd-meta-item { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:10px 14px; }
+            .dd-meta-item .lbl { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+            .dd-meta-item .val { font-size:13px; font-weight:700; word-break:break-word; }
+            .dd-dl-btn { width:100%; padding:14px; border-radius:12px; border:none; background:linear-gradient(135deg,var(--g4),var(--g3)); color:#fff; font-weight:800; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; margin-top:10px; }
+
             /* ─── EXPERT MESSAGING ─── */
             .msg-box { background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px; }
             .msg-box h3 { font-size:16px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:10px; }
@@ -3886,6 +3924,21 @@
             await updateDoc(doc(db, 'student_projects', projectId), { status, reviewedAt: serverTimestamp() });
         };
 
+        /* ─── SPATIAL DATA LIBRARY (read) ─── */
+        window._loadSpatialDatasets = async () => {
+            const snap = await getDocs(collection(db, 'spatial_datasets'));
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        };
+        window._loadSpatialProjects = async () => {
+            const snap = await getDocs(collection(db, 'spatial_projects'));
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        };
+        window._incrementDatasetDownload = async (id, current) => {
+            await updateDoc(doc(db, 'spatial_datasets', id), { downloads: (current || 0) + 1 });
+        };
+
         /* ─── PORTFOLIO (STUDENT MAPS) ─── */
         window._submitPortfolioItem = async (data) => {
             if (!currentUid) throw new Error('غير مسجل الدخول');
@@ -5468,120 +5521,416 @@
             </div>`;
         }
 
-        /* ─── DATASETS ─── */
-        function renderDatasets(area) {
+        /* ─── SPATIAL DATA LIBRARY ─── */
+        const SPATIAL_CATEGORIES = [
+            { key:'base', icon:'🗺️', ar:'البيانات الأساسية', en:'Base Data', sub:[
+                {key:'country_borders', ar:'حدود الدول', en:'Country Borders'},
+                {key:'gov_borders', ar:'حدود المحافظات', en:'Governorate Borders'},
+                {key:'district_borders', ar:'حدود المراكز', en:'District Borders'},
+                {key:'village_borders', ar:'حدود القرى', en:'Village Borders'},
+                {key:'neighborhoods', ar:'الأحياء', en:'Neighborhoods'},
+                {key:'admin_divisions', ar:'التقسيمات الإدارية', en:'Administrative Divisions'},
+            ]},
+            { key:'roads', icon:'🛣️', ar:'شبكة الطرق', en:'Road Network', sub:[
+                {key:'main_roads', ar:'الطرق الرئيسية', en:'Main Roads'},
+                {key:'secondary_roads', ar:'الطرق الفرعية', en:'Secondary Roads'},
+                {key:'railways', ar:'السكك الحديدية', en:'Railways'},
+                {key:'bridges', ar:'الكباري', en:'Bridges'},
+                {key:'tunnels', ar:'الأنفاق', en:'Tunnels'},
+            ]},
+            { key:'water', icon:'🌊', ar:'الموارد المائية', en:'Water Resources', sub:[
+                {key:'rivers', ar:'الأنهار', en:'Rivers'},
+                {key:'canals', ar:'الترع', en:'Canals'},
+                {key:'drains', ar:'المصارف', en:'Drains'},
+                {key:'lakes', ar:'البحيرات', en:'Lakes'},
+                {key:'dams', ar:'السدود', en:'Dams'},
+                {key:'wells', ar:'الآبار', en:'Wells'},
+            ]},
+            { key:'buildings', icon:'🏢', ar:'المباني والمنشآت', en:'Buildings & Facilities', sub:[
+                {key:'schools', ar:'المدارس', en:'Schools'},
+                {key:'universities', ar:'الجامعات', en:'Universities'},
+                {key:'hospitals', ar:'المستشفيات', en:'Hospitals'},
+                {key:'mosques', ar:'المساجد', en:'Mosques'},
+                {key:'churches', ar:'الكنائس', en:'Churches'},
+                {key:'police', ar:'مراكز الشرطة', en:'Police Stations'},
+                {key:'fire', ar:'المطافئ', en:'Fire Stations'},
+                {key:'banks', ar:'البنوك', en:'Banks'},
+                {key:'post', ar:'مكاتب البريد', en:'Post Offices'},
+            ]},
+            { key:'terrain', icon:'🌍', ar:'بيانات التضاريس', en:'Terrain Data', sub:[
+                {key:'dem', ar:'DEM', en:'DEM'},
+                {key:'dsm', ar:'DSM', en:'DSM'},
+                {key:'contours', ar:'Contours', en:'Contours'},
+                {key:'hillshade', ar:'Hillshade', en:'Hillshade'},
+                {key:'slope', ar:'Slope', en:'Slope'},
+                {key:'aspect', ar:'Aspect', en:'Aspect'},
+            ]},
+            { key:'satellite', icon:'🛰️', ar:'صور الأقمار الصناعية', en:'Satellite Imagery', sub:[
+                {key:'sentinel2', ar:'Sentinel-2', en:'Sentinel-2'},
+                {key:'landsat', ar:'Landsat', en:'Landsat'},
+                {key:'modis', ar:'MODIS', en:'MODIS'},
+                {key:'planet', ar:'Planet', en:'Planet'},
+                {key:'aerial', ar:'صور جوية مجانية', en:'Free Aerial Imagery'},
+            ]},
+            { key:'environment', icon:'🌿', ar:'البيئة', en:'Environment', sub:[
+                {key:'landcover', ar:'الغطاء الأرضي', en:'Land Cover'},
+                {key:'landuse', ar:'استخدامات الأراضي', en:'Land Use'},
+                {key:'ndvi', ar:'NDVI', en:'NDVI'},
+                {key:'soil', ar:'التربة', en:'Soil'},
+                {key:'forests', ar:'الغابات', en:'Forests'},
+                {key:'protected_areas', ar:'المحميات الطبيعية', en:'Protected Areas'},
+            ]},
+            { key:'climate', icon:'🌦️', ar:'المناخ', en:'Climate', sub:[
+                {key:'rainfall', ar:'الأمطار', en:'Rainfall'},
+                {key:'temperature', ar:'الحرارة', en:'Temperature'},
+                {key:'humidity', ar:'الرطوبة', en:'Humidity'},
+                {key:'wind', ar:'الرياح', en:'Wind'},
+                {key:'evaporation', ar:'التبخر', en:'Evaporation'},
+            ]},
+            { key:'population', icon:'👥', ar:'السكان', en:'Population', sub:[
+                {key:'density', ar:'الكثافة السكانية', en:'Population Density'},
+                {key:'count', ar:'عدد السكان', en:'Population Count'},
+                {key:'census', ar:'التعداد', en:'Census'},
+                {key:'indicators', ar:'المؤشرات السكانية', en:'Population Indicators'},
+            ]},
+            { key:'osm', icon:'🌍', ar:'OpenStreetMap', en:'OpenStreetMap', sub:[
+                {key:'osm_buildings', ar:'Buildings', en:'Buildings'},
+                {key:'osm_roads', ar:'Roads', en:'Roads'},
+                {key:'osm_railways', ar:'Railways', en:'Railways'},
+                {key:'osm_rivers', ar:'Rivers', en:'Rivers'},
+                {key:'osm_landuse', ar:'Landuse', en:'Landuse'},
+                {key:'osm_poi', ar:'Points of Interest', en:'Points of Interest'},
+            ]},
+        ];
+        const SPATIAL_FILE_TYPES = ['Shapefile (.shp)','GeoPackage (.gpkg)','GeoJSON','KML / KMZ','CSV','Raster (.tif)','File Geodatabase (.gdb)'];
+
+        function scFindCat(key) { return SPATIAL_CATEGORIES.find(c => c.key === key); }
+        function scFindSub(catKey, subKey) { const c = scFindCat(catKey); return c ? c.sub.find(s => s.key === subKey) : null; }
+        function scCatLabel(cat, isAR) { return `${cat.icon} ${isAR ? cat.ar : cat.en}`; }
+
+        let _dsAll = [];
+        let _dsProjects = [];
+        let _dsLoaded = false;
+        let _dsView = { mode:'home', category:null, sub:null, projectId:null, datasetId:null, prevMode:null };
+        let _dsFilters = { region:'', fileType:'', coordSystem:'', source:'', year:'' };
+        let _dsSearchQ = '';
+
+        async function renderDatasets(area) {
+            area = area || document.getElementById('contentArea');
             const isAR = lang === 'AR';
-            const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
-            const isAdmin = window._isAdmin === true;
-            const uploadCount = window._getDailyDownloadCount ? window._getDailyDownloadCount() : (window._userData?.uploadCount || 0);
-            const quotaBanner = (!isAdmin && !isPro) ? `
-            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${uploadCount>=3?'rgba(220,50,50,0.07)':'rgba(30,122,52,0.07)'};border:1px solid ${uploadCount>=3?'rgba(220,50,50,0.25)':'var(--border2)'};border-radius:12px;margin-bottom:20px;flex-wrap:wrap;">
-                <i class="fa-solid fa-cloud-arrow-down" style="color:${uploadCount>=3?'#ff6b6b':'var(--g4)'};font-size:18px;flex-shrink:0;"></i>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:13px;font-weight:700;color:${uploadCount>=3?'#ff6b6b':'var(--text)'};">${isAR ? `تحميلات اليوم: ${uploadCount} / 3` : `Today's downloads: ${uploadCount} / 3`}</div>
-                    <div style="font-size:12px;color:var(--muted);margin-top:2px;">${uploadCount>=3 ? (isAR?'وصلت للحد اليومي — يتجدد غداً أو قم بالترقية إلى Pro':'Daily limit reached — resets tomorrow or upgrade to Pro') : (isAR?'Basic: حتى 3 تحميلات مجاناً يومياً':'Basic: up to 3 free downloads per day')}</div>
-                </div>
-                ${uploadCount>=3?`<button onclick="goSettings('plan')" style="padding:7px 14px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;flex-shrink:0;"><i class="fa-solid fa-crown"></i> ${isAR?'ترقية Pro':'Upgrade Pro'}</button>`:''}
-            </div>` : (isPro ? `
-            <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.2);border-radius:10px;margin-bottom:16px;">
-                <i class="fa-solid fa-crown" style="color:var(--gold3);"></i>
-                <span style="font-size:12px;font-weight:700;color:var(--gold3);">${isAR?'Pro — تحميل غير محدود مفعّل':'Pro — Unlimited downloads active'}</span>
-            </div>` : '');
-            area.innerHTML = `
+            if (!_dsLoaded) {
+                area.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin" style="font-size:22px;"></i><div style="margin-top:10px;font-size:13px;">${isAR?'جاري تحميل مكتبة البيانات المكانية...':'Loading spatial data library...'}</div></div>`;
+                try {
+                    const [ds, pj] = await Promise.all([
+                        window._loadSpatialDatasets ? window._loadSpatialDatasets() : Promise.resolve([]),
+                        window._loadSpatialProjects ? window._loadSpatialProjects() : Promise.resolve([]),
+                    ]);
+                    _dsAll = (ds || []).filter(d => !d.hidden);
+                    _dsProjects = pj || [];
+                    _dsLoaded = true;
+                } catch(e) { console.error('Spatial library load error:', e); _dsAll = []; _dsProjects = []; }
+            }
+            _dsView = { mode:'home', category:null, sub:null, projectId:null, datasetId:null, prevMode:null };
+            renderDatasetsView(area);
+        }
+
+        function dsRefresh() {
+            const area = document.getElementById('contentArea');
+            if (area) renderDatasetsView(area);
+        }
+
+        window.dsGoHome = function() {
+            _dsView = { mode:'home', category:null, sub:null, projectId:null, datasetId:null, prevMode:null };
+            dsRefresh();
+        };
+        window.dsOpenCategory = function(catKey, subKey) {
+            _dsView = { mode:'category', category:catKey, sub: subKey || null, projectId:null, datasetId:null, prevMode:null };
+            dsRefresh();
+        };
+        window.dsOpenProject = function(projId) {
+            _dsView = { mode:'project', category:null, sub:null, projectId:projId, datasetId:null, prevMode:null };
+            dsRefresh();
+        };
+        window.dsOpenDataset = function(id) {
+            _dsView.prevMode = _dsView.mode === 'detail' ? (_dsView.prevMode || 'home') : _dsView.mode;
+            _dsView.mode = 'detail';
+            _dsView.datasetId = id;
+            dsRefresh();
+            window.scrollTo({top:0, behavior:'smooth'});
+        };
+        window.dsBack = function() {
+            if (_dsView.mode === 'detail') {
+                _dsView.mode = _dsView.prevMode || 'home';
+                _dsView.datasetId = null;
+                dsRefresh();
+            } else {
+                window.dsGoHome();
+            }
+        };
+        window.dsSearchGo = function() {
+            _dsSearchQ = (document.getElementById('dsSearchInput')?.value || '').trim().toLowerCase();
+            if (!_dsSearchQ) { window.dsGoHome(); return; }
+            _dsView = { mode:'search', category:null, sub:null, projectId:null, datasetId:null, prevMode:null };
+            dsRefresh();
+        };
+        window.dsSearchKey = function(e) { if (e.key === 'Enter') window.dsSearchGo(); };
+        window.dsFilterChange = function() {
+            _dsFilters.region = document.getElementById('dsFilterRegion')?.value.trim() || '';
+            _dsFilters.fileType = document.getElementById('dsFilterType')?.value || '';
+            _dsFilters.coordSystem = document.getElementById('dsFilterCoord')?.value.trim() || '';
+            _dsFilters.source = document.getElementById('dsFilterSource')?.value.trim() || '';
+            _dsFilters.year = document.getElementById('dsFilterYear')?.value.trim() || '';
+            dsRefresh();
+        };
+        window.dsFilterReset = function() {
+            _dsFilters = { region:'', fileType:'', coordSystem:'', source:'', year:'' };
+            dsRefresh();
+        };
+
+        function dsMatchesFilters(d) {
+            if (_dsFilters.region && !((d.region||'').toLowerCase().includes(_dsFilters.region.toLowerCase()))) return false;
+            if (_dsFilters.fileType && d.fileType !== _dsFilters.fileType) return false;
+            if (_dsFilters.coordSystem && !((d.coordSystem||'').toLowerCase().includes(_dsFilters.coordSystem.toLowerCase()))) return false;
+            if (_dsFilters.source && !((d.source||'').toLowerCase().includes(_dsFilters.source.toLowerCase()))) return false;
+            if (_dsFilters.year && String(d.year||'') !== String(_dsFilters.year)) return false;
+            return true;
+        }
+        function dsMatchesSearch(d, q) {
+            const hay = [d.name, d.nameEn, d.region, d.source, d.description, d.fileType].filter(Boolean).join(' ').toLowerCase();
+            return hay.includes(q);
+        }
+
+        function renderDatasetsView(area) {
+            const isAR = lang === 'AR';
+            area = area || document.getElementById('contentArea');
+            const header = `
             <div class="page-header">
-                <h2>${isAR ? 'البيانات المكانية' : 'Spatial Datasets'}</h2>
-                <p>${isAR ? 'تحميل مجانى لمجموعات البيانات الجغرافية — شيب فايل، DEM، خرائط طبوغرافية' : 'Free download of GIS datasets — Shapefiles, DEMs, Topographic Maps'}</p>
+                <h2>${isAR ? '🗂️ مكتبة البيانات المكانية' : '🗂️ Spatial Data Library'}</h2>
+                <p>${isAR ? 'تصفح وحمّل مجموعات البيانات الجغرافية المصنّفة — حدود، طرق، مياه، مبانٍ، تضاريس، صور أقمار صناعية والمزيد' : 'Browse and download organized GIS datasets — boundaries, roads, water, buildings, terrain, satellite imagery and more'}</p>
             </div>
-            ${quotaBanner}
-            <!-- Global Datasets -->
+            <div class="ds-search-bar">
+                <input type="text" id="dsSearchInput" placeholder="${isAR?'ابحث عن اسم البيانات، الدولة، المصدر...':'Search by dataset name, country, source...'}" value="${_dsSearchQ}" onkeydown="dsSearchKey(event)">
+                <button onclick="dsSearchGo()"><i class="fa-solid fa-magnifying-glass"></i> ${isAR?'بحث':'Search'}</button>
+            </div>`;
+
+            let body = '';
+            if (_dsView.mode === 'home') body = dsHomeHTML(isAR);
+            else if (_dsView.mode === 'category') body = dsCategoryViewHTML(isAR);
+            else if (_dsView.mode === 'project') body = dsProjectViewHTML(isAR);
+            else if (_dsView.mode === 'search') body = dsSearchViewHTML(isAR);
+            else if (_dsView.mode === 'detail') body = dsDetailViewHTML(isAR);
+
+            area.innerHTML = header + body;
+        }
+
+        function dsHomeHTML(isAR) {
+            let html = '';
+            if (_dsProjects.length) {
+                html += `
+                <div class="connect-section-wrap">
+                    <div class="connect-section-title">
+                        <span class="brand-pill ts"><i class="fa-solid fa-star"></i> ${isAR?'بيانات جاهزة للمشروعات':'Ready-for-Project Data'}</span>
+                    </div>
+                    <div class="ds-proj-strip">
+                        ${_dsProjects.map(p => dsProjectCardHTML(p, isAR)).join('')}
+                    </div>
+                </div>`;
+            }
+            html += `
             <div class="connect-section-wrap">
                 <div class="connect-section-title">
-                    <span class="brand-pill gis"><i class="fa-solid fa-earth-africa"></i> ${isAR ? 'بيانات عالمية' : 'Global Datasets'}</span>
+                    <span class="brand-pill gis"><i class="fa-solid fa-layer-group"></i> ${isAR?'التصنيفات':'Categories'}</span>
                 </div>
-                <div class="datasets-grid">
-                    ${dsCard('fa-gem',        isAR?'شيب فايل معادن العالم':'World Minerals Shapefile',         isAR?'Shapefile':'Shapefile',   'https://bestfile.io/VJstGVVwSAhsuVO/file')}
-                    ${dsCard('fa-mountain',   isAR?'DEM لقارات العالم':'World Continents DEM',                isAR?'DEM':'DEM',               'https://bestfile.io/TMAEILxSyPhFRXr/file')}
-                    ${dsCard('fa-language',   isAR?'شيب فايل لغات العالم':'World Languages Shapefile',        isAR?'Shapefile':'Shapefile',   'https://bestfile.io/KI3f0QEemBjZikB/file')}
-                    ${dsCard('fa-earth-africa',isAR?'جيولوجية الوطن العربي':'Arab World Geology Shapefile',   isAR?'Shapefile':'Shapefile',   'https://bestfile.io/o1KqxaxILohZp3g/file')}
-                    ${dsCard('fa-globe',      isAR?'جيولوجية العالم':'World Geology Shapefile',               isAR?'Shapefile':'Shapefile',   'https://bestfile.io/HQUfa9QZcZ3zTkn/file')}
-                    ${dsCard('fa-layer-group',isAR?'طبقات العالم':'World Layers Shapefile',                   isAR?'Shapefile':'Shapefile',   'https://bestfile.io/0zbCP8Wx522VjlN/file')}
+                <div class="ds-cat-grid">
+                    ${SPATIAL_CATEGORIES.map(c => dsCatCardHTML(c, isAR)).join('')}
                 </div>
-            </div>
+            </div>`;
+            return html;
+        }
 
-            <!-- Arab Countries -->
-            <div class="connect-section-wrap">
-                <div class="connect-section-title">
-                    <span class="brand-pill ts"><i class="fa-solid fa-map"></i> ${isAR ? 'دول عربية — شيب فايل' : 'Arab Countries — Shapefiles'}</span>
-                </div>
-                <div class="datasets-grid">
-                    ${dsCard('fa-map-location-dot', isAR?'اليمن':'Yemen',           isAR?'Shapefile':'Shapefile', 'https://bestfile.io/gpkF0XQKNApcIUC/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'تونس':'Tunisia',          isAR?'Shapefile':'Shapefile', 'https://bestfile.io/2uCtgmss3kZJs2S/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'سوريا':'Syria',           isAR?'Shapefile':'Shapefile', 'https://bestfile.io/n1i48zrJqLH8Y2r/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'السودان':'Sudan',         isAR?'Shapefile':'Shapefile', 'https://bestfile.io/9c7ush78d1hCpF1/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'الصومال':'Somalia',       isAR?'Shapefile':'Shapefile', 'https://bestfile.io/AKJobrWThnQzl6f/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'السعودية':'Saudi Arabia', isAR?'Shapefile':'Shapefile', 'https://bestfile.io/vgOajZqe6IJ6afD/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'قطر':'Qatar',             isAR?'Shapefile':'Shapefile', 'https://bestfile.io/ov5gDBaRylLADHW/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'فلسطين':'Palestine',      isAR?'Shapefile':'Shapefile', 'https://bestfile.io/aDMJPBVKdqdGJ8N/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'عُمان':'Oman',            isAR?'Shapefile':'Shapefile', 'https://bestfile.io/G7DrJyhu8zR63cG/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'المغرب':'Morocco',        isAR?'Shapefile':'Shapefile', 'https://bestfile.io/JuMhjaB3FNvy2Pc/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'موريتانيا':'Mauritania',  isAR?'Shapefile':'Shapefile', 'https://bestfile.io/LL0Nno4PZPJNymf/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'ليبيا':'Libya',           isAR?'Shapefile':'Shapefile', 'https://bestfile.io/YTVjqItiw6BoDiT/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'لبنان':'Lebanon',         isAR?'Shapefile':'Shapefile', 'https://bestfile.io/g8CvikgHIqItUO8/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'الكويت':'Kuwait',         isAR?'Shapefile':'Shapefile', 'https://bestfile.io/JMrVEvB0WGi4Lzq/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'الأردن':'Jordan',         isAR?'Shapefile':'Shapefile', 'https://bestfile.io/07c7k0LvJPeMJaq/file')}
-                    ${dsCard('fa-mountain-sun',     isAR?'DEM الأردن':'Jordan DEM', isAR?'DEM':'DEM',             'https://bestfile.io/lLdHlD1fQYKj3nT/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'العراق (1)':'Iraq (1)',    isAR?'Shapefile':'Shapefile', 'https://bestfile.io/qU7C9ri2k8lF4dB/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'العراق (2)':'Iraq (2)',    isAR?'Shapefile':'Shapefile', 'https://bestfile.io/0M0g3M82slHyOvy/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'البحرين':'Bahrain',       isAR?'Shapefile':'Shapefile', 'https://bestfile.io/8UtTeJwGBdH8Xpg/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'مصر':'Egypt',             isAR?'Shapefile':'Shapefile', 'https://bestfile.io/pLIBsAdGVJXv3ht/file')}
-                    ${dsCard('fa-map-location-dot', isAR?'الجزائر':'Algeria',       isAR?'Shapefile':'Shapefile', 'https://bestfile.io/7iLy27c4gVOo7SC/file')}
-                    ${dsCard('fa-layer-group',      isAR?'تربة الأردن':'Jordan Soil Shapefile', isAR?'Shapefile':'Shapefile', 'https://bestfile.io/zcZGFE9DVbw4s5n/file')}
-                </div>
-            </div>
-
-            <!-- Cairo Maps -->
-            <div class="connect-section-wrap">
-                <div class="connect-section-title">
-                    <span class="brand-pill gis"><i class="fa-solid fa-city"></i> ${isAR ? 'خرائط القاهرة — مقاييس مختلفة' : 'Cairo Maps — Multiple Scales'}</span>
-                </div>
-                <div class="datasets-grid">
-                    ${dsCard('fa-map', isAR?'القاهرة 1:250,000':'Cairo 1:250,000',   isAR?'Topo Map':'Topo Map', 'https://bestfile.io/1ZoBicFmQREUqlj/file')}
-                    ${dsCard('fa-map', isAR?'القاهرة 1:50,000':'Cairo 1:50,000',     isAR?'Topo Map':'Topo Map', 'https://bestfile.io/4JmFzLHTxX10nmg/file')}
-                    ${dsCard('fa-map', isAR?'القاهرة 1:500,000':'Cairo 1:500,000',   isAR?'Topo Map':'Topo Map', 'https://bestfile.io/BjFrrEQkGKWywjb/file')}
-                    ${dsCard('fa-map', isAR?'القاهرة 1:1,000,000':'Cairo 1:1,000,000',isAR?'Topo Map':'Topo Map','https://bestfile.io/Xj8SIvRR6w8u8dO/file')}
-                    ${dsCard('fa-map', isAR?'القاهرة 1:100,000':'Cairo 1:100,000',   isAR?'Topo Map':'Topo Map', 'https://bestfile.io/KWohbTwnKZQIMe3/file')}
-                </div>
-            </div>
-
-            <!-- Topographic Maps -->
-            <div class="connect-section-wrap">
-                <div class="connect-section-title">
-                    <span class="brand-pill ts"><i class="fa-solid fa-contour-lines" style="font-size:12px;"></i> <i class="fa-solid fa-mountain"></i> ${isAR ? 'خرائط طبوغرافية' : 'Topographic Maps'}</span>
-                </div>
-                <div class="datasets-grid" style="grid-template-columns:1fr;">
-                    ${dsCard('fa-file-zipper', isAR?'ملف مضغوط — خرائط طبوغرافية متنوعة':'Compressed File — Various Topographic Maps', isAR?'ZIP Archive':'ZIP Archive', 'https://bestfile.io/ar/qqACVoHN8LYp31v/file')}
-                </div>
-            </div>
-
-            <div style="background:rgba(30,122,52,0.06);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-top:4px;font-size:13px;color:var(--muted);line-height:1.7;">
-                <i class="fa-solid fa-circle-info" style="color:var(--g3);margin-left:6px;"></i>
-                ${isAR
-                    ? 'ملاحظة: عند فتح الشيب فايل على برنامج ArcGIS ستلاحظ أن هناك أكثر من Layer — بمعنى أن الشيب فايل للدولة الواحدة يحتوي على أكثر من داتا بداخله.'
-                    : 'Note: When opening a Shapefile in ArcGIS, you may notice multiple Layers — meaning one Shapefile can contain more than one dataset inside.'}
+        function dsCatCardHTML(cat, isAR) {
+            const count = _dsAll.filter(d => d.category === cat.key).length;
+            return `
+            <div class="ds-cat-card" onclick="dsOpenCategory('${cat.key}')">
+                <div class="ico">${cat.icon}</div>
+                <h4>${isAR?cat.ar:cat.en}</h4>
+                <div class="cnt">${count} ${isAR?'مجموعة بيانات':'datasets'}</div>
             </div>`;
         }
 
-        function dsCard(icon, title, badge, url) {
+        function dsProjectCardHTML(p, isAR) {
+            const count = _dsAll.filter(d => Array.isArray(d.projects) && d.projects.includes(p.id)).length;
             return `
-            <a href="javascript:void(0)" onclick="handleFileDownload('${url.replace(/'/g,"&#39;")}')" oncontextmenu="return false;" class="dataset-card">
+            <div class="ds-proj-card" onclick="dsOpenProject('${p.id}')">
+                <div class="ico">${p.icon || '⭐'}</div>
+                <h4>${escapeHtmlAC(isAR ? (p.name||'') : (p.nameEn||p.name||''))}</h4>
+                <p>${escapeHtmlAC((isAR ? (p.description||'') : (p.descriptionEn||p.description||'')).slice(0,80))}</p>
+                <div class="cnt"><i class="fa-solid fa-database"></i> ${count} ${isAR?'ملف':'files'}</div>
+            </div>`;
+        }
+
+        function dsBreadcrumbHTML(items) {
+            return `<div class="ds-breadcrumb">${items.map((it,i) => `${i>0?'<i class="fa-solid fa-chevron-left" style="font-size:9px;"></i>':''}<span class="${it.onclick?'crumb':''}" ${it.onclick?`onclick="${it.onclick}"`:''}>${it.label}</span>`).join('')}</div>`;
+        }
+
+        function dsFiltersBarHTML(isAR) {
+            return `
+            <div class="ds-filters-bar">
+                <input type="text" id="dsFilterRegion" placeholder="${isAR?'الدولة / المحافظة':'Country / Governorate'}" value="${_dsFilters.region}" onchange="dsFilterChange()">
+                <select id="dsFilterType" onchange="dsFilterChange()">
+                    <option value="">${isAR?'كل أنواع الملفات':'All File Types'}</option>
+                    ${SPATIAL_FILE_TYPES.map(t => `<option value="${t}" ${_dsFilters.fileType===t?'selected':''}>${t}</option>`).join('')}
+                </select>
+                <input type="text" id="dsFilterCoord" placeholder="${isAR?'نظام الإحداثيات':'Coordinate System'}" value="${_dsFilters.coordSystem}" onchange="dsFilterChange()">
+                <input type="text" id="dsFilterSource" placeholder="${isAR?'مصدر البيانات':'Data Source'}" value="${_dsFilters.source}" onchange="dsFilterChange()">
+                <input type="number" id="dsFilterYear" placeholder="${isAR?'السنة':'Year'}" value="${_dsFilters.year}" onchange="dsFilterChange()" style="width:90px;">
+                <button class="ac-btn" onclick="dsFilterReset()"><i class="fa-solid fa-rotate-left"></i> ${isAR?'إعادة تعيين':'Reset'}</button>
+            </div>`;
+        }
+
+        function dsCategoryViewHTML(isAR) {
+            const cat = scFindCat(_dsView.category);
+            if (!cat) return dsHomeHTML(isAR);
+            let items = _dsAll.filter(d => d.category === cat.key);
+            if (_dsView.sub) items = items.filter(d => d.subcategory === _dsView.sub);
+            items = items.filter(dsMatchesFilters);
+
+            const crumbs = dsBreadcrumbHTML([
+                { label: isAR?'الرئيسية':'Home', onclick:'dsGoHome()' },
+                { label: scCatLabel(cat, isAR) },
+            ]);
+            const chips = `
+            <div class="ds-sub-chips">
+                <span class="ds-sub-chip ${!_dsView.sub?'active':''}" onclick="dsOpenCategory('${cat.key}')">${isAR?'الكل':'All'}</span>
+                ${cat.sub.map(s => `<span class="ds-sub-chip ${_dsView.sub===s.key?'active':''}" onclick="dsOpenCategory('${cat.key}','${s.key}')">${isAR?s.ar:s.en}</span>`).join('')}
+            </div>`;
+
+            return `
+            ${crumbs}
+            <div class="page-header" style="margin-bottom:10px;">
+                <h2 style="font-size:18px;">${scCatLabel(cat, isAR)}</h2>
+            </div>
+            ${chips}
+            ${dsFiltersBarHTML(isAR)}
+            ${dsGridHTML(items, isAR)}`;
+        }
+
+        function dsProjectViewHTML(isAR) {
+            const p = _dsProjects.find(x => x.id === _dsView.projectId);
+            if (!p) return dsHomeHTML(isAR);
+            const items = _dsAll.filter(d => Array.isArray(d.projects) && d.projects.includes(p.id)).filter(dsMatchesFilters);
+            const crumbs = dsBreadcrumbHTML([
+                { label: isAR?'الرئيسية':'Home', onclick:'dsGoHome()' },
+                { label: (isAR ? p.name : (p.nameEn||p.name)) || '' },
+            ]);
+            return `
+            ${crumbs}
+            <div class="page-header" style="margin-bottom:10px;">
+                <h2 style="font-size:18px;">${p.icon||'⭐'} ${escapeHtmlAC(isAR?(p.name||''):(p.nameEn||p.name||''))}</h2>
+                <p>${escapeHtmlAC(isAR?(p.description||''):(p.descriptionEn||p.description||''))}</p>
+            </div>
+            ${dsFiltersBarHTML(isAR)}
+            ${dsGridHTML(items, isAR)}`;
+        }
+
+        function dsSearchViewHTML(isAR) {
+            const items = _dsAll.filter(d => dsMatchesSearch(d, _dsSearchQ)).filter(dsMatchesFilters);
+            const crumbs = dsBreadcrumbHTML([
+                { label: isAR?'الرئيسية':'Home', onclick:'dsGoHome()' },
+                { label: isAR?`نتائج البحث: "${_dsSearchQ}"`:`Search results: "${_dsSearchQ}"` },
+            ]);
+            return `
+            ${crumbs}
+            ${dsFiltersBarHTML(isAR)}
+            ${dsGridHTML(items, isAR)}`;
+        }
+
+        function dsGridHTML(items, isAR) {
+            if (!items.length) {
+                return `<div class="ds-empty"><i class="fa-solid fa-box-open" style="font-size:24px;margin-bottom:8px;display:block;"></i>${isAR?'لا توجد بيانات مطابقة حالياً':'No matching datasets yet'}</div>`;
+            }
+            return `<div class="datasets-grid">${items.map(d => dsCardHTML(d, isAR)).join('')}</div>`;
+        }
+
+        function dsCardHTML(d, isAR) {
+            const sub = scFindSub(d.category, d.subcategory);
+            return `
+            <a href="javascript:void(0)" onclick="dsOpenDataset('${d.id}')" oncontextmenu="return false;" class="dataset-card">
+                ${d.previewImage ? `<img src="${d.previewImage}" style="width:100%;height:100px;object-fit:cover;border-radius:12px;margin-bottom:-2px;">` : ''}
                 <div class="ds-top">
-                    <div class="ds-icon"><i class="fa-solid ${icon}"></i></div>
-                    <span class="ds-badge">${badge}</span>
+                    <div class="ds-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+                    <span class="ds-badge">${escapeHtmlAC(d.fileType||'')}</span>
                 </div>
-                <div class="ds-info"><h4>${title}</h4></div>
-                <div class="ds-dl"><i class="fa-solid fa-download"></i><span>${lang==='AR'?'تحميل':'Download'}</span></div>
+                <div class="ds-info">
+                    <h4>${escapeHtmlAC(isAR ? (d.name||'') : (d.nameEn||d.name||''))}</h4>
+                    <div style="font-size:11px;color:var(--muted);margin-top:4px;">${escapeHtmlAC(d.region||'')}${sub?` · ${escapeHtmlAC(isAR?sub.ar:sub.en)}`:''}</div>
+                </div>
+                <div class="ds-dl"><i class="fa-solid fa-circle-info"></i><span>${isAR?'التفاصيل':'View Details'}</span></div>
             </a>`;
         }
+
+        function dsDetailViewHTML(isAR) {
+            const d = _dsAll.find(x => x.id === _dsView.datasetId);
+            if (!d) return dsHomeHTML(isAR);
+            const sub = scFindSub(d.category, d.subcategory);
+            const cat = scFindCat(d.category);
+            const meta = [
+                { lbl: isAR?'المنطقة':'Region', val: d.region },
+                { lbl: isAR?'التصنيف':'Category', val: cat ? (isAR?cat.ar:cat.en) + (sub?` — ${isAR?sub.ar:sub.en}`:'') : '' },
+                { lbl: isAR?'نوع الملف':'File Type', val: d.fileType },
+                { lbl: isAR?'نظام الإحداثيات':'Coordinate System', val: d.coordSystem },
+                { lbl: isAR?'مقياس الدقة':'Resolution', val: d.resolution },
+                { lbl: isAR?'حجم الملف':'File Size', val: d.fileSize },
+                { lbl: isAR?'تاريخ التحديث':'Updated', val: d.updateDate },
+                { lbl: isAR?'مصدر البيانات':'Source', val: d.source },
+                { lbl: isAR?'عدد مرات التحميل':'Downloads', val: d.downloads || 0 },
+            ].filter(m => m.val);
+
+            return `
+            <div class="ds-breadcrumb" style="margin-bottom:14px;"><span class="crumb" onclick="dsBack()"><i class="fa-solid fa-arrow-right"></i> ${isAR?'رجوع':'Back'}</span></div>
+            <div class="dd-wrap">
+                ${d.previewImage ? `<img src="${d.previewImage}" class="dd-preview">` : ''}
+                <div class="dd-body">
+                    <div class="dd-title">${escapeHtmlAC(isAR ? (d.name||'') : (d.nameEn||d.name||''))}</div>
+                    ${d.description ? `<div class="dd-desc">${escapeHtmlAC(d.description)}</div>` : ''}
+                    <div class="dd-meta-grid">
+                        ${meta.map(m => `<div class="dd-meta-item"><div class="lbl">${m.lbl}</div><div class="val">${escapeHtmlAC(String(m.val))}</div></div>`).join('')}
+                    </div>
+                    <button class="dd-dl-btn" onclick="handleDatasetDownload('${d.id}')"><i class="fa-solid fa-download"></i> ${isAR?'تحميل البيانات':'Download Dataset'}</button>
+                </div>
+            </div>`;
+        }
+
+        window.handleDatasetDownload = async function(id) {
+            const isAR = lang === 'AR';
+            const d = _dsAll.find(x => x.id === id);
+            if (!d || !d.downloadUrl) { showToast(isAR?'لا يوجد رابط تحميل لهذه البيانات':'No download link available for this dataset', true); return; }
+            const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
+            const isAdmin = window._isAdmin === true;
+            if (!isAdmin && !isPro) {
+                const count = window._getDailyDownloadCount ? window._getDailyDownloadCount() : 0;
+                if (count >= 3) {
+                    showToast(isAR
+                        ? '🔒 وصلت للحد اليومي (3 ملفات) — يتجدد تلقائياً غداً أو قم بالترقية إلى Pro'
+                        : '🔒 Daily limit reached (3 files) — resets tomorrow or upgrade to Pro', true);
+                    return;
+                }
+                try { await window._incrementDailyDownload(); } catch(e) {}
+            }
+            const a = document.createElement('a');
+            a.href = d.downloadUrl;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => a.remove(), 300);
+            try {
+                if (window._incrementDatasetDownload) await window._incrementDatasetDownload(id, d.downloads || 0);
+                d.downloads = (d.downloads || 0) + 1;
+            } catch(e) {}
+        };
+
 
         /* ─── GIS SOFTWARE TOOLS ─── */
         function dsCardWrap(icon, title, badge, url) {
