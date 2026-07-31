@@ -940,6 +940,40 @@
             border: 1px solid rgba(212,160,23,0.28);
             color: var(--gold4);
         }
+        /* ─── TOOLS CATALOG (Software & Tools) ─── */
+        .tools-toolbar {
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+            background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+            padding: 14px 16px; margin-bottom: 16px;
+        }
+        body.light-mode .tools-toolbar { background: #fff; }
+        .tools-search-box { flex: 1; min-width: 200px; position: relative; display: flex; align-items: center; }
+        .tools-search-box i { position: absolute; inset-inline-start: 14px; color: var(--muted); font-size: 13px; pointer-events: none; }
+        .tools-search-box input {
+            width: 100%; padding: 10px 14px; padding-inline-start: 36px;
+            background: rgba(0,0,0,0.22); border: 1px solid var(--border); border-radius: 10px;
+            color: var(--text); font-family: 'Tajawal', sans-serif; font-size: 13px; outline: none;
+        }
+        body.light-mode .tools-search-box input { background: #f4f6fa; }
+        .tools-chips-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+        .tools-chip {
+            padding: 8px 15px; border-radius: 99px; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03); color: var(--muted); font-size: 12.5px; font-weight: 700;
+            cursor: pointer; transition: all 0.2s; font-family: 'Tajawal', sans-serif;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .tools-chip:hover { border-color: var(--g3); color: var(--text); }
+        body.light-mode .tools-chip { background: #fff; }
+        .tools-cat-block { margin-bottom: 26px; }
+        .tools-cat-heading {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 15px; font-weight: 900; color: var(--text);
+            padding-bottom: 10px; margin-bottom: 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        .tools-cat-heading i { color: var(--g4); font-size: 15px; }
+        .tools-most-used-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+        .tool-flash { box-shadow: 0 0 0 3px var(--gold3) !important; transition: box-shadow 0.25s; }
         .connect-card.wa:hover { border-color: #25d366; background: rgba(37,211,102,0.08); }
         .connect-card.tt:hover { border-color: #fe2c55; background: rgba(254,44,85,0.08); }
         .connect-card .fa-whatsapp { color: #25d366; }
@@ -5011,86 +5045,270 @@
     }, true);
 
 
+        /* ══════════════════════════════════════════════════════════════
+        ─── SOFTWARE & TOOLS CATALOG ───
+        Categorized catalog of GIS/RS/Survey/CAD/Dev software.
+        'special' entries render a custom Atlasya-hosted download block.
+        Regular entries link out to the official vendor site (no quota).
+        ══════════════════════════════════════════════════════════════ */
+        const TOOL_CATEGORIES = [
+            { id:'gis', icon:'fa-map', titleAR:'💻 برامج GIS', titleEN:'💻 GIS Software', tools:[
+                { id:'arcgis-pro', special:'arcgis' },
+                { id:'global-mapper', special:'globalmapper' },
+                { id:'arcmap', name:'ArcMap', company:'Esri', icon:'fa-solid fa-map-location-dot', url:'https://www.esri.com/en-us/arcgis/products/arcgis-desktop/resources' },
+                { id:'qgis', name:'QGIS', company:'QGIS.org', icon:'fa-solid fa-earth-americas', url:'https://qgis.org/download/' },
+                { id:'manifold', name:'Manifold GIS', company:'Manifold', icon:'fa-solid fa-layer-group', url:'https://www.manifold.net/' },
+                { id:'mapinfo', name:'MapInfo Professional', company:'Precisely', icon:'fa-solid fa-map', url:'https://www.precisely.com/product/precisely-mapinfo/mapinfo-pro' },
+                { id:'saga', name:'SAGA GIS', company:'SAGA', icon:'fa-solid fa-mountain-sun', url:'https://saga-gis.sourceforge.io/en/index.html' },
+                { id:'grass', name:'GRASS GIS', company:'OSGeo', icon:'fa-solid fa-seedling', url:'https://grass.osgeo.org/download/' },
+            ]},
+            { id:'rs', icon:'fa-satellite', titleAR:'🛰️ برامج الاستشعار عن بعد', titleEN:'🛰️ Remote Sensing Software', tools:[
+                { id:'envi', name:'ENVI', company:'NV5 Geospatial', icon:'fa-solid fa-satellite-dish', url:'https://www.nv5geospatialsoftware.com/Products/ENVI' },
+                { id:'erdas', name:'ERDAS Imagine', company:'Hexagon', icon:'fa-solid fa-image', url:'https://hexagon.com/products/erdas-imagine' },
+                { id:'snap', name:'SNAP / ESA SNAP Toolbox', company:'ESA', icon:'fa-solid fa-satellite', url:'https://step.esa.int/main/download/snap-download/' },
+                { id:'gearthpro', name:'Google Earth Pro', company:'Google', icon:'fa-solid fa-earth-africa', url:'https://www.google.com/earth/versions/#earth-pro' },
+                { id:'gee', name:'Google Earth Engine', company:'Google', icon:'fa-solid fa-cloud', url:'https://earthengine.google.com/' },
+                { id:'pci', name:'PCI Geomatica', company:'Catalyst', icon:'fa-solid fa-satellite-dish', url:'https://catalyst.earth/catalyst-professional-geomatica/' },
+            ]},
+            { id:'survey', icon:'fa-drafting-compass', titleAR:'📐 برامج المساحة', titleEN:'📐 Surveying Software', tools:[
+                { id:'tbc', name:'Trimble Business Center', company:'Trimble', icon:'fa-solid fa-ruler-combined', url:'https://geospatial.trimble.com/en/products/software/trimble-business-center' },
+                { id:'leicageo', name:'Leica Geo Office', company:'Leica', icon:'fa-solid fa-location-crosshairs', url:'https://leica-geosystems.com/products/gnss-systems/software/leica-geo-office' },
+                { id:'leicainf', name:'Leica Infinity', company:'Leica', icon:'fa-solid fa-infinity', url:'https://leica-geosystems.com/products/total-stations/software/leica-infinity' },
+                { id:'carlson', name:'Carlson Survey', company:'Carlson', icon:'fa-solid fa-compass-drafting', url:'https://www.carlsonsw.com/products/carlson-survey/' },
+                { id:'civil3d', name:'Civil 3D', company:'Autodesk', icon:'fa-solid fa-road', url:'https://www.autodesk.com/products/civil-3d/overview' },
+                { id:'autocad', name:'AutoCAD', company:'Autodesk', icon:'fa-solid fa-pen-ruler', url:'https://www.autodesk.com/products/autocad/overview' },
+                { id:'microstation', name:'MicroStation', company:'Bentley', icon:'fa-solid fa-building', url:'https://www.bentley.com/software/microstation/' },
+            ]},
+            { id:'modeling', icon:'fa-water', titleAR:'🌍 برامج النمذجة والتحليل', titleEN:'🌍 Modeling & Analysis Software', tools:[
+                { id:'hecras', name:'HEC-RAS', company:'USACE', icon:'fa-solid fa-water', url:'https://www.hec.usace.army.mil/software/hec-ras/' },
+                { id:'hechms', name:'HEC-HMS', company:'USACE', icon:'fa-solid fa-cloud-showers-heavy', url:'https://www.hec.usace.army.mil/software/hec-hms/' },
+                { id:'swat', name:'SWAT', company:'Texas A&M', icon:'fa-solid fa-wheat-awn', url:'https://swat.tamu.edu/' },
+                { id:'ilwis', name:'ILWIS', company:'52°North', icon:'fa-solid fa-diagram-project', url:'https://52north.org/software/software-projects/ilwis/' },
+                { id:'whiteboxtools', name:'Whitebox Tools', company:'WhiteboxGeo', icon:'fa-solid fa-toolbox', url:'https://www.whiteboxgeo.com/' },
+            ]},
+            { id:'programming', icon:'fa-code', titleAR:'🐍 لغات البرمجة والأدوات', titleEN:'🐍 Programming Languages & Tools', tools:[
+                { id:'python', name:'Python', company:'Python.org', icon:'fa-brands fa-python', url:'https://www.python.org/downloads/' },
+                { id:'jupyter', name:'Jupyter Notebook', company:'Project Jupyter', icon:'fa-solid fa-book-open', url:'https://jupyter.org/install' },
+                { id:'vscode-vs', special:'vscode' },
+                { id:'pycharm', name:'PyCharm', company:'JetBrains', icon:'fa-solid fa-laptop-code', url:'https://www.jetbrains.com/pycharm/download/' },
+                { id:'anaconda', name:'Anaconda', company:'Anaconda Inc.', icon:'fa-solid fa-circle-nodes', url:'https://www.anaconda.com/download' },
+                { id:'git', name:'Git', company:'Git SCM', icon:'fa-brands fa-git-alt', url:'https://git-scm.com/downloads' },
+                { id:'githubdesktop', name:'GitHub Desktop', company:'GitHub', icon:'fa-brands fa-github', url:'https://desktop.github.com/' },
+            ]},
+            { id:'db', icon:'fa-database', titleAR:'🗄️ قواعد البيانات', titleEN:'🗄️ Databases', tools:[
+                { id:'postgresql', name:'PostgreSQL', company:'PostgreSQL', icon:'fa-solid fa-database', url:'https://www.postgresql.org/download/' },
+                { id:'postgis', name:'PostGIS', company:'PostGIS', icon:'fa-solid fa-map-pin', url:'https://postgis.net/documentation/getting_started/' },
+                { id:'pgadmin', name:'pgAdmin', company:'pgAdmin', icon:'fa-solid fa-gears', url:'https://www.pgadmin.org/download/' },
+                { id:'sqlite', name:'SQLite', company:'SQLite', icon:'fa-solid fa-server', url:'https://www.sqlite.org/download.html' },
+                { id:'sqlserver', name:'SQL Server', company:'Microsoft', icon:'fa-solid fa-server', url:'https://www.microsoft.com/en-us/sql-server/sql-server-downloads' },
+            ]},
+            { id:'web', icon:'fa-cloud', titleAR:'☁️ أدوات الويب', titleEN:'☁️ Web Tools', tools:[
+                { id:'geoserver', name:'GeoServer', company:'OSGeo', icon:'fa-solid fa-server', url:'https://geoserver.org/download/' },
+                { id:'mapserver', name:'MapServer', company:'OSGeo', icon:'fa-solid fa-map', url:'https://mapserver.org/download.html' },
+                { id:'leaflet', name:'Leaflet', company:'Leaflet', icon:'fa-solid fa-leaf', url:'https://leafletjs.com/download.html' },
+                { id:'openlayers', name:'OpenLayers', company:'OpenLayers', icon:'fa-solid fa-layer-group', url:'https://openlayers.org/download/' },
+                { id:'cesium', name:'CesiumJS', company:'Cesium', icon:'fa-solid fa-globe', url:'https://cesium.com/downloads/' },
+            ]},
+            { id:'stats', icon:'fa-chart-line', titleAR:'📊 برامج التحليل والإحصاء', titleEN:'📊 Analysis & Statistics Software', tools:[
+                { id:'excel', name:'Excel', company:'Microsoft', icon:'fa-solid fa-table-cells', url:'https://www.microsoft.com/en-us/microsoft-365/excel' },
+                { id:'spss', name:'SPSS', company:'IBM', icon:'fa-solid fa-chart-column', url:'https://www.ibm.com/products/spss-statistics' },
+                { id:'rlang', name:'R', company:'CRAN', icon:'fa-solid fa-chart-simple', url:'https://cran.r-project.org/' },
+                { id:'powerbi', name:'Power BI', company:'Microsoft', icon:'fa-solid fa-chart-pie', url:'https://www.microsoft.com/en-us/power-platform/products/power-bi/downloads' },
+            ]},
+            { id:'plugins', icon:'fa-puzzle-piece', titleAR:'🧩 الإضافات (Plugins)', titleEN:'🧩 Plugins & Extensions', tools:[
+                { id:'arcgisext', name:'ArcGIS Extensions', company:'Esri', icon:'fa-solid fa-puzzle-piece', url:'https://www.esri.com/en-us/arcgis/products/arcgis-extensions/overview' },
+                { id:'qgisplugins', name:'QGIS Plugins', company:'QGIS.org', icon:'fa-solid fa-plug', url:'https://plugins.qgis.org/' },
+                { id:'gdal', name:'GDAL', company:'OSGeo', icon:'fa-solid fa-code-branch', url:'https://gdal.org/download.html' },
+                { id:'ogr', name:'OGR', company:'OSGeo — جزء من GDAL', icon:'fa-solid fa-vector-square', url:'https://gdal.org/download.html' },
+                { id:'whiteboxplugins', name:'Whitebox Plugins', company:'WhiteboxGeo', icon:'fa-solid fa-toolbox', url:'https://www.whiteboxgeo.com/' },
+            ]},
+        ];
+
+        const MOST_USED_TOOLS = [
+            { id:'arcgis-pro',    name:'ArcGIS Pro',       icon:'fa-solid fa-map' },
+            { id:'qgis',          name:'QGIS',             icon:'fa-solid fa-earth-americas' },
+            { id:'envi',          name:'ENVI',             icon:'fa-solid fa-satellite-dish' },
+            { id:'erdas',         name:'ERDAS Imagine',    icon:'fa-solid fa-image' },
+            { id:'global-mapper', name:'Global Mapper',    icon:'fa-solid fa-earth-africa' },
+            { id:'gearthpro',     name:'Google Earth Pro', icon:'fa-solid fa-earth-africa' },
+            { id:'civil3d',       name:'Civil 3D',         icon:'fa-solid fa-road' },
+            { id:'autocad',       name:'AutoCAD',          icon:'fa-solid fa-pen-ruler' },
+            { id:'snap',          name:'SNAP',             icon:'fa-solid fa-satellite' },
+            { id:'geoserver',     name:'GeoServer',        icon:'fa-solid fa-server' },
+        ];
+
+        // External "visit official site" link — free, does NOT count against the daily download quota
+        window.openOfficialSite = function(url) {
+            const a = document.createElement('a');
+            a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.style.display = 'none';
+            document.body.appendChild(a); a.click();
+            setTimeout(() => a.remove(), 300);
+        };
+
+        function toolGenericCard(t, isAR) {
+            return `
+            <a href="javascript:void(0)" onclick="openOfficialSite('${t.url.replace(/'/g,"&#39;")}')" oncontextmenu="return false;" class="dataset-card" id="tool-${t.id}">
+                <div class="ds-top">
+                    <div class="ds-icon"><i class="${t.icon}"></i></div>
+                    <span class="ds-badge">${escapeHtml(t.company||'')}</span>
+                </div>
+                <div class="ds-info"><h4>${escapeHtml(t.name)}</h4></div>
+                <div class="ds-dl"><i class="fa-solid fa-arrow-up-right-from-square"></i><span>${isAR?'الموقع الرسمي':'Official Site'}</span></div>
+            </a>`;
+        }
+
+        function toolArcgisProBlock(isAR) {
+            return `
+            <div class="connect-section-wrap" id="tool-arcgis-pro">
+                <div class="connect-section-title">
+                    <span class="brand-pill gis"><i class="fa-solid fa-map"></i> ArcGIS Pro</span>
+                </div>
+                <div style="margin-bottom:18px;">
+                    <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-right:4px;">
+                        ${isAR ? 'نسخة 3.0' : 'Version 3.0'}
+                    </div>
+                    <div style="background:rgba(212,160,23,0.07);border:1px solid rgba(212,160,23,0.25);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--muted);line-height:1.7;">
+                        <i class="fa-solid fa-triangle-exclamation" style="color:var(--gold3);margin-left:6px;margin-right:4px;"></i>
+                        ${isAR
+                            ? '<strong style="color:var(--text);">تنبيه:</strong> قبل تثبيت ArcGIS Pro 3.0 يجب أولاً تثبيت <strong style="color:var(--text);">Microsoft .NET Framework</strong> من الرابط أدناه.'
+                            : '<strong style="color:var(--text);">Note:</strong> Before installing ArcGIS Pro 3.0, you must first install <strong style="color:var(--text);">Microsoft .NET Framework</strong> from the link below.'}
+                    </div>
+                    <div class="datasets-grid">
+                        ${dsCardSplit('fa-circle-down', isAR ? 'ArcGIS Pro 3.0 + Microsoft .NET Framework' : 'ArcGIS Pro 3.0 + Microsoft .NET Framework', isAR ? 'نسخة 3.0' : 'v3.0', isAR ? 'حمّل أي واحد منهم دلوقتي والتاني يفضل ببلاش النهاردة' : 'Download either one now — the other stays free today', 'arcgis-pro-3-net', {label: isAR?'ArcGIS Pro':'ArcGIS Pro', url:'https://drive.google.com/file/d/1FnF-RvQKMV8vcFYhwHHHyrAr3bgSehKe/view'}, {label: isAR?'.NET Framework':'.NET Framework', url:'https://download.visualstudio.microsoft.com/download/pr/23c7bf0d-e22d-4372-bcb2-292eb36a5238/11af494be409759f46b679ab22e65a58/dotnet-sdk-6.0.424-win-x64.exe'})}
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-right:4px;">
+                        ${isAR ? 'نسخة 3.5' : 'Version 3.5'}
+                    </div>
+                    <div class="datasets-grid">
+                        ${dsCardWrap('fa-circle-down', isAR ? 'تحميل ArcGIS Pro 3.5 ' : 'Download ArcGIS Pro 3.5 ', isAR ? 'نسخة 3.5' : 'v3.5', 'https://drive.google.com/drive/folders/1P9cXKkvctVVNIB0-9OqBfUH8ChNAF2w9?usp=sharing')}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function toolGlobalMapperBlock(isAR) {
+            return `
+            <div class="connect-section-wrap" id="tool-global-mapper">
+                <div class="connect-section-title">
+                    <span class="brand-pill ts"><i class="fa-solid fa-earth-africa"></i> Global Mapper</span>
+                </div>
+                <div class="datasets-grid">
+                    ${dsCardWrap('fa-circle-down', isAR ? 'تحميل برنامج Global Mapper' : 'Download Global Mapper', isAR ? 'تحميل مباشر' : 'Direct Download', 'https://bestfile.io/ar/jh5vCC0oNOaHfaN/file')}
+                </div>
+            </div>`;
+        }
+
+        function toolVSCodeBlock(isAR) {
+            return `
+            <div class="connect-section-wrap" id="tool-vscode-vs">
+                <div class="connect-section-title">
+                    <span class="brand-pill gis"><i class="fa-solid fa-code"></i> Visual Studio</span>
+                </div>
+                <div class="datasets-grid">
+                    ${dsCardWrap('fa-circle-down', isAR ? 'تحميل Visual Studio 2026 Community' : 'Download Visual Studio 2026 Community', isAR ? 'تحميل مباشر' : 'Direct Download', 'https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&channel=Stable&version=VS18&source=VSLandingPage&cid=2500&passive=false')}
+                    ${dsCardWrap('fa-circle-down', isAR ? 'تحميل Visual Studio Code' : 'Download Visual Studio Code', isAR ? 'تحميل مباشر' : 'Direct Download', 'https://code.visualstudio.com/download')}
+                </div>
+            </div>`;
+        }
+
+        function renderToolCategory(cat, isAR) {
+            const specialHtml = cat.tools.filter(t => t.special).map(t => {
+                if (t.special === 'arcgis') return toolArcgisProBlock(isAR);
+                if (t.special === 'globalmapper') return toolGlobalMapperBlock(isAR);
+                if (t.special === 'vscode') return toolVSCodeBlock(isAR);
+                return '';
+            }).join('');
+            const genericTools = cat.tools.filter(t => !t.special);
+            const gridHtml = genericTools.length ? `<div class="datasets-grid">${genericTools.map(t => toolGenericCard(t, isAR)).join('')}</div>` : '';
+            return `
+            <div class="tools-cat-block" id="toolscat-${cat.id}" data-cat="${cat.id}">
+                <div class="tools-cat-heading"><span>${isAR ? cat.titleAR : cat.titleEN}</span></div>
+                ${specialHtml}
+                ${gridHtml}
+            </div>`;
+        }
+
+        window.scrollToToolsCat = function(id) {
+            const el = document.getElementById('toolscat-' + id);
+            if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+        };
+
+        window.jumpToTool = function(id) {
+            const el = document.getElementById('tool-' + id);
+            if (!el) return;
+            el.scrollIntoView({ behavior:'smooth', block:'center' });
+            el.classList.add('tool-flash');
+            setTimeout(() => el.classList.remove('tool-flash'), 1500);
+        };
+
+        window.filterToolsSearch = function(query) {
+            const q = (query || '').trim().toLowerCase();
+            document.querySelectorAll('.tools-cat-block').forEach(block => {
+                let anyVisible = false;
+                block.querySelectorAll('.dataset-card').forEach(card => {
+                    const match = !q || card.textContent.toLowerCase().includes(q);
+                    card.style.display = match ? '' : 'none';
+                    if (match) anyVisible = true;
+                });
+                block.querySelectorAll('.connect-section-wrap').forEach(wrap => {
+                    const hasVisible = Array.from(wrap.querySelectorAll('.dataset-card')).some(c => c.style.display !== 'none');
+                    wrap.style.display = hasVisible ? '' : 'none';
+                });
+                block.style.display = anyVisible ? '' : 'none';
+            });
+        };
+
     function renderTools(area) {
         const isAR = lang === 'AR';
         const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
         const isAdmin = window._isAdmin === true;
         const uploadCount = window._getDailyDownloadCount ? window._getDailyDownloadCount() : (window._userData?.uploadCount || 0);
         const quotaBannerTools = (!isAdmin && !isPro) ? `
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${uploadCount>=3?'rgba(220,50,50,0.07)':'rgba(30,122,52,0.07)'};border:1px solid ${uploadCount>=3?'rgba(220,50,50,0.25)':'var(--border2)'};border-radius:12px;margin-bottom:20px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${uploadCount>=3?'rgba(220,50,50,0.07)':'rgba(30,122,52,0.07)'};border:1px solid ${uploadCount>=3?'rgba(220,50,50,0.25)':'var(--border2)'};border-radius:12px;margin-bottom:14px;flex-wrap:wrap;">
             <i class="fa-solid fa-cloud-arrow-down" style="color:${uploadCount>=3?'#ff6b6b':'var(--g4)'};font-size:18px;flex-shrink:0;"></i>
             <div style="flex:1;min-width:0;">
                 <div style="font-size:13px;font-weight:700;color:${uploadCount>=3?'#ff6b6b':'var(--text)'};">${isAR ? `تحميلات اليوم: ${uploadCount} / 3` : `Today's downloads: ${uploadCount} / 3`}</div>
-                <div style="font-size:12px;color:var(--muted);margin-top:2px;">${uploadCount>=3 ? (isAR?'وصلت للحد اليومي — يتجدد غداً أو قم بالترقية إلى Pro':'Daily limit reached — resets tomorrow or upgrade to Pro') : (isAR?'Basic: حتى 3 تحميلات مجاناً يومياً':'Basic: up to 3 free downloads per day')}</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px;">${uploadCount>=3 ? (isAR?'وصلت للحد اليومي في ملفات ATLASYA — يتجدد غداً أو قم بالترقية إلى Pro':'Daily limit reached for ATLASYA-hosted files — resets tomorrow or upgrade to Pro') : (isAR?'Basic: حتى 3 تحميلات مجاناً يومياً من ملفات ATLASYA المباشرة':'Basic: up to 3 free downloads/day for ATLASYA-hosted files')}</div>
             </div>
             ${uploadCount>=3?`<button onclick="navigate('account',document.getElementById('menuAccount'))" style="padding:7px 14px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;flex-shrink:0;"><i class="fa-solid fa-crown"></i> ${isAR?'ترقية Pro':'Upgrade Pro'}</button>`:''}
         </div>` : (isPro ? `
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.2);border-radius:10px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.2);border-radius:10px;margin-bottom:14px;">
             <i class="fa-solid fa-crown" style="color:var(--gold3);"></i>
             <span style="font-size:12px;font-weight:700;color:var(--gold3);">${isAR?'Pro — تحميل غير محدود مفعّل':'Pro — Unlimited downloads active'}</span>
         </div>` : '');
+
+        const mostUsedHtml = MOST_USED_TOOLS.map(m => `<button type="button" class="tools-chip" onclick="jumpToTool('${m.id}')"><i class="${m.icon}"></i> ${m.name}</button>`).join('');
+        const catChipsHtml = TOOL_CATEGORIES.map(c => `<button type="button" class="tools-chip" onclick="scrollToToolsCat('${c.id}')"><i class="fa-solid ${c.icon}"></i> ${isAR?c.titleAR.replace(/^\S+\s/,''):c.titleEN.replace(/^\S+\s/,'')}</button>`).join('');
+        const categoriesHtml = TOOL_CATEGORIES.map(c => renderToolCategory(c, isAR)).join('');
+
         area.innerHTML = `
         <div class="page-header">
             <h2>${isAR ? 'أدوات البرامج' : 'GIS Software Tools'}</h2>
-            <p>${isAR ? 'روابط تحميل أهم برامج GIS والأدوات المساعدة' : 'Download links for essential GIS software and supporting tools'}</p>
+            <p>${isAR ? 'كل برامج وأدوات GIS و RS والمساحة والـ CAD والبرمجة اللي محتاجها، في مكان واحد' : 'Every GIS, RS, survey, CAD, and programming tool you need — all in one place'}</p>
         </div>
         ${quotaBannerTools}
 
-        <!-- ArcGIS Pro -->
-        <div class="connect-section-wrap">
-            <div class="connect-section-title">
-                <span class="brand-pill gis"><i class="fa-solid fa-map"></i> ArcGIS Pro</span>
-            </div>
-
-            <!-- ArcGIS Pro 3.0 + .NET Framework معاً -->
-            <div style="margin-bottom:18px;">
-                <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-right:4px;">
-                    ${isAR ? 'نسخة 3.0' : 'Version 3.0'}
-                </div>
-                <div style="background:rgba(212,160,23,0.07);border:1px solid rgba(212,160,23,0.25);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--muted);line-height:1.7;">
-                    <i class="fa-solid fa-triangle-exclamation" style="color:var(--gold3);margin-left:6px;margin-right:4px;"></i>
-                    ${isAR
-                        ? '<strong style="color:var(--text);">تنبيه:</strong> قبل تثبيت ArcGIS Pro 3.0 يجب أولاً تثبيت <strong style="color:var(--text);">Microsoft .NET Framework</strong> من الرابط أدناه.'
-                        : '<strong style="color:var(--text);">Note:</strong> Before installing ArcGIS Pro 3.0, you must first install <strong style="color:var(--text);">Microsoft .NET Framework</strong> from the link below.'}
-                </div>
-                <div class="datasets-grid">
-                    ${dsCardSplit('fa-circle-down', isAR ? 'ArcGIS Pro 3.0 + Microsoft .NET Framework' : 'ArcGIS Pro 3.0 + Microsoft .NET Framework', isAR ? 'نسخة 3.0' : 'v3.0', isAR ? 'حمّل أي واحد منهم دلوقتي والتاني يفضل ببلاش النهاردة' : 'Download either one now — the other stays free today', 'arcgis-pro-3-net', {label: isAR?'ArcGIS Pro':'ArcGIS Pro', url:'https://drive.google.com/file/d/1FnF-RvQKMV8vcFYhwHHHyrAr3bgSehKe/view'}, {label: isAR?'.NET Framework':'.NET Framework', url:'https://download.visualstudio.microsoft.com/download/pr/23c7bf0d-e22d-4372-bcb2-292eb36a5238/11af494be409759f46b679ab22e65a58/dotnet-sdk-6.0.424-win-x64.exe'})}
-                </div>
-            </div>
-
-            <!-- ArcGIS Pro 3.5 لوحدها -->
-            <div>
-                <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-right:4px;">
-                    ${isAR ? 'نسخة 3.5' : 'Version 3.5'}
-                </div>
-                <div class="datasets-grid">
-                    ${dsCardWrap('fa-circle-down', isAR ? 'تحميل ArcGIS Pro 3.5 ' : 'Download ArcGIS Pro 3.5 ', isAR ? 'نسخة 3.5' : 'v3.5', 'https://drive.google.com/drive/folders/1P9cXKkvctVVNIB0-9OqBfUH8ChNAF2w9?usp=sharing')}
-                </div>
+        <div class="tools-toolbar">
+            <div class="tools-search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="toolsSearchInput" placeholder="${isAR?'ابحث باسم البرنامج، الشركة، أو المجال...':'Search by software name, company, or field...'}" oninput="filterToolsSearch(this.value)">
             </div>
         </div>
 
-        <!-- Global Mapper -->
-        <div class="connect-section-wrap">
-            <div class="connect-section-title">
-                <span class="brand-pill ts"><i class="fa-solid fa-earth-africa"></i> Global Mapper</span>
-            </div>
-            <div class="datasets-grid">
-                ${dsCardWrap('fa-circle-down', isAR ? 'تحميل برنامج Global Mapper' : 'Download Global Mapper', isAR ? 'تحميل مباشر' : 'Direct Download', 'https://bestfile.io/ar/jh5vCC0oNOaHfaN/file')}
-            </div>
+        <div class="tools-cat-heading" style="border:none;margin-bottom:10px;padding-bottom:0;">
+            <i class="fa-solid fa-star" style="color:var(--gold3);"></i>
+            <span>${isAR?'⭐ الأكثر استخدامًا':'⭐ Most Used'}</span>
         </div>
+        <div class="tools-most-used-wrap">${mostUsedHtml}</div>
 
-        <!-- Visual Studio -->
-        <div class="connect-section-wrap">
-            <div class="connect-section-title">
-                <span class="brand-pill gis"><i class="fa-solid fa-code"></i> Visual Studio</span>
-            </div>
-            <div class="datasets-grid">
-                ${dsCardWrap('fa-circle-down', isAR ? 'تحميل Visual Studio 2026 Community' : 'Download Visual Studio 2026 Community', isAR ? 'تحميل مباشر' : 'Direct Download', 'https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&channel=Stable&version=VS18&source=VSLandingPage&cid=2500&passive=false')}
-                ${dsCardWrap('fa-circle-down', isAR ? 'تحميل Visual Studio Code' : 'Download Visual Studio Code', isAR ? 'تحميل مباشر' : 'Direct Download', 'https://code.visualstudio.com/download')}
-            </div>
+        <div class="tools-chips-row">${catChipsHtml}</div>
+
+        <div id="toolsCategoriesWrap">
+            ${categoriesHtml}
         </div>`;
     }
-
     /* ─── JOB BOARD ─── */
     let _jobsUnsubscribe = null; // real-time listener cleanup
 
