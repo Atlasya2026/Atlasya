@@ -2098,6 +2098,7 @@
 
         /* ─── JOB STATUS BADGE ─── */
         .job-status-badge { font-size:11px;font-weight:800;padding:3px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:5px; }
+        .lib-stat-chip { font-size:12px;font-weight:700;padding:6px 14px;border-radius:99px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);display:inline-flex;align-items:center;gap:6px; }
         .job-status-badge.pending  { background:rgba(212,160,23,0.15);color:var(--gold3);border:1px solid rgba(212,160,23,0.3); }
         .job-status-badge.rejected { background:rgba(231,76,60,0.12);color:#e74c3c;border:1px solid rgba(231,76,60,0.25); }
         .job-status-badge.approved { background:rgba(30,122,52,0.12);color:var(--g4);border:1px solid rgba(30,122,52,0.25); }
@@ -2863,6 +2864,9 @@
                     <button class="nav-item" id="menuAdminCourses" onclick="navigate('admincourses', this)" style="display:none;">
                         <i class="fa-solid fa-building-shield"></i> <span id="menuAdminCoursesTxt">إدارة الكورسات</span>
                     </button>
+                    <button class="nav-item" id="menuAdminLibrary" onclick="navigate('adminlibrary', this)" style="display:none;">
+                        <i class="fa-solid fa-book-bookmark"></i> <span id="menuAdminLibraryTxt">المكتبة الرقمية</span>
+                    </button>
                     <button class="nav-item" id="menuProjects" onclick="navigate('projects', this)">
                         <i class="fa-solid fa-folder-open"></i> <span id="menuProjectsTxt">مشروعات الطلبة</span>
                     </button>
@@ -3286,6 +3290,31 @@
     };
     window._deleteFreeCourse = async (id) => {
         await deleteDoc(doc(db, 'free_courses', id));
+    };
+
+    /* ─── ADMIN: DIGITAL LIBRARY (ATLASYA) ─── */
+    window._loadLibraryBooksAdmin = async () => {
+        const snap = await getDocs(collection(db, 'library_books'));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    };
+    window._addLibraryBook = async (data) => {
+        await addDoc(collection(db, 'library_books'), {
+            ...data,
+            downloads: 0,
+            views: 0,
+            hidden: !!data.hidden,
+            createdAt: serverTimestamp(),
+        });
+    };
+    window._updateLibraryBook = async (id, data) => {
+        await updateDoc(doc(db, 'library_books', id), data);
+    };
+    window._deleteLibraryBook = async (id) => {
+        await deleteDoc(doc(db, 'library_books', id));
+    };
+    window._toggleLibraryBookHidden = async (id, hidden) => {
+        await updateDoc(doc(db, 'library_books', id), { hidden });
     };
 
     window._bookMentorshipSlot = async (slotData) => {
@@ -4189,6 +4218,7 @@
             menuAdminCVTxt: 'طلبات عمل CV',
             menuAdminPortfolioTxt: 'خرائط الطلبة',
             menuAdminCoursesTxt: 'إدارة الكورسات',
+            menuAdminLibraryTxt: 'المكتبة الرقمية',
             menuAdminMentorshipTxt: 'حجوزات الاستشارات',
             txtTopbarLogout: 'خروج',
             txtTopbarLogoutDesk: 'خروج',
@@ -4223,6 +4253,7 @@
             menuAdminCVTxt: 'CV Requests',
             menuAdminPortfolioTxt: 'Student Maps',
             menuAdminCoursesTxt: 'Manage Courses',
+            menuAdminLibraryTxt: 'Digital Library',
             menuAdminMentorshipTxt: 'Consultation Bookings',
             txtLogout: 'Log Out',
             txtTopbarLogout: 'Logout',
@@ -4536,6 +4567,7 @@
             adminpro:      lang==='AR'?'طلبات Pro':'Pro Requests',
             adminportfolio: lang==='AR'?'خرائط الطلبة':'Student Maps',
             admincourses: lang==='AR'?'إدارة الكورسات':'Manage Courses',
+            adminlibrary: lang==='AR'?'إدارة المكتبة الرقمية':'Manage Digital Library',
             adminmentorship: lang==='AR'?'حجوزات الاستشارات':'Consultation Bookings',
             portfolio:     lang==='AR'?'خرائط الطلبة':'Student Maps',
             monthlyreport: lang==='AR'?'تقريري الشهري':'My Monthly Report',
@@ -4573,6 +4605,7 @@
         else if (page === 'adminpro') renderAdminProRequests(area);
         else if (page === 'adminportfolio') renderAdminPortfolio(area);
         else if (page === 'admincourses') renderAdminCourses(area);
+        else if (page === 'adminlibrary') renderAdminLibrary(area);
         else if (page === 'adminmentorship') renderAdminMentorship(area);
         else if (page === 'portfolio') renderPortfolio(area);
         else if (page === 'monthlyreport') renderMonthlyReport(area);
@@ -7615,6 +7648,318 @@
         } catch(e) { showToast(isAR?'خطأ في الحذف':'Delete failed', true); }
     };
 
+    /* ─── ADMIN: DIGITAL LIBRARY (ATLASYA) ─── */
+    let _libBooks = [];
+    let _libSearch = '';
+    let _libCatFilter = '';
+    let _libLangFilter = '';
+    let _libCoverPending = '';   // base64 of a newly-picked cover, staged until Save
+    let _libPdfPending = '';     // base64 of a newly-picked PDF, staged until Save
+    let _libPdfPendingName = '';
+
+    const LIBRARY_CATEGORIES = [
+        { key:'gis',        ar:'GIS',                          en:'GIS',                icon:'🌍' },
+        { key:'remote',     ar:'الاستشعار عن بعد',              en:'Remote Sensing',     icon:'🛰️' },
+        { key:'cartography',ar:'الخرائط (Cartography)',         en:'Cartography',        icon:'🗺️' },
+        { key:'surveying',  ar:'المساحة (Surveying)',           en:'Surveying',          icon:'📐' },
+        { key:'geography',  ar:'الجغرافيا',                     en:'Geography',          icon:'🌎' },
+        { key:'hydrology',  ar:'الهيدرولوجيا',                  en:'Hydrology',          icon:'🌊' },
+        { key:'urban',      ar:'التخطيط العمراني',              en:'Urban Planning',     icon:'🏙️' },
+        { key:'environment',ar:'علوم البيئة',                   en:'Environmental Science', icon:'🌾' },
+        { key:'cs',         ar:'علوم الحاسب',                   en:'Computer Science',   icon:'🧠' },
+        { key:'theses',     ar:'رسائل ماجستير ودكتوراه',        en:'Theses (MSc/PhD)',   icon:'📑' },
+        { key:'refs_ar',    ar:'مراجع عربية',                   en:'Arabic References',  icon:'📖' },
+        { key:'refs_en',    ar:'مراجع إنجليزية',                en:'English References', icon:'📘' },
+    ];
+    function libCatLabel(key, isAR) {
+        const c = LIBRARY_CATEGORIES.find(c => c.key === key);
+        if (!c) return isAR ? 'غير مصنّف' : 'Uncategorized';
+        return `${c.icon} ${isAR ? c.ar : c.en}`;
+    }
+
+    function renderAdminLibrary(area) {
+        area = area || document.getElementById('contentArea');
+        const isAR = lang === 'AR';
+        area.innerHTML = `
+        <div class="page-header">
+            <h2>${isAR?'إدارة المكتبة الرقمية':'Manage Digital Library'}</h2>
+            <p>${isAR?'أضف وعدّل وحذف الكتب والمراجع العلمية في مكتبة ATLASYA':'Add, edit, and remove books and references in the ATLASYA library'}</p>
+        </div>
+        <button class="btn-post-job" style="margin-bottom:16px;" onclick="openLibraryBookForm()"><i class="fa-solid fa-plus"></i> ${isAR?'إضافة كتاب جديد':'Add New Book'}</button>
+        <div class="ac-toolbar">
+            <input type="text" id="libSearchInput" placeholder="${isAR?'ابحث بالاسم أو المؤلف أو الكلمات المفتاحية...':'Search by title, author, or keywords...'}" value="${_libSearch}" oninput="onLibFilterChange()">
+            <select id="libCatSelect" onchange="onLibFilterChange()">
+                <option value="">${isAR?'كل التصنيفات':'All Categories'}</option>
+                ${LIBRARY_CATEGORIES.map(c => `<option value="${c.key}" ${_libCatFilter===c.key?'selected':''}>${c.icon} ${isAR?c.ar:c.en}</option>`).join('')}
+            </select>
+            <select id="libLangSelect" onchange="onLibFilterChange()">
+                <option value="">${isAR?'كل اللغات':'All Languages'}</option>
+                <option value="AR" ${_libLangFilter==='AR'?'selected':''}>${isAR?'عربي':'Arabic'}</option>
+                <option value="EN" ${_libLangFilter==='EN'?'selected':''}>${isAR?'إنجليزي':'English'}</option>
+            </select>
+        </div>
+        <div id="libStatsRow" style="display:flex;gap:10px;margin:4px 0 16px;flex-wrap:wrap;"></div>
+        <div id="libBooksList"><div style="text-align:center;padding:30px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div></div>`;
+        loadLibraryAdminList();
+    }
+
+    async function loadLibraryAdminList() {
+        try { _libBooks = await window._loadLibraryBooksAdmin(); } catch(e) { console.error(e); _libBooks = []; }
+        const isAR = lang === 'AR';
+        const stats = document.getElementById('libStatsRow');
+        if (stats) {
+            const totalDownloads = _libBooks.reduce((s,b) => s + (b.downloads||0), 0);
+            stats.innerHTML = `
+                <div class="lib-stat-chip"><i class="fa-solid fa-book"></i> ${_libBooks.length} ${isAR?'كتاب':'books'}</div>
+                <div class="lib-stat-chip"><i class="fa-solid fa-download"></i> ${totalDownloads} ${isAR?'تحميل':'downloads'}</div>
+                <div class="lib-stat-chip"><i class="fa-solid fa-eye-slash"></i> ${_libBooks.filter(b=>b.hidden).length} ${isAR?'مخفي':'hidden'}</div>`;
+        }
+        renderLibraryFilteredList(isAR);
+    }
+
+    window.onLibFilterChange = function() {
+        _libSearch = document.getElementById('libSearchInput')?.value.trim().toLowerCase() || '';
+        _libCatFilter = document.getElementById('libCatSelect')?.value || '';
+        _libLangFilter = document.getElementById('libLangSelect')?.value || '';
+        renderLibraryFilteredList(lang === 'AR');
+    };
+
+    function renderLibraryFilteredList(isAR) {
+        const list = document.getElementById('libBooksList');
+        if (!list) return;
+        let items = [..._libBooks];
+        if (_libCatFilter) items = items.filter(b => b.category === _libCatFilter);
+        if (_libLangFilter) items = items.filter(b => b.language === _libLangFilter);
+        if (_libSearch) items = items.filter(b =>
+            (b.title||'').toLowerCase().includes(_libSearch) ||
+            (b.author||'').toLowerCase().includes(_libSearch) ||
+            (b.keywords||'').toLowerCase().includes(_libSearch));
+
+        if (!items.length) {
+            list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;">${isAR?'لا توجد كتب مطابقة':'No matching books'}</div>`;
+            return;
+        }
+        list.innerHTML = items.map(b => libBookRowHTML(b, isAR)).join('');
+    }
+
+    function libBookRowHTML(b, isAR) {
+        const cover = b.coverData
+            ? `<img src="${b.coverData}" style="width:52px;height:70px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1px solid var(--border);">`
+            : `<div style="width:52px;height:70px;border-radius:6px;flex-shrink:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px solid var(--border);"><i class="fa-solid fa-book"></i></div>`;
+        return `
+        <div class="ac-row" style="align-items:flex-start;">
+            ${cover}
+            <div class="ac-main" style="margin-inline-start:12px;">
+                <div class="ac-title">${escapeHtmlAC(b.title||'')} ${b.hidden ? `<span class="job-status-badge rejected" style="margin-inline-start:6px;"><i class="fa-solid fa-eye-slash"></i> ${isAR?'مخفي':'Hidden'}</span>` : ''}</div>
+                ${b.author ? `<div class="ac-company"><i class="fa-solid fa-user-pen"></i> ${escapeHtmlAC(b.author)}</div>` : ''}
+                <div class="ac-meta">
+                    <span class="job-status-badge approved">${libCatLabel(b.category, isAR)}</span>
+                    ${b.language ? `<span><i class="fa-solid fa-language"></i> ${b.language==='AR'?(isAR?'عربي':'Arabic'):(isAR?'إنجليزي':'English')}</span>` : ''}
+                    ${b.year ? `<span><i class="fa-solid fa-calendar"></i> ${escapeHtmlAC(String(b.year))}</span>` : ''}
+                    ${b.pages ? `<span><i class="fa-solid fa-file-lines"></i> ${escapeHtmlAC(String(b.pages))} ${isAR?'صفحة':'pages'}</span>` : ''}
+                    <span><i class="fa-solid fa-download"></i> ${b.downloads||0}</span>
+                    <span><i class="fa-solid fa-eye"></i> ${b.views||0}</span>
+                    ${b.pdfData ? `<span style="color:var(--green4);"><i class="fa-solid fa-file-pdf"></i> PDF</span>` : (b.downloadUrl ? `<span style="color:var(--gold3);"><i class="fa-solid fa-link"></i> ${isAR?'رابط خارجي':'External link'}</span>` : `<span style="color:#e33;"><i class="fa-solid fa-triangle-exclamation"></i> ${isAR?'بدون ملف':'No file'}</span>`)}
+                </div>
+            </div>
+            <div class="ac-actions">
+                <button class="ac-btn hide" onclick="libToggleHidden('${b.id}', ${!b.hidden})"><i class="fa-solid fa-eye${b.hidden?'':'-slash'}"></i> ${b.hidden ? (isAR?'إظهار':'Unhide') : (isAR?'إخفاء':'Hide')}</button>
+                <button class="ac-btn" onclick="openLibraryBookForm('${b.id}')"><i class="fa-solid fa-pen"></i> ${isAR?'تعديل':'Edit'}</button>
+                <button class="ac-btn danger" onclick="libDeleteBook('${b.id}')"><i class="fa-solid fa-trash"></i> ${isAR?'حذف':'Delete'}</button>
+            </div>
+        </div>`;
+    }
+
+    window.libToggleHidden = async function(id, hidden) {
+        try {
+            await window._toggleLibraryBookHidden(id, hidden);
+            const idx = _libBooks.findIndex(b => b.id === id);
+            if (idx > -1) _libBooks[idx].hidden = hidden;
+            renderLibraryFilteredList(lang === 'AR');
+            showToast(lang==='AR' ? (hidden?'تم إخفاء الكتاب':'تم إظهار الكتاب') : (hidden?'Book hidden':'Book visible'));
+        } catch(e) { showToast(lang==='AR'?'حدث خطأ':'An error occurred', true); }
+    };
+
+    window.libDeleteBook = async function(id) {
+        const isAR = lang === 'AR';
+        if (!confirm(isAR?'حذف هذا الكتاب نهائياً؟':'Delete this book permanently?')) return;
+        try {
+            await window._deleteLibraryBook(id);
+            _libBooks = _libBooks.filter(b => b.id !== id);
+            renderLibraryFilteredList(isAR);
+            showToast(isAR?'🗑️ تم الحذف':'🗑️ Deleted');
+        } catch(e) { showToast(isAR?'خطأ في الحذف':'Delete failed', true); }
+    };
+
+    /* Compress a book cover image to a small JPEG data URL (kept well under Firestore's field limit) */
+    function _compressLibraryCover(file) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const LIMIT = 220000; // ~220KB base64 — leaves room for the PDF in the same document
+                let maxDim = 500, quality = 0.8;
+                let dataUrl = await _resizeImageFile(file, maxDim, quality);
+                while (dataUrl.length > LIMIT && (quality > 0.3 || maxDim > 150)) {
+                    if (quality > 0.3) quality = Math.round((quality - 0.1) * 10) / 10;
+                    else maxDim = Math.round(maxDim * 0.8);
+                    dataUrl = await _resizeImageFile(file, maxDim, quality);
+                }
+                resolve(dataUrl);
+            } catch(e) { reject(e); }
+        });
+    }
+
+    window.libHandleCoverPick = async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const isAR = lang === 'AR';
+        try {
+            const dataUrl = await _compressLibraryCover(file);
+            _libCoverPending = dataUrl;
+            const prev = document.getElementById('libCoverPreview');
+            if (prev) prev.src = dataUrl;
+        } catch(err) {
+            showToast(isAR?'تعذّرت معالجة الصورة':'Could not process the image', true);
+        }
+    };
+
+    const LIB_PDF_MAX_BYTES = 550000; // ~550KB raw ≈ ~730KB as base64, keeps the whole book doc under Firestore's ~1MB field limit
+
+    window.libHandlePdfPick = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const isAR = lang === 'AR';
+        if (file.type !== 'application/pdf') {
+            showToast(isAR?'من فضلك اختر ملف PDF فقط':'Please select a PDF file only', true);
+            e.target.value = '';
+            return;
+        }
+        if (file.size > LIB_PDF_MAX_BYTES) {
+            showToast(isAR ? `⚠️ الملف كبير جداً (الحد الأقصى تقريباً ${Math.round(LIB_PDF_MAX_BYTES/1024)}KB). استخدم حقل "رابط خارجي" بدلاً من ذلك لو الملف أكبر.` : `⚠️ File too large (max ~${Math.round(LIB_PDF_MAX_BYTES/1024)}KB). Use the "External link" field instead for larger files.`, true);
+            e.target.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            _libPdfPending = ev.target.result;
+            _libPdfPendingName = file.name;
+            const lbl = document.getElementById('libPdfPickedLabel');
+            if (lbl) lbl.textContent = `✓ ${file.name} (${Math.round(file.size/1024)}KB)`;
+        };
+        reader.onerror = () => showToast(isAR?'فشل قراءة الملف':'Failed to read file', true);
+        reader.readAsDataURL(file);
+    };
+
+    window.openLibraryBookForm = function(editId) {
+        const isAR = lang === 'AR';
+        const editing = editId ? _libBooks.find(b => b.id === editId) : null;
+        _libCoverPending = '';
+        _libPdfPending = '';
+        _libPdfPendingName = '';
+        const v = (f) => (editing && editing[f] != null) ? editing[f] : '';
+        const modal = document.createElement('div');
+        modal.id = 'libFormModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+        modal.innerHTML = `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;" onclick="event.stopPropagation()">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <h3 style="font-size:15px;font-weight:800;">${editing ? (isAR?'تعديل كتاب':'Edit Book') : (isAR?'إضافة كتاب جديد':'Add New Book')}</h3>
+                <i class="fa-solid fa-xmark" style="cursor:pointer;color:var(--muted);" onclick="document.getElementById('libFormModal').remove()"></i>
+            </div>
+
+            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+                <div style="text-align:center;">
+                    <img id="libCoverPreview" src="${editing && editing.coverData ? editing.coverData : ''}" style="width:100px;height:135px;object-fit:cover;border-radius:8px;border:1px solid var(--border);background:var(--bg3);display:block;margin-bottom:6px;">
+                    <label class="ac-btn" style="cursor:pointer;display:inline-flex;">
+                        <i class="fa-solid fa-image"></i> ${isAR?'رفع الغلاف':'Upload Cover'}
+                        <input type="file" accept="image/*" style="display:none;" onchange="libHandleCoverPick(event)">
+                    </label>
+                </div>
+                <div style="flex:1;min-width:220px;">
+                    <div class="job-field full"><label>${isAR?'اسم الكتاب *':'Book Title *'}</label><input type="text" id="lib_title" value="${escapeHtmlAC(v('title'))}"></div>
+                    <div class="job-field full"><label>${isAR?'المؤلف':'Author'}</label><input type="text" id="lib_author" value="${escapeHtmlAC(v('author'))}"></div>
+                </div>
+            </div>
+
+            <div class="proj-form-grid">
+                <div class="job-field"><label>${isAR?'التصنيف *':'Category *'}</label>
+                    <select id="lib_category">
+                        <option value="">${isAR?'اختر تصنيف':'Select category'}</option>
+                        ${LIBRARY_CATEGORIES.map(c => `<option value="${c.key}" ${v('category')===c.key?'selected':''}>${c.icon} ${isAR?c.ar:c.en}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="job-field"><label>${isAR?'اللغة':'Language'}</label>
+                    <select id="lib_language">
+                        <option value="AR" ${v('language')!=='EN'?'selected':''}>${isAR?'عربي':'Arabic'}</option>
+                        <option value="EN" ${v('language')==='EN'?'selected':''}>${isAR?'إنجليزي':'English'}</option>
+                    </select>
+                </div>
+                <div class="job-field"><label>${isAR?'سنة النشر':'Publish Year'}</label><input type="number" id="lib_year" value="${v('year')}" placeholder="2024"></div>
+                <div class="job-field"><label>${isAR?'عدد الصفحات':'Pages'}</label><input type="number" id="lib_pages" value="${v('pages')}"></div>
+                <div class="job-field full"><label>${isAR?'الجامعة (اختياري)':'University (optional)'}</label><input type="text" id="lib_university" value="${escapeHtmlAC(v('university'))}" placeholder="${isAR?'مثال: جامعة القاهرة':'e.g. Cairo University'}"></div>
+                <div class="job-field full"><label>${isAR?'نبذة عن الكتاب':'Book Summary'}</label><textarea id="lib_desc">${escapeHtmlAC(v('description'))}</textarea></div>
+                <div class="job-field full"><label>${isAR?'الكلمات المفتاحية (افصل بينها بفاصلة)':'Keywords (comma-separated)'}</label><input type="text" id="lib_keywords" value="${escapeHtmlAC(v('keywords'))}" placeholder="GIS, ArcGIS, Spatial Analysis"></div>
+            </div>
+
+            <div style="border:1px dashed var(--border);border-radius:10px;padding:12px;margin-top:8px;">
+                <label class="ac-btn" style="cursor:pointer;display:inline-flex;">
+                    <i class="fa-solid fa-file-pdf"></i> ${isAR?'رفع ملف PDF':'Upload PDF File'}
+                    <input type="file" accept="application/pdf" style="display:none;" onchange="libHandlePdfPick(event)">
+                </label>
+                <span id="libPdfPickedLabel" style="font-size:12px;color:var(--muted);margin-inline-start:8px;">
+                    ${editing && editing.pdfData ? `✓ ${isAR?'يوجد ملف مرفوع بالفعل':'A file is already uploaded'}` : ''}
+                </span>
+                <div style="font-size:11px;color:var(--muted);margin-top:6px;">${isAR?`الحد الأقصى لحجم الملف تقريباً ${Math.round(LIB_PDF_MAX_BYTES/1024)}KB. للملفات الأكبر استخدم رابط خارجي بدلاً من الرفع المباشر.`:`Max file size ~${Math.round(LIB_PDF_MAX_BYTES/1024)}KB. For larger files, use an external link instead of direct upload.`}</div>
+                <div class="job-field full" style="margin-top:10px;"><label>${isAR?'أو رابط تحميل خارجي (اختياري)':'Or external download link (optional)'}</label><input type="url" id="lib_url" value="${escapeHtmlAC(v('downloadUrl'))}" placeholder="https://drive.google.com/..."></div>
+            </div>
+
+            <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="lib_hidden" ${v('hidden') ? 'checked' : ''}> ${isAR?'إخفاء الكتاب عن الطلاب':'Hide book from students'}
+            </label>
+
+            <button class="btn-post-job" style="width:100%;margin-top:14px;" id="libSaveBtn" onclick="libSaveBook('${editId||''}')"><i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}</button>
+        </div>`;
+        document.body.appendChild(modal);
+    };
+
+    window.libSaveBook = async function(editId) {
+        const isAR = lang === 'AR';
+        const title = document.getElementById('lib_title')?.value.trim();
+        const category = document.getElementById('lib_category')?.value;
+        if (!title) { showToast(isAR?'من فضلك أدخل اسم الكتاب':'Please enter the book title', true); return; }
+        if (!category) { showToast(isAR?'من فضلك اختر تصنيف':'Please select a category', true); return; }
+
+        const data = {
+            title,
+            author: document.getElementById('lib_author')?.value.trim() || '',
+            category,
+            language: document.getElementById('lib_language')?.value || 'AR',
+            year: Number(document.getElementById('lib_year')?.value || 0) || null,
+            pages: Number(document.getElementById('lib_pages')?.value || 0) || null,
+            university: document.getElementById('lib_university')?.value.trim() || '',
+            description: document.getElementById('lib_desc')?.value.trim() || '',
+            keywords: document.getElementById('lib_keywords')?.value.trim() || '',
+            downloadUrl: document.getElementById('lib_url')?.value.trim() || '',
+            hidden: !!document.getElementById('lib_hidden')?.checked,
+        };
+        if (_libCoverPending) data.coverData = _libCoverPending;
+        if (_libPdfPending) { data.pdfData = _libPdfPending; data.pdfName = _libPdfPendingName; }
+
+        const btn = document.getElementById('libSaveBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
+        try {
+            if (editId) await window._updateLibraryBook(editId, data);
+            else await window._addLibraryBook(data);
+            showToast(isAR?'تم الحفظ':'Saved');
+            document.getElementById('libFormModal')?.remove();
+            loadLibraryAdminList();
+        } catch(e) {
+            console.error('Library save error:', e);
+            showToast(isAR?'حدث خطأ أثناء الحفظ':'An error occurred while saving', true);
+            if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}`; }
+        }
+    };
+
     /* ─── ADMIN: MENTORSHIP REQUESTS ─── */
     async function renderAdminMentorship(area) {
         area = area || document.getElementById('contentArea');
@@ -10010,6 +10355,7 @@
         { key:'cv',         labelAR:'عمل cv',             labelEN:'CV Requests',           icon:'fa-file-invoice' },
         { key:'portfolio',  labelAR:'خرائط طلبة',         labelEN:'Student Maps',          icon:'fa-map-location-dot' },
         { key:'courses',    labelAR:'إدارة الكورسات',     labelEN:'Manage Courses',        icon:'fa-building-shield' },
+        { key:'library',    labelAR:'المكتبة الرقمية',    labelEN:'Digital Library',       icon:'fa-book-bookmark' },
         { key:'mentorship', labelAR:'حجوزات استشارات',    labelEN:'Consultation Bookings', icon:'fa-user-tie' },
     ];
 
@@ -10020,6 +10366,7 @@
         cv:         ['menuAdminCV'],
         portfolio:  ['menuAdminPortfolio'],
         courses:    ['menuAdminCourses'],
+        library:    ['menuAdminLibrary'],
         mentorship: ['menuAdminMentorship'],
         jobs:       ['menuJob'],
         projects:   ['menuProjects'],
@@ -10030,7 +10377,7 @@
     // Maps a page route to the permission key that guards it (used for direct navigate() calls)
     const ADMIN_PAGE_PERMISSION_MAP = {
         adminmembers: 'members', adminpro: 'pro', cvbuilder: 'cv',
-        adminportfolio: 'portfolio', admincourses: 'courses', adminmentorship: 'mentorship',
+        adminportfolio: 'portfolio', admincourses: 'courses', adminlibrary: 'library', adminmentorship: 'mentorship',
         jobs: 'jobs', projects: 'projects', expert: 'support',
         community: 'community',
     };
@@ -10107,7 +10454,7 @@
             if (menuExpertBtn) menuExpertBtn.style.display = '';
 
             // Show admin-only sidebar items (desktop/laptop)
-            ['menuAdminMembers','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminMentorship'].forEach(id => {
+            ['menuAdminMembers','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminMentorship'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = '';
             });
