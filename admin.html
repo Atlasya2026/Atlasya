@@ -9518,6 +9518,25 @@
     };
 
 
+    /* seed tips shared with the student journey — kept in sync manually with student.html's INS_SEED_TIPS */
+    const ADMIN_SEED_TIPS = [
+            { id:'seed01', icon:'fa-graduation-cap', color:'#1e7a34', categoryAR:'أساسيات', categoryEN:'Basics', titleAR:'ابدأ بالأساسيات قبل البرامج', titleEN:'Master the Basics Before Software', bodyAR:'قبل ما تفتح أي برنامج GIS، ركّز على المفاهيم الأساسية: الفرق بين <strong>Raster</strong> و<strong>Vector</strong>، نظم الإحداثيات <strong>Projection & Coordinate Systems</strong>، وقواعد البيانات المكانية <strong>Spatial Databases</strong>.<br><br>🎯 الفهم ده هيسهّل عليك التعامل مع أي برنامج بعدين.', bodyEN:'Before opening any GIS software, focus on core concepts: the difference between <strong>Raster</strong> and <strong>Vector</strong>, <strong>Projection & Coordinate Systems</strong>, and <strong>Spatial Databases</strong>.<br><br>🎯 This understanding makes any software much easier to learn.' },
+            { id:'seed02', icon:'fa-briefcase', color:'#d4a017', categoryAR:'مسار مهني', categoryEN:'Career', titleAR:'التطبيق العملي أهم من الشهادات', titleEN:'Practical Experience Over Certificates', bodyAR:'الشهادات مهمة، بس الخبرة العملية هي اللي بتفرق:<ul><li>اعمل مشاريع حقيقية حتى لو صغيرة</li><li>استخدم بيانات مفتوحة <strong>Open Data</strong> لتطبيق الدروس</li><li>ابنِ <strong>Portfolio</strong> قوي بخرائطك ومشاريعك الخاصة</li></ul>', bodyEN:'Certificates matter, but practical experience makes the real difference:<ul><li>Work on real projects, even small ones</li><li>Use <strong>Open Data</strong> to apply lessons</li><li>Build a strong <strong>Portfolio</strong> with your own maps and analyses</li></ul>' },
+            { id:'seed03', icon:'fa-folder-open', color:'#1e7a34', categoryAR:'مشاريع', categoryEN:'Projects', titleAR:'اشتغل على Projects حقيقية', titleEN:'Work on Real-World Projects', bodyAR:'المشاريع الواقعية بتخليك تتعلم:<ol><li>تحليل البيانات البيئية <strong>Environmental Analysis</strong></li><li>رسم خرائط الشبكات <strong>Network Analysis</strong></li><li>دراسات الأراضي <strong>Land Use & Land Cover</strong></li></ol>🎯 كل مشروع هيديك فكرة عن سوق الشغل وطلبات الشركات.', bodyEN:'Real-world projects help you learn:<ol><li><strong>Environmental Analysis</strong></li><li><strong>Network Analysis</strong></li><li><strong>Land Use & Land Cover</strong> studies</li></ol>🎯 Each project gives you insight into what employers actually need.' },
+            { id:'seed04', icon:'fa-laptop-code', color:'#d4a017', categoryAR:'برامج', categoryEN:'Software', titleAR:'اتعلم QGIS مع ArcGIS', titleEN:'Learn QGIS Alongside ArcGIS', bodyAR:'حتى لو هتستخدم ArcGIS Pro، لازم تعرف QGIS:<ul><li>QGIS مجاني ومفتوح المصدر</li><li>فيه <strong>Plugins</strong> كتيرة تساعدك في Analysis وVisualization</li><li>الشركات الصغيرة والمشاريع الحرة <strong>Freelance</strong> غالبًا بتستخدم QGIS</li></ul>', bodyEN:'Even if you use ArcGIS Pro, you must know QGIS:<ul><li>QGIS is free and open-source</li><li>Rich <strong>Plugins</strong> ecosystem for Analysis & Visualization</li><li>Small companies and <strong>Freelance</strong> projects often prefer QGIS</li></ul>' },
+            { id:'seed05', icon:'fa-table', color:'#1e7a34', categoryAR:'تحليل بيانات', categoryEN:'Data Analysis', titleAR:'اعرف أساسيات Excel وSQL', titleEN:'Learn Excel & SQL Basics', bodyAR:'مهارات التحليل مهمّة لأي GIS Specialist:<ul><li><strong>Excel:</strong> sorting, filtering, pivot tables</li><li><strong>SQL:</strong> استعلامات على قواعد البيانات المكانية</li></ul>هيساعدك في التعامل مع أي Dataset كبير بسهولة.', bodyEN:'Analytical skills are essential for any GIS Specialist:<ul><li><strong>Excel:</strong> sorting, filtering, pivot tables</li><li><strong>SQL:</strong> queries on spatial databases</li></ul>This will help you handle any large dataset with ease.' },
+            { id:'seed06', icon:'fa-folder-tree', color:'#d4a017', categoryAR:'تنظيم', categoryEN:'Organization', titleAR:'نظّم ملفاتك GIS', titleEN:'Organize Your GIS Files', bodyAR:'لازم يكون عندك نظام واضح لتنظيم ملفاتك:<ul><li>اعمل فولدر لكل مشروع</li><li>قسّم البيانات حسب النوع <strong>Raster / Vector</strong></li><li>خلي الخرائط، التحليلات، والبيانات المصدرية في مكان منفصل</li></ul>🎯 ده هيوفر وقتك ويخليك تشتغل بكفاءة.', bodyEN:'You need a clear file organization system:<ul><li>Create a folder for each project</li><li>Separate data by type: <strong>Raster / Vector</strong></li><li>Keep maps, analyses, and source data in separate folders</li></ul>🎯 This saves time and keeps you working efficiently.' },
+            { id:'seed07', icon:'fa-rotate', color:'#1e7a34', categoryAR:'أدوات', categoryEN:'Tools', titleAR:'تابع التحديثات والأدوات الجديدة', titleEN:'Stay Updated with New Tools', bodyAR:'برامج GIS دايمًا بتتحدث:<ol><li>تابع المدونات الرسمية لـ ArcGIS و QGIS</li><li>تابع حسابات GitHub الخاصة بالـ Plugins</li><li>جرّب الأدوات الجديدة على مشاريع صغيرة</li></ol>🎯 ده هيخليك دائمًا محدث ومواكب لأي وظيفة أو مشروع.', bodyEN:'GIS software is always evolving:<ol><li>Follow official ArcGIS & QGIS blogs</li><li>Watch GitHub repos for new Plugins</li><li>Test new tools on small projects</li></ol>🎯 This keeps you current and competitive in the job market.' },
+            { id:'seed08', icon:'fa-database', color:'#d4a017', categoryAR:'بيانات مفتوحة', categoryEN:'Open Data', titleAR:'استخدم بيانات مفتوحة Open Data', titleEN:'Use Open Data Sources', bodyAR:'لتطبيق مشاريع GIS بدون تعقيدات:<ol><li>استخدم بيانات مفتوحة من مواقع حكومية أو بحثية</li><li>جرّب مشاريع صغيرة زي رسم خرائط استخدام الأراضي</li><li>افتح ملفات البيانات بنفسك لتفهم هيكلها</li></ol>🎯 ده هيساعدك تتعلم التحليل العملي بدون قيود تراخيص.', bodyEN:'Apply GIS projects without complications:<ol><li>Use open data from government or research portals</li><li>Try small projects like mapping land use</li><li>Open data files yourself to understand their structure</li></ol>🎯 This helps you learn practical analysis without license restrictions.' },
+            { id:'seed09', icon:'fa-share-nodes', color:'#1e7a34', categoryAR:'مشاركة', categoryEN:'Sharing', titleAR:'شارك مشاريعك وخبراتك', titleEN:'Share Your Projects & Experience', bodyAR:'مشاركة مشاريعك خطوة مهمة لبناء Portfolio:<ol><li>انشر خرائطك ومشاريعك على LinkedIn أو GitHub</li><li>اشرح كل مشروع: البيانات، الأدوات، النتائج</li></ol>🎯 ده هيخلي أصحاب الشغل يشوفوا مهاراتك.<br>⚠️ مهم جدًا لو عايز Freelance أو وظيفة ثابتة.', bodyEN:'Sharing is key to building your Portfolio:<ol><li>Post your maps and projects on LinkedIn or GitHub</li><li>Describe each project: data, tools, and results</li></ol>🎯 This lets employers see and appreciate your skills.<br>⚠️ Essential if you want Freelance or a permanent GIS job.' },
+            { id:'seed10', icon:'fa-magnifying-glass-location', color:'#d4a017', categoryAR:'تحليل مكاني', categoryEN:'Spatial Analysis', titleAR:'ركّز على التحليل المكاني Spatial Analysis', titleEN:'Master Spatial Analysis', bodyAR:'مهارة التحليل المكاني مطلوبة في كل مشاريع GIS:<ol><li>اتعلم كيفية تحليل البيانات المكانية وعلاقاتها</li><li>جرّب أدوات مثل <strong>Buffer, Overlay, Spatial Join</strong></li><li>اربط النتائج بخطط عملية أو خرائط توضيحية</li></ol>🎯 التطبيق العملي هو اللي هيخلي مهارتك واضحة.', bodyEN:'Spatial analysis skills are required in every GIS project:<ol><li>Learn how to analyze spatial data and its relationships</li><li>Practice tools like <strong>Buffer, Overlay, Spatial Join</strong></li><li>Link results to practical plans or illustrative maps</li></ol>🎯 Hands-on practice is what makes your skill visible.' },
+            { id:'seed11', icon:'fa-satellite', color:'#1e7a34', categoryAR:'استشعار عن بعد', categoryEN:'Remote Sensing', titleAR:'تعلّم Remote Sensing', titleEN:'Learn Remote Sensing', bodyAR:'الـ Remote Sensing جزء أساسي من GIS:<ul><li>افهم أنواع الأقمار الصناعية مثل <strong>Landsat, Sentinel</strong></li><li>تعلّم استخدام وتحليل الصور الفضائية</li><li>اربط النتائج بالخرائط GIS</li></ul>ده هيفتحلك مجالات كبيرة في البيئة، الزراعة، والتخطيط العمراني.', bodyEN:'Remote Sensing is a core part of GIS:<ul><li>Understand satellite types like <strong>Landsat, Sentinel</strong></li><li>Learn to use and analyze satellite imagery</li><li>Link results back to GIS maps</li></ul>This opens huge opportunities in environment, agriculture, and urban planning.' },
+            { id:'seed12', icon:'fa-palette', color:'#d4a017', categoryAR:'تصميم خرائط', categoryEN:'Cartography', titleAR:'ركّز على Visualization', titleEN:'Focus on Visualization', bodyAR:'العرض البصري للخرائط مهم جدًا:<ul><li>استخدم <strong>Symbols, Labels, Color Schemes</strong> بشكل واضح</li><li>تعلّم عمل <strong>Interactive Maps</strong> في ArcGIS أو QGIS</li><li>تقديم الخرائط بشكل جذاب يسهّل فهم البيانات</li></ul>يزيد فرصك في الشغل ويجعل نتائجك أكثر تأثيراً.', bodyEN:'Map visualization is critically important:<ul><li>Use clear <strong>Symbols, Labels, Color Schemes</strong></li><li>Learn to create <strong>Interactive Maps</strong> in ArcGIS or QGIS</li><li>Attractive map presentation makes data easier to understand</li></ul>This increases your job opportunities and makes your results more impactful.' },
+            { id:'seed13', icon:'fa-file-lines', color:'#1e7a34', categoryAR:'بورتفوليو', categoryEN:'Portfolio', titleAR:'اعمل Portfolio رقمي', titleEN:'Build a Digital Portfolio', bodyAR:'لكي تُثبت مهاراتك لأي وظيفة أو مشروع:<ul><li>احتفظ بمشاريعك، خرائطك، تحليلاتك في ملف أو موقع</li><li>اعمل شرح لكل مشروع: الهدف، البيانات، التحليل، النتائج</li><li>استخدم <strong>GitHub</strong> أو <strong>LinkedIn</strong> لعرض Portfolio</li></ul>', bodyEN:'To prove your skills for any job or project:<ul><li>Keep your projects, maps, and analyses in one place</li><li>Document each project: goal, data, analysis, results</li><li>Use <strong>GitHub</strong> or <strong>LinkedIn</strong> to showcase your Portfolio</li></ul>' },
+            { id:'seed14', icon:'fa-code', color:'#d4a017', categoryAR:'برمجة', categoryEN:'Programming', titleAR:'اتعلّم Python وGIS', titleEN:'Learn Python for GIS', bodyAR:'البرمجة مهمة جدًا في GIS:<ul><li>استخدم <strong>Python + ArcPy</strong> لتسريع التحليل المكرّر</li><li>جرّب <strong>QGIS Python Plugins</strong></li><li>كتابة سكربتات صغيرة هتوفر وقتك وتديك قوة في تحليل البيانات الكبيرة</li></ul>', bodyEN:'Programming is very important in GIS:<ul><li>Use <strong>Python + ArcPy</strong> to automate repetitive analysis</li><li>Try <strong>QGIS Python Plugins</strong></li><li>Writing small scripts saves time and gives you power over large datasets</li></ul>' },
+            { id:'seed15', icon:'fa-users', color:'#1e7a34', categoryAR:'مجتمع', categoryEN:'Community', titleAR:'شارك في مجتمعات GIS', titleEN:'Join GIS Communities', bodyAR:'المجتمع هيساعدك تتعلم أسرع:<ul><li>انضم لمجموعات GIS على Facebook، LinkedIn، Reddit</li><li>اسأل، شارك مشاريعك، خذ نصايح من محترفين</li><li>ده هيوصلك لفرص تدريبية وشغل أكثر</li></ul>', bodyEN:'Community will help you learn faster:<ul><li>Join GIS groups on Facebook, LinkedIn, Reddit</li><li>Ask questions, share your projects, get advice from professionals</li><li>This connects you to more training and job opportunities</li></ul>' }
+        ];
+
     /* ─── ADMIN: DAILY TIPS ─── */
     let _adminTips = [];
 
@@ -9527,9 +9546,9 @@
         area.innerHTML = `
         <div class="page-header">
             <h2>${isAR?'إدارة نصيحة اليوم':'Manage Daily Tips'}</h2>
-            <p>${isAR?'كل النصايح موجودة هنا بالترتيب. حدد تاريخ معين لأي نصيحة عشان تظهر للطلاب في اليوم ده بالظبط، أو سيبها من غير تاريخ عشان تدخل في الترتيب التلقائي. الطالب دايمًا بيشوف نصيحة واحدة بس (نصيحة اليوم)، وبعد ٢٤ ساعة تتغير للنصيحة التالية.':'All tips are listed here in order. Set a specific date for a tip to have it shown to students on exactly that day, or leave it undated to join the automatic rotation. Students only ever see one tip (today\'s), switching to the next after 24 hours.'}</p>
+            <p>${isAR?'أول ١٥ بوكس ثابتين. أي نصيحة تضيفها هنا بتتحول لبوكس جديد بعد رقم ١٥ في رحلة النصايح عند الطالب، بالترتيب اللي بتضيفها بيه. حدد تاريخ معين لأي نصيحة عشان تظهر للطلاب في اليوم ده بالظبط، أو سيبها من غير تاريخ عشان تدخل في الترتيب التلقائي.':'The first 15 boxes are fixed. Any tip you add here becomes a new box after box 15 in the student\'s tips journey, in the order you add them. Set a specific date for a tip to have it shown to students on exactly that day, or leave it undated to join the automatic rotation.'}</p>
         </div>
-        <button class="btn-post-job" style="margin-bottom:16px;" onclick="openTipForm()"><i class="fa-solid fa-plus"></i> ${isAR?'إضافة نصيحة جديدة':'Add New Tip'}</button>
+        <button class="btn-post-job" style="margin-bottom:16px;" onclick="openTipForm()"><i class="fa-solid fa-plus"></i> ${isAR?'إضافة نصيحة جديدة (بوكس جديد)':'Add New Tip (New Box)'}</button>
         <div id="dtList"></div>`;
         loadAdminTips();
     }
@@ -9537,8 +9556,11 @@
     async function loadAdminTips() {
         const list = document.getElementById('dtList');
         if (list) list.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
-        try { _adminTips = await window._loadDailyTips(); }
-        catch(e) { console.error(e); _adminTips = []; }
+        let fsTips = [];
+        try { fsTips = await window._loadDailyTips(); }
+        catch(e) { console.error(e); fsTips = []; }
+        // combined order = seed tips (boxes 1-15) then added tips in creation order — same order students see in their box journey
+        _adminTips = [...ADMIN_SEED_TIPS.map(t => ({ ...t, _seed: true })), ...fsTips];
         renderDtList();
     }
 
@@ -9550,30 +9572,76 @@
             list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;">${isAR?'لا توجد نصايح مضافة بعد':'No tips added yet'}</div>`;
             return;
         }
-        // list every tip in order — tips with a scheduled date are ordered by that date first, undated tips (auto-rotation) follow in creation order
+        // box numbers must reflect the actual journey order (seed tips 1-15, then added tips by creation order) — computed BEFORE any display re-sorting below
+        const boxNumOf = new Map(_adminTips.map((t, i) => [t.id, i + 1]));
+        // for display only: tips with a scheduled date are ordered by that date first, undated tips (auto-rotation) follow in creation order
         const sorted = [..._adminTips].sort((a, b) => {
             if (a.scheduledDate && b.scheduledDate) return a.scheduledDate.localeCompare(b.scheduledDate);
             if (a.scheduledDate && !b.scheduledDate) return -1;
             if (!a.scheduledDate && b.scheduledDate) return 1;
-            return 0;
+            return (boxNumOf.get(a.id)||0) - (boxNumOf.get(b.id)||0);
         });
-        list.innerHTML = sorted.map((t, i) => `
+        list.innerHTML = sorted.map((t) => `
         <div class="ac-row">
             <div style="width:48px;height:48px;border-radius:10px;flex-shrink:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:${t.color||'var(--g4)'};border:1px solid var(--border);font-size:18px;"><i class="fa-solid ${t.icon || 'fa-lightbulb'}"></i></div>
             <div class="ac-main" style="margin-inline-start:12px;">
-                <div class="ac-title">${isAR?'نصيحة':'Tip'} ${i+1} — ${escapeHtmlAC(t.titleAR||'')}</div>
+                <div class="ac-title">${isAR?'بوكس':'Box'} ${boxNumOf.get(t.id)||'?'} — ${escapeHtmlAC(t.titleAR||'')}</div>
                 <div class="ac-meta">
                     <span class="job-status-badge approved">${escapeHtmlAC(t.categoryAR||t.categoryEN||'')}</span>
-                    ${t.scheduledDate ? `<span class="job-status-badge pending"><i class="fa-solid fa-calendar-day"></i> ${escapeHtmlAC(t.scheduledDate)}</span>` : `<span style="font-size:11.5px;color:var(--muted);">${isAR?'بالترتيب التلقائي':'Auto rotation'}</span>`}
-                    <span><i class="fa-solid fa-heart"></i> ${t.likes||0}</span>
+                    ${t._seed ? `<span style="font-size:11.5px;color:var(--muted);">${isAR?'نصيحة أساسية':'Seed tip'}</span>` : (t.scheduledDate ? `<span class="job-status-badge pending"><i class="fa-solid fa-calendar-day"></i> ${escapeHtmlAC(t.scheduledDate)}</span>` : `<span style="font-size:11.5px;color:var(--muted);">${isAR?'بالترتيب التلقائي':'Auto rotation'}</span>`)}
                 </div>
             </div>
             <div class="ac-actions">
+                <button class="ac-btn" onclick="dtShowEngagement('${t.id}','likes')"><i class="fa-solid fa-heart"></i> ${t.likes||0}</button>
+                <button class="ac-btn" onclick="dtShowEngagement('${t.id}','shares')"><i class="fa-solid fa-share-nodes"></i> ${t.shares||0}</button>
+                ${t._seed ? '' : `
                 <button class="ac-btn" onclick="openTipForm('${t.id}')"><i class="fa-solid fa-pen"></i> ${isAR?'تعديل':'Edit'}</button>
-                <button class="ac-btn danger" onclick="dtDeleteTip('${t.id}')"><i class="fa-solid fa-trash"></i> ${isAR?'حذف':'Delete'}</button>
+                <button class="ac-btn danger" onclick="dtDeleteTip('${t.id}')"><i class="fa-solid fa-trash"></i> ${isAR?'حذف':'Delete'}</button>`}
             </div>
         </div>`).join('');
     }
+
+    /* shows which students liked or shared a specific tip */
+    window.dtShowEngagement = async function(tipId, type) {
+        const isAR = lang === 'AR';
+        const modal = document.createElement('div');
+        modal.id = 'tipEngModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+        const heading = type === 'likes' ? (isAR?'الطلبة اللي عملوا إعجاب':'Students who liked this') : (isAR?'الطلبة اللي عملوا مشاركة':'Students who shared this');
+        modal.innerHTML = `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;padding:22px;" onclick="event.stopPropagation()">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <h3 style="font-size:15px;font-weight:800;"><i class="fa-solid ${type==='likes'?'fa-heart':'fa-share-nodes'}"></i> ${heading}</h3>
+                <i class="fa-solid fa-xmark" style="cursor:pointer;color:var(--muted);" onclick="document.getElementById('tipEngModal').remove()"></i>
+            </div>
+            <div id="tipEngList"><div style="text-align:center;padding:24px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div></div>
+        </div>`;
+        document.body.appendChild(modal);
+        try {
+            const users = await window._loadAllUsers();
+            const field = type === 'likes' ? 'tipLikes' : 'tipShares';
+            const matched = users.filter(u => Array.isArray(u[field]) && u[field].includes(tipId));
+            const listEl = document.getElementById('tipEngList');
+            if (!listEl) return;
+            if (!matched.length) {
+                listEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;">${isAR?'محدش عمل ده لسه':'No one yet'}</div>`;
+                return;
+            }
+            listEl.innerHTML = matched.map(u => `
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
+                <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--g3),var(--gold3));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px;flex-shrink:0;">${(u.firstName||'؟')[0].toUpperCase()}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:700;">${escapeHtmlAC(u.firstName||'')} ${escapeHtmlAC(u.lastName||'')}</div>
+                    <div style="font-size:11px;color:var(--muted);">${escapeHtmlAC(u.email||'')}</div>
+                </div>
+            </div>`).join('');
+        } catch(e) {
+            console.error('dtShowEngagement error:', e);
+            const listEl = document.getElementById('tipEngList');
+            if (listEl) listEl.innerHTML = `<div style="text-align:center;padding:20px;color:#e74c3c;font-size:13px;">${isAR?'حصل خطأ في التحميل':'An error occurred while loading'}</div>`;
+        }
+    };
 
     window.dtDeleteTip = async function(id) {
         const isAR = lang === 'AR';
