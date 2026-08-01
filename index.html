@@ -2077,6 +2077,27 @@
             .ins-modal-card { background:var(--card); border:1px solid var(--border2); border-radius:18px; padding:22px; max-width:440px; width:100%; }
             .ins-modal-close { width:100%; margin-top:14px; padding:11px; border-radius:12px; border:none; background:var(--g3); color:#fff; font-family:inherit; font-weight:800; cursor:pointer; }
 
+            /* ─── TIPS JOURNEY — stage/box grid ─── */
+            .ins-stage-wrap { margin-bottom:22px; }
+            .ins-stage-grid { display:flex; flex-wrap:wrap; gap:12px; }
+            .ins-stage-box { width:64px; height:64px; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+                border:1px solid var(--border); background:var(--bg2); cursor:pointer; transition:.15s; }
+            body.light-mode .ins-stage-box { background:#f3f4f7; }
+            .ins-stage-box .num { font-size:15px; font-weight:800; color:var(--text); }
+            .ins-stage-box .ic { font-size:13px; margin-top:2px; color:var(--muted); }
+            .ins-stage-box.done { background:rgba(30,122,52,0.14); border-color:rgba(30,122,52,0.4); }
+            .ins-stage-box.done .num, .ins-stage-box.done .ic { color:var(--g4); }
+            .ins-stage-box.current { background:rgba(212,160,23,0.16); border-color:var(--gold4); box-shadow:0 0 0 3px rgba(212,160,23,0.18); animation:insStagePulse 1.8s infinite; }
+            .ins-stage-box.current .num, .ins-stage-box.current .ic { color:var(--gold4); }
+            .ins-stage-box.locked { opacity:.5; cursor:not-allowed; }
+            @keyframes insStagePulse { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.06); } }
+            .ins-next-countdown { display:flex; align-items:center; gap:10px; margin-top:16px; padding:12px 14px;
+                background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:12px; }
+            body.light-mode .ins-next-countdown { background:rgba(0,0,0,0.04); }
+            .ins-next-countdown i { color:var(--gold4); }
+            .ins-next-countdown .lbl { font-size:12.5px; color:var(--muted); }
+            .ins-next-countdown .val { font-family:'Space Mono',monospace; font-weight:700; font-size:16px; color:var(--gold4); letter-spacing:1px; }
+
             /* ─── top buttons for saved / previous tips (open as full list, not inline dropdown) ─── */
             .ins-toplinks { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
             .ins-toplink-btn { flex:1; min-width:160px; display:flex; align-items:center; justify-content:center; gap:8px; padding:13px 10px;
@@ -4693,7 +4714,7 @@
         window._getUserUploadCount = async () => window._getDailyDownloadCount();
         window._incrementUploadCount = async () => { await window._incrementDailyDownload(); };
 
-        /* ─── DAILY TIPS (read + interactions) ─── */
+        /* ─── TIPS STAGES (box/level system) ─── */
         window._loadDailyTips = async () => {
             const q = query(collection(db, 'daily_tips'), orderBy('createdAt', 'asc'));
             const snap = await getDocs(q);
@@ -4712,25 +4733,21 @@
                 window._userData.tipLikes = liked ? [...new Set([...arr, tipId])] : arr.filter(x => x !== tipId);
             }
         };
-        window._toggleTipSave = async (tipId, saved) => {
+        // kicks off the student's personal 24h-per-box journey the first time they open the tips page
+        window._startTipsJourney = async () => {
             if (!currentUid) throw new Error('Not logged in');
-            await updateDoc(doc(db, 'users', currentUid), {
-                tipSaves: saved ? arrayUnion(tipId) : arrayRemove(tipId)
-            });
-            if (window._userData) {
-                const arr = window._userData.tipSaves || [];
-                window._userData.tipSaves = saved ? [...new Set([...arr, tipId])] : arr.filter(x => x !== tipId);
-            }
+            const nowIso = new Date().toISOString();
+            await setDoc(doc(db, 'users', currentUid), { tipsStartedAt: nowIso, tipsLastShownStage: 0 }, { merge: true });
+            if (window._userData) { window._userData.tipsStartedAt = nowIso; window._userData.tipsLastShownStage = 0; }
+            return nowIso;
         };
-        window._awardTipPoints = async () => {
-            if (!currentUid) return false;
-            const today = _getTodayStr();
-            if (window._userData?.lastTipPointDate === today) return false;
-            const newPoints = (window._userData?.tipPoints || 0) + 10;
-            await updateDoc(doc(db, 'users', currentUid), { tipPoints: newPoints, lastTipPointDate: today });
-            if (window._userData) { window._userData.tipPoints = newPoints; window._userData.lastTipPointDate = today; }
-            return true;
+        // remembers which box was last auto-popped-up so we don't re-show it every visit
+        window._markTipStageShown = async (stageIdx) => {
+            if (!currentUid) return;
+            await setDoc(doc(db, 'users', currentUid), { tipsLastShownStage: stageIdx }, { merge: true });
+            if (window._userData) window._userData.tipsLastShownStage = stageIdx;
         };
+
 
         /* ─── ADMIN CONTENT (Firestore) ─── */
         window._saveContent = async (contentMap) => {
@@ -5743,13 +5760,11 @@
             { id:'seed14', icon:'fa-code', color:'#d4a017', categoryAR:'برمجة', categoryEN:'Programming', titleAR:'اتعلّم Python وGIS', titleEN:'Learn Python for GIS', bodyAR:'البرمجة مهمة جدًا في GIS:<ul><li>استخدم <strong>Python + ArcPy</strong> لتسريع التحليل المكرّر</li><li>جرّب <strong>QGIS Python Plugins</strong></li><li>كتابة سكربتات صغيرة هتوفر وقتك وتديك قوة في تحليل البيانات الكبيرة</li></ul>', bodyEN:'Programming is very important in GIS:<ul><li>Use <strong>Python + ArcPy</strong> to automate repetitive analysis</li><li>Try <strong>QGIS Python Plugins</strong></li><li>Writing small scripts saves time and gives you power over large datasets</li></ul>' },
             { id:'seed15', icon:'fa-users', color:'#1e7a34', categoryAR:'مجتمع', categoryEN:'Community', titleAR:'شارك في مجتمعات GIS', titleEN:'Join GIS Communities', bodyAR:'المجتمع هيساعدك تتعلم أسرع:<ul><li>انضم لمجموعات GIS على Facebook، LinkedIn، Reddit</li><li>اسأل، شارك مشاريعك، خذ نصايح من محترفين</li><li>ده هيوصلك لفرص تدريبية وشغل أكثر</li></ul>', bodyEN:'Community will help you learn faster:<ul><li>Join GIS groups on Facebook, LinkedIn, Reddit</li><li>Ask questions, share your projects, get advice from professionals</li><li>This connects you to more training and job opportunities</li></ul>' }
         ];
-        const INS_EPOCH = new Date('2025-01-01T00:00:00');
         const INS_SHARE_LINK = 'https://atlasya2026.github.io/Atlasya/';
-        const INS_HASHTAGS = '#ATLASYA #GIS #GISExplorer';
+        const INS_STAGE_HOURS = 24; // hours between each box unlocking
         let _insTips = null;      // combined seed + Firestore tips, loaded once per session
         let _insCountdownTimer = null;
         let _insShareTipId = null;
-        let _insViewedToday = false;
 
         async function renderInsights(area) {
             area.innerHTML = `<div style="text-align:center;padding:60px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin" style="font-size:22px;"></i></div>`;
@@ -5759,57 +5774,43 @@
                 catch(e) { console.error('loadDailyTips error:', e); }
                 _insTips = [...INS_SEED_TIPS, ...fsTips];
             }
+            // first-ever visit: kick off this student's personal 24h-per-box journey
+            if (!window._userData?.tipsStartedAt) {
+                try { await window._startTipsJourney(); }
+                catch(e) { console.error('startTipsJourney error:', e); }
+            }
             insRenderPage(area);
         }
 
-        function insDateStr(d) {
-            const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${day}`;
+        function insTotalStages() { return _insTips.length; }
+        function insStartMs() {
+            const s = window._userData?.tipsStartedAt;
+            return s ? new Date(s).getTime() : null;
         }
-        // tips without an admin-assigned scheduledDate fall back to automatic day-by-day rotation
-        function insAutoPool() { return _insTips.filter(t => !t.scheduledDate); }
-        function insDayIndex(d) { return Math.floor(((d || new Date()).getTime() - INS_EPOCH.getTime()) / 86400000); }
-        function insAutoTipForDayIndex(di) {
-            const pool = insAutoPool();
-            if (!pool.length) return null;
-            const n = pool.length;
-            return pool[((di % n) + n) % n];
+        // 1-based index of the highest box unlocked right now (0 = journey not started yet)
+        function insUnlockedStage() {
+            const start = insStartMs();
+            if (!start) return 0;
+            const elapsedHours = (Date.now() - start) / 3600000;
+            const idx = 1 + Math.floor(elapsedHours / INS_STAGE_HOURS);
+            return Math.min(idx, insTotalStages());
         }
-        // admin can pin a specific tip to a specific date; that always wins over the automatic rotation
-        function insTipForDate(d) {
-            const ds = insDateStr(d);
-            const scheduled = _insTips.find(t => t.scheduledDate === ds);
-            if (scheduled) return scheduled;
-            return insAutoTipForDayIndex(insDayIndex(d));
-        }
-        function insTodayTip() { return insTipForDate(new Date()); }
-        function insPastTips() {
-            const out = [];
-            const today = new Date();
-            const lookback = Math.max(_insTips.length - 1, 30);
-            for (let i = 1; i <= lookback; i++) {
-                const d = new Date(today.getTime() - i * 86400000);
-                const tip = insTipForDate(d);
-                if (!tip) continue;
-                out.push({ ...tip, _dateObj: d });
-            }
-            return out;
+        // ms timestamp the next box unlocks at, or null if every box we currently have is already unlocked
+        function insNextUnlockMs() {
+            const start = insStartMs();
+            if (!start) return null;
+            const cur = insUnlockedStage();
+            if (cur >= insTotalStages()) return null;
+            return start + cur * INS_STAGE_HOURS * 3600000;
         }
         function insLikedIds() { return window._userData?.tipLikes || []; }
-        function insSavedIds() { return window._userData?.tipSaves || []; }
         function insIsLiked(id) { return insLikedIds().includes(id); }
-        function insIsSaved(id) { return insSavedIds().includes(id); }
-        function insQualifiedToday() { return _insViewedToday && insIsLiked(insTodayTip().id); }
 
         function insActionsHTML(tip, isAR) {
             const liked = insIsLiked(tip.id);
-            const saved = insIsSaved(tip.id);
             return `
             <button class="ins-act-btn ${liked?'liked':''}" onclick="insToggleLike('${tip.id}')">
                 <i class="fa-solid fa-heart"></i> ${isAR?'إعجاب':'Like'} <span class="cnt">${tip.likes||0}</span>
-            </button>
-            <button class="ins-act-btn ${saved?'saved':''}" onclick="insToggleSave('${tip.id}')">
-                <i class="fa-solid fa-bookmark"></i> ${isAR?'حفظ':'Save'}
             </button>
             <button class="ins-act-btn" onclick="insOpenShare('${tip.id}')">
                 <i class="fa-solid fa-share-nodes"></i> ${isAR?'مشاركة':'Share'}
@@ -5818,58 +5819,38 @@
 
         function insRenderPage(area) {
             const isAR = lang === 'AR';
-            const tip = insTodayTip();
-            const points = window._userData?.tipPoints || 0;
+            const total = insTotalStages();
+            const unlocked = insUnlockedStage();
+
+            const boxesHTML = _insTips.map((t, i) => {
+                const stage = i + 1;
+                const cls = stage < unlocked ? 'done' : (stage === unlocked ? 'current' : 'locked');
+                const icon = stage < unlocked ? '<i class="fa-solid fa-check ic"></i>'
+                           : (stage === unlocked ? '<i class="fa-solid fa-box-open ic"></i>' : '<i class="fa-solid fa-lock ic"></i>');
+                return `<div class="ins-stage-box ${cls}" onclick="insOpenStage(${stage})" title="${isAR?'بوكس':'Box'} ${stage}">
+                            <span class="num">${stage}</span>
+                            ${icon}
+                        </div>`;
+            }).join('');
+
+            const countdownHTML = unlocked >= total
+                ? `<div class="ins-next-countdown"><i class="fa-solid fa-flag-checkered"></i>
+                     <span class="lbl">${isAR?'خلصت كل البوكسات المتاحة — نصائح جديدة جاية قريب 🚀':'You finished all available boxes — new ones are coming soon 🚀'}</span></div>`
+                : `<div class="ins-next-countdown">
+                     <i class="fa-solid fa-hourglass-half"></i>
+                     <span class="lbl">${isAR?'البوكس الجاي يفتح بعد:':'Next box unlocks in:'}</span>
+                     <span class="val" id="insCountdownVal">--:--:--</span>
+                   </div>`;
+
             area.innerHTML = `
             <div class="page-header">
-                <h2>${isAR ? 'رؤى GIS' : 'GIS Insights'}</h2>
-                <p>${isAR ? 'نصيحة جديدة كل يوم — اقرأ، اعمل لايك، واكسب نقاط' : 'A new tip every day — read, like, and earn points'}</p>
+                <h2>${isAR ? 'رحلة النصائح' : 'Tips Journey'}</h2>
+                <p>${isAR ? 'كل 24 ساعة يتفتح بوكس جديد فيه نصيحة — اقرأ، اعمل لايك، وشارك' : 'A new box unlocks every 24 hours — read, like, and share'}</p>
             </div>
 
-            <div class="ins-toplinks">
-                <button class="ins-toplink-btn saved-btn" onclick="insOpenSavedModal()"><i class="fa-solid fa-bookmark"></i> ${isAR?'النصائح المحفوظة':'Saved Tips'}</button>
-                <button class="ins-toplink-btn hist-btn" onclick="insOpenHistModal()"><i class="fa-solid fa-book-open"></i> ${isAR?'جميع النصائح السابقة':'All Previous Tips'}</button>
-            </div>
-
-            <div class="ins-today-card">
-                <div class="ins-eyebrow"><i class="fa-solid fa-lightbulb"></i> ${isAR?'نصيحة اليوم':"Today's Tip"} &nbsp;•&nbsp; <span class="ins-points-pill"><i class="fa-solid fa-star"></i> ${points} ${isAR?'نقطة':'pts'}</span></div>
-                <span class="ins-cat">${isAR?tip.categoryAR:tip.categoryEN}</span>
-                <h3 class="tip-title" style="font-size:19px;">${isAR?tip.titleAR:tip.titleEN}</h3>
-                <div class="tip-body" style="font-size:14.5px;margin-top:8px;">${isAR?tip.bodyAR:tip.bodyEN}</div>
-                <div class="ins-date">${new Date().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'long',year:'numeric'})}</div>
-                <div class="ins-countdown">
-                    <i class="fa-solid fa-hourglass-half"></i>
-                    <span class="lbl">${isAR?'النصيحة القادمة بعد:':'Next tip in:'}</span>
-                    <span class="val" id="insCountdownVal">--:--:--</span>
-                </div>
-                <div class="ins-actions" id="insTodayActions">${insActionsHTML(tip, isAR)}</div>
-            </div>
-
-            <div class="ins-random-wrap">
-                <button class="ins-random-btn" id="insRandomBtn" onclick="insOpenRandom()"><i class="fa-solid fa-gift"></i> ${isAR?'افتح نصيحة عشوائية':'Open a Random Tip'}</button>
-                <div class="ins-random-hint" id="insRandomHint"></div>
-            </div>
-
-            <!-- saved tips modal -->
-            <div class="ins-list-modal-overlay" id="insSavedOverlay" onclick="if(event.target===this) insCloseSavedModal()">
-                <div class="ins-list-modal-card">
-                    <div class="ins-list-modal-head">
-                        <h3><i class="fa-solid fa-bookmark" style="color:var(--gold4);"></i> ${isAR?'النصائح المحفوظة':'Saved Tips'}</h3>
-                        <i class="fa-solid fa-xmark close-x" onclick="insCloseSavedModal()"></i>
-                    </div>
-                    <div class="ins-list-modal-body" id="insSavedList"></div>
-                </div>
-            </div>
-
-            <!-- previous tips modal -->
-            <div class="ins-list-modal-overlay" id="insHistOverlay" onclick="if(event.target===this) insCloseHistModal()">
-                <div class="ins-list-modal-card">
-                    <div class="ins-list-modal-head">
-                        <h3><i class="fa-solid fa-book-open" style="color:var(--g4);"></i> ${isAR?'جميع النصائح السابقة':'All Previous Tips'}</h3>
-                        <i class="fa-solid fa-xmark close-x" onclick="insCloseHistModal()"></i>
-                    </div>
-                    <div class="ins-list-modal-body" id="insHistList"></div>
-                </div>
+            <div class="ins-stage-wrap">
+                <div class="ins-stage-grid">${boxesHTML}</div>
+                ${countdownHTML}
             </div>
 
             <!-- share sheet -->
@@ -5885,73 +5866,41 @@
                 <button class="ins-sheet-close" onclick="insCloseShare()">${isAR?'إغلاق':'Close'}</button>
             </div>
 
-            <!-- random tip modal -->
-            <div class="ins-modal-overlay" id="insRandomOverlay">
-                <div class="ins-modal-card" id="insRandomModalContent"></div>
+            <!-- stage (box) tip modal -->
+            <div class="ins-modal-overlay" id="insStageOverlay">
+                <div class="ins-modal-card" id="insStageModalContent"></div>
             </div>`;
 
-            _insViewedToday = true;
-            insRenderHistory();
-            insRenderSaved();
-            insUpdateRandomBtn();
             insTickCountdown();
             if (_insCountdownTimer) clearInterval(_insCountdownTimer);
             _insCountdownTimer = setInterval(insTickCountdown, 1000);
 
-            // maybe award points if tip was already liked earlier today (revisit case)
-            if (insIsLiked(tip.id)) insMaybeAwardPoints();
+            // auto-popup the newest unlocked box the student hasn't seen yet (e.g. box 1 on their very first visit)
+            const lastShown = window._userData?.tipsLastShownStage || 0;
+            if (unlocked > lastShown) {
+                insOpenStage(unlocked);
+            }
         }
 
-        function insRenderHistory() {
+        window.insOpenStage = function(stage) {
             const isAR = lang === 'AR';
-            const el = document.getElementById('insHistList');
-            if (!el) return;
-            const list = insPastTips();
-            if (!list.length) { el.innerHTML = `<div class="ins-empty">${isAR?'لسه معندناش نصائح سابقة 🌱':'No previous tips yet 🌱'}</div>`; return; }
-            el.innerHTML = list.map(tip => `
-            <div class="ins-hist-card">
+            const unlocked = insUnlockedStage();
+            if (stage > unlocked) return; // still locked, nothing to show
+            const tip = _insTips[stage - 1];
+            if (!tip) return;
+            document.getElementById('insStageModalContent').innerHTML = `
+                <div class="ins-eyebrow"><i class="fa-solid fa-box-open"></i> ${isAR?`بوكس ${stage}`:`Box ${stage}`}</div>
                 <span class="ins-cat">${isAR?tip.categoryAR:tip.categoryEN}</span>
-                <h3 class="tip-title" style="font-size:15.5px;">${isAR?tip.titleAR:tip.titleEN}</h3>
-                <div class="tip-body" style="margin-top:6px;">${isAR?tip.bodyAR:tip.bodyEN}</div>
-                <div class="ins-date">${tip._dateObj.toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'long',year:'numeric'})}</div>
-                <div class="ins-actions" style="margin-top:12px;">${insActionsHTML(tip, isAR)}</div>
-            </div>`).join('');
-        }
+                <h3 class="tip-title" style="font-size:19px;">${isAR?tip.titleAR:tip.titleEN}</h3>
+                <div class="tip-body" style="font-size:14.5px;margin-top:8px;">${isAR?tip.bodyAR:tip.bodyEN}</div>
+                <div class="ins-actions" id="insStageActions">${insActionsHTML(tip, isAR)}</div>
+                <button class="ins-modal-close" onclick="document.getElementById('insStageOverlay').classList.remove('open')">${isAR?'تمام':'Got it'}</button>`;
+            document.getElementById('insStageOverlay').classList.add('open');
 
-        function insRenderSaved() {
-            const isAR = lang === 'AR';
-            const el = document.getElementById('insSavedList');
-            if (!el) return;
-            const all = [insTodayTip(), ...insPastTips()];
-            const seen = new Set();
-            const list = all.filter(t => {
-                if (!insIsSaved(t.id) || seen.has(t.id)) return false;
-                seen.add(t.id);
-                return true;
-            });
-            if (!list.length) { el.innerHTML = `<div class="ins-empty">${isAR?'هتلاقي هنا النصائح اللي تحفظها 🔖':'Tips you save will show up here 🔖'}</div>`; return; }
-            el.innerHTML = list.map(tip => `
-            <div class="ins-hist-card">
-                <span class="ins-cat">${isAR?tip.categoryAR:tip.categoryEN}</span>
-                <h3 class="tip-title" style="font-size:15.5px;">${isAR?tip.titleAR:tip.titleEN}</h3>
-                <div class="tip-body" style="margin-top:6px;">${isAR?tip.bodyAR:tip.bodyEN}</div>
-                <div class="ins-actions" style="margin-top:12px;">${insActionsHTML(tip, isAR)}</div>
-            </div>`).join('');
-        }
-
-        window.insOpenHistModal = function() {
-            insRenderHistory();
-            document.getElementById('insHistOverlay')?.classList.add('open');
-        };
-        window.insCloseHistModal = function() {
-            document.getElementById('insHistOverlay')?.classList.remove('open');
-        };
-        window.insOpenSavedModal = function() {
-            insRenderSaved();
-            document.getElementById('insSavedOverlay')?.classList.add('open');
-        };
-        window.insCloseSavedModal = function() {
-            document.getElementById('insSavedOverlay')?.classList.remove('open');
+            const lastShown = window._userData?.tipsLastShownStage || 0;
+            if (stage > lastShown) {
+                window._markTipStageShown(stage).catch(e => console.error(e));
+            }
         };
 
         window.insToggleLike = async function(tipId) {
@@ -5961,71 +5910,9 @@
             try {
                 await window._toggleTipLike(tipId, !wasLiked);
                 if (t) t.likes = (t.likes || 0) + (wasLiked ? -1 : 1);
-                if (!wasLiked && tipId === insTodayTip().id) await insMaybeAwardPoints();
-                insRefreshLists();
+                const actionsEl = document.getElementById('insStageActions');
+                if (actionsEl && t) actionsEl.innerHTML = insActionsHTML(t, lang === 'AR');
             } catch(e) { console.error(e); showToast(lang==='AR'?'حدث خطأ':'An error occurred', true); }
-        };
-        window.insToggleSave = async function(tipId) {
-            if (!window._currentUid) { showToast(lang==='AR'?'سجّل الدخول الأول':'Please log in first', true); return; }
-            const wasSaved = insIsSaved(tipId);
-            try {
-                await window._toggleTipSave(tipId, !wasSaved);
-                showToast(wasSaved ? (lang==='AR'?'🗑️ اتشالت من المحفوظات':'🗑️ Removed from saved') : (lang==='AR'?'🔖 اتحفظت في نصائحك':'🔖 Saved to your tips'));
-                insRefreshLists();
-            } catch(e) { console.error(e); showToast(lang==='AR'?'حدث خطأ':'An error occurred', true); }
-        };
-
-        async function insMaybeAwardPoints() {
-            if (!insQualifiedToday()) return;
-            try {
-                const awarded = await window._awardTipPoints();
-                if (awarded) showToast(lang==='AR' ? '🎉 حصلت على 10 نقاط لقراءتك نصيحة اليوم!' : '🎉 You earned 10 points for reading today\'s tip!');
-                insUpdateRandomBtn();
-                const pill = document.querySelector('.ins-points-pill');
-                if (pill) pill.innerHTML = `<i class="fa-solid fa-star"></i> ${window._userData?.tipPoints||0} ${lang==='AR'?'نقطة':'pts'}`;
-            } catch(e) { console.error(e); }
-        }
-
-        function insUpdateRandomBtn() {
-            const isAR = lang === 'AR';
-            const btn = document.getElementById('insRandomBtn');
-            const hint = document.getElementById('insRandomHint');
-            if (!btn) return;
-            const ok = insQualifiedToday();
-            btn.disabled = !ok;
-            if (hint) hint.textContent = ok
-                ? (isAR?'اضغط واكتشف نصيحة قديمة بالصدفة ✨':'Tap to discover an older tip ✨')
-                : (isAR?'اقرأ نصيحة اليوم واعمل لايك عشان تفتح الزر ده 🔒':'Read and like today\'s tip to unlock this 🔒');
-        }
-
-        function insRefreshLists() {
-            const todayActionsEl = document.getElementById('insTodayActions');
-            if (todayActionsEl) todayActionsEl.innerHTML = insActionsHTML(insTodayTip(), lang === 'AR');
-            insRenderHistory();
-            insRenderSaved();
-            insUpdateRandomBtn();
-        }
-
-        window.insOpenRandom = function() {
-            const isAR = lang === 'AR';
-            if (!insQualifiedToday()) return;
-            const todayId = insTodayTip().id;
-            const seen = new Set();
-            const pool = insPastTips().filter(t => {
-                if (t.id === todayId || seen.has(t.id)) return false;
-                seen.add(t.id);
-                return true;
-            });
-            if (!pool.length) { showToast(isAR?'لسه مفيش نصائح سابقة تانية':'No older tips available yet'); return; }
-            const tip = pool[Math.floor(Math.random() * pool.length)];
-            document.getElementById('insRandomModalContent').innerHTML = `
-                <span class="ins-cat">${isAR?tip.categoryAR:tip.categoryEN}</span>
-                <h3 class="tip-title" style="font-size:17px;">🎁 ${isAR?tip.titleAR:tip.titleEN}</h3>
-                <div class="tip-body" style="margin-top:8px;">${isAR?tip.bodyAR:tip.bodyEN}</div>
-                <div class="ins-date">${tip._dateObj.toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'long',year:'numeric'})}</div>
-                <div class="ins-actions" style="margin-top:14px;">${insActionsHTML(tip, isAR)}</div>
-                <button class="ins-modal-close" onclick="document.getElementById('insRandomOverlay').classList.remove('open')">${isAR?'تمام':'Got it'}</button>`;
-            document.getElementById('insRandomOverlay').classList.add('open');
         };
 
         window.insOpenShare = function(tipId) {
@@ -6045,8 +5932,8 @@
             return `💡 ${isAR?'نصيحة':'A'} ${cat} ${isAR?'من منصة':'tip from'} ATLASYA\n\n${title}\n${body}\n\n📚 ${isAR?'المزيد من النصائح والكتب والكورسات وبيانات GIS:':'More tips, books, courses, and GIS data:'}\n${INS_SHARE_LINK}`;
         }
         window.insDoShare = function(channel) {
-            const all = [insTodayTip(), ...insPastTips()];
-            const tip = all.find(t => t.id === _insShareTipId) || insTodayTip();
+            const tip = _insTips.find(t => t.id === _insShareTipId);
+            if (!tip) return;
             const text = insShareText(tip);
             const enc = encodeURIComponent(text);
             if (channel === 'whatsapp') window.open(`https://wa.me/?text=${enc}`, '_blank');
@@ -6059,19 +5946,21 @@
         function insTickCountdown() {
             const el = document.getElementById('insCountdownVal');
             if (!el) { if (_insCountdownTimer) { clearInterval(_insCountdownTimer); _insCountdownTimer = null; } return; }
-            const now = new Date();
-            const next = new Date(now); next.setHours(24, 0, 0, 0);
-            const diff = next - now;
+            const nextMs = insNextUnlockMs();
+            if (nextMs == null) { if (_insCountdownTimer) { clearInterval(_insCountdownTimer); _insCountdownTimer = null; } return; }
+            const diff = nextMs - Date.now();
+            if (diff <= 1000) {
+                // a new box just unlocked — re-render in place
+                const area = document.getElementById('contentArea');
+                if (area && window._currentPage === 'insights') insRenderPage(area);
+                return;
+            }
             const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
             const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
             const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
             el.textContent = `${h}:${m}:${s}`;
-            if (diff <= 1000) {
-                // new day started — reload today's tip in place
-                const area = document.getElementById('contentArea');
-                if (area && window._currentPage === 'insights') insRenderPage(area);
-            }
         }
+
 
 
         /* ─── SPATIAL DATA LIBRARY ─── */
