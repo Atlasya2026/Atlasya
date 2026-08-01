@@ -16,6 +16,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- EmailJS: optional — powers automatic emails for subscription approval/rejection.
+         Configure the same EMAILJS_CONFIG values used in student.html below. -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
 
     <style>
@@ -3791,6 +3794,27 @@
     };
     window._isPro = () => window._getUserPlan() === 'pro';
 
+    /* ─── SUBSCRIPTION SYSTEM ─── */
+    window._getUserPlan = () => {
+        return window._userData?.plan || 'basic';
+    };
+    window._isPro = () => window._getUserPlan() === 'pro';
+
+    /* ── EmailJS (optional) — must match the same values configured in student.html
+       to enable automatic emails when a subscription request is approved/rejected. ── */
+    window.EMAILJS_CONFIG = { PUBLIC_KEY: '', SERVICE_ID: '', TEMPLATE_ID: '' };
+    if (window.EMAILJS_CONFIG.PUBLIC_KEY && typeof emailjs !== 'undefined') {
+        try { emailjs.init({ publicKey: window.EMAILJS_CONFIG.PUBLIC_KEY }); } catch (e) {}
+    }
+    window._sendSubscriptionEmail = async (toEmail, toName, subject, message) => {
+        try {
+            if (!window.EMAILJS_CONFIG.PUBLIC_KEY || typeof emailjs === 'undefined' || !toEmail) return;
+            await emailjs.send(window.EMAILJS_CONFIG.SERVICE_ID, window.EMAILJS_CONFIG.TEMPLATE_ID, {
+                to_email: toEmail, to_name: toName || '', subject, message
+            });
+        } catch (e) { /* email is best-effort only */ }
+    };
+
     window._sendUpgradeRequest = async () => {
         if (!currentUid) throw new Error('Not logged in');
         const d = window._userData || {};
@@ -3813,6 +3837,19 @@
 
     window._deleteUpgradeRequest = async (reqId) => {
         await deleteDoc(doc(db, 'upgrade_requests', reqId));
+    };
+
+    /* Updates a subscription request's review status (approve/reject) while
+       keeping the document as a permanent history record — never deleted. */
+    window._reviewUpgradeRequest = async (reqId, status, extra) => {
+        extra = extra || {};
+        const payload = {
+            status,
+            reviewedAt: serverTimestamp(),
+            rejectionReason: status === 'rejected' ? (extra.reason || '') : null,
+            approvedMonths: status === 'approved' ? (extra.months || 12) : null
+        };
+        await updateDoc(doc(db, 'upgrade_requests', reqId), payload);
     };
 
     window._setUserPlan = async (uid, plan, months) => {
@@ -4706,7 +4743,38 @@
         if (!isOpen) sec.classList.add('open');
     }
 
-    function navigate(page, el, silent) {
+    /* Maps each page key to its sidebar nav-item id, used to highlight the
+       correct menu entry when routing directly from a URL hash (deep link
+       or browser back/forward), where no click event/element is available. */
+    const PAGE_NAV_ID_MAP = {
+        dashboard: 'menuDash', playlists: 'menuPlay', library: 'menuLib',
+        insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool',
+        jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
+        community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
+        account: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
+        adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro',
+        adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
+        admincourses: 'menuAdminCourses', adminlibrary: 'menuAdminLibrary',
+        adminplaylists: 'menuAdminPlaylists', admindatasets: 'menuAdminDatasets',
+        admintools: 'menuAdminTools', admintips: 'menuAdminTips'
+    };
+
+    /* Reflects the current page in the URL as #/page-name so every page has
+       its own shareable, bookmarkable, browser-back-friendly link. */
+    function updateUrlForPage(page) {
+        try {
+            const newHash = '#/' + page;
+            if (location.hash !== newHash) history.pushState({ page }, '', newHash);
+        } catch (e) { /* URL API not available — fail silently, app still works */ }
+    }
+
+    /* Reads the page name out of the current URL hash (#/page-name), if any. */
+    function getPageFromUrl() {
+        const raw = (location.hash || '').replace(/^#\/?/, '').trim();
+        return raw || null;
+    }
+
+    function navigate(page, el, silent, noHistory) {
         if (window._isAdmin && Array.isArray(window._adminPermissions)) {
             const neededKey = ADMIN_PAGE_PERMISSION_MAP[page];
             if (neededKey && !window._adminPermissions.includes(neededKey)) {
@@ -4727,6 +4795,7 @@
                 parentGroup.classList.add('open');
             }
         }
+        if (!noHistory) updateUrlForPage(page);
         const titles = {
             dashboard: lang==='AR'?'لوحة التحكم':'Dashboard',
             playlists: lang==='AR'?'قوائم التشغيل':'Playlists',
@@ -4801,6 +4870,15 @@
         // Apply admin-saved content from Firebase after every render
         if (window._applyContent) window._applyContent();
     }
+
+    /* Handles the browser Back/Forward buttons: re-renders the page encoded
+       in the URL without pushing a new (duplicate) history entry. */
+    window.addEventListener('popstate', () => {
+        const page = getPageFromUrl();
+        if (!page) return;
+        const navEl = PAGE_NAV_ID_MAP[page] ? document.getElementById(PAGE_NAV_ID_MAP[page]) : null;
+        navigate(page, navEl, false, true);
+    });
 
     /* ─── DASHBOARD INSTALL BANNER ─── */
     function buildDashInstallBanner(isAR) {
@@ -4914,23 +4992,15 @@
             ${sectionCard('courses','fa-building-shield',isAR?'الكورسات والشركات':'Courses & Companies',isAR?'دورات تدريبية وشركات GIS الرائدة':'Training courses and leading GIS firms', true)}
         </div>`}`;
 
-        // Load live counts from Firestore and update all dashboard stat cards
-        try {
-            const [playlists, books, jobs, datasets] = await Promise.all([
-                window._loadPlaylistsAdmin ? window._loadPlaylistsAdmin() : Promise.resolve([]),
-                window._loadLibraryBooksAdmin ? window._loadLibraryBooksAdmin() : Promise.resolve([]),
-                window._loadJobs ? window._loadJobs() : Promise.resolve([]),
-                window._loadSpatialDatasets ? window._loadSpatialDatasets() : Promise.resolve([]),
-            ]);
-            const statVideos = document.getElementById('stat_videos');
-            const statLibrary = document.getElementById('stat_library');
-            const statJobs = document.getElementById('stat_jobs');
-            const statDatasets = document.getElementById('stat_datasets');
-            if (statVideos) statVideos.textContent = playlists.filter(p => !p.hidden).length;
-            if (statLibrary) statLibrary.textContent = books.filter(b => !b.hidden).length;
-            if (statJobs) statJobs.textContent = jobs.filter(j => (j.status || 'approved') === 'approved').length;
-            if (statDatasets) statDatasets.textContent = datasets.filter(d => !d.hidden).length;
-        } catch(e) { /* silent fail — keep defaults */ }
+        // Load live job count from Firestore and update stat_jobs card
+        if (window._loadJobs) {
+            try {
+                const jobs = await window._loadJobs();
+                const approvedJobs = jobs.filter(j => (j.status || 'approved') === 'approved');
+                const statJobs = document.getElementById('stat_jobs');
+                if (statJobs) statJobs.textContent = approvedJobs.length;
+            } catch(e) { /* silent fail — keep default 0 */ }
+        }
     }
 
     function sectionCard(page, icon, title, desc, hideMobile=false) {
@@ -7791,17 +7861,14 @@
     function renderAdminProRequests(area) {
         area = area || document.getElementById('contentArea');
         const isAR = lang === 'AR';
+        window._subReqFilter = window._subReqFilter || 'pending';
         area.innerHTML = `
         <div class="page-header">
-            <h2>${isAR ? 'طلبات الترقية إلى Pro' : 'Pro Upgrade Requests'}</h2>
-            <p>${isAR ? 'مراجعة وتفعيل طلبات الترقية الواردة من الطلاب' : 'Review and activate incoming upgrade requests'}</p>
+            <h2>${isAR ? 'طلبات الاشتراك' : 'Subscription Requests'}</h2>
+            <p>${isAR ? 'مراجعة طلبات اشتراك ATLASYA PRO وتفعيلها أو رفضها' : 'Review, approve, or reject ATLASYA PRO subscription requests'}</p>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
-            <h4 style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px;margin:0;">
-                <i class="fa-solid fa-arrow-up" style="color:var(--gold3);"></i>
-                ${isAR ? 'طلبات الترقية' : 'Upgrade Requests'}
-                <span id="upgradeReqBadge" style="background:var(--gold3);color:#000;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;display:none;"></span>
-            </h4>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+            <div id="subReqTabs" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
             <button onclick="adminLoadMembers()" style="margin-right:auto;display:flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:10px;color:var(--gold3);font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;" onmouseover="this.style.background='rgba(212,160,23,0.22)'" onmouseout="this.style.background='rgba(212,160,23,0.1)'">
                 <i class="fa-solid fa-rotate"></i> ${isAR ? 'تحديث' : 'Refresh'}
             </button>
@@ -7811,6 +7878,11 @@
         </div>`;
         setTimeout(() => adminLoadMembers(), 100);
     }
+
+    window.adminSetSubReqFilter = function(f) {
+        window._subReqFilter = f;
+        adminLoadMembers();
+    };
 
     /* ─── ADMIN: STUDENT MAPS MANAGEMENT ─── */
     async function renderAdminPortfolio(area) {
@@ -10169,32 +10241,105 @@
                 }
             });
 
-            // ── Upgrade Requests ──
+            // ── Subscription Requests (tabs + full detail cards) ──
             if (reqList) {
-            const pendingReqs = reqs.filter(r => r.status === 'pending');
-            if (reqBadge) { reqBadge.textContent = pendingReqs.length; reqBadge.style.display = pendingReqs.length ? 'inline-flex' : 'none'; }
-            if (!pendingReqs.length) {
-                reqList.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;"><i class="fa-solid fa-inbox" style="display:block;font-size:24px;opacity:0.3;margin-bottom:8px;"></i>${isAR?'لا توجد طلبات ترقية حالياً':'No upgrade requests right now'}</div>`;
+            const filter = window._subReqFilter || 'pending';
+            const counts = {
+                pending: reqs.filter(r => r.status === 'pending').length,
+                approved: reqs.filter(r => r.status === 'approved').length,
+                rejected: reqs.filter(r => r.status === 'rejected').length,
+                all: reqs.length
+            };
+            if (reqBadge) { reqBadge.textContent = counts.pending; reqBadge.style.display = counts.pending ? 'inline-flex' : 'none'; }
+
+            const tabsEl = document.getElementById('subReqTabs');
+            if (tabsEl) {
+                const tabDefs = [
+                    { key: 'pending',  labelAR: '⏳ قيد المراجعة', labelEN: '⏳ Pending' },
+                    { key: 'approved', labelAR: '✅ مقبول',        labelEN: '✅ Approved' },
+                    { key: 'rejected', labelAR: '❌ مرفوض',        labelEN: '❌ Rejected' },
+                    { key: 'all',      labelAR: 'الكل',            labelEN: 'All' }
+                ];
+                tabsEl.innerHTML = tabDefs.map(t => {
+                    const active = filter === t.key;
+                    return `<button onclick="adminSetSubReqFilter('${t.key}')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;border:1px solid ${active?'var(--gold3)':'var(--border)'};background:${active?'rgba(212,160,23,0.15)':'transparent'};color:${active?'var(--gold3)':'var(--muted)'};">
+                        ${isAR ? t.labelAR : t.labelEN}
+                        <span style="background:${active?'var(--gold3)':'rgba(255,255,255,0.08)'};color:${active?'#000':'var(--muted)'};font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;">${counts[t.key]}</span>
+                    </button>`;
+                }).join('');
+            }
+
+            const filteredReqs = (filter === 'all') ? reqs : reqs.filter(r => (r.status || 'pending') === filter);
+            // newest first
+            filteredReqs.sort((a, b) => {
+                const ta = a.requestedAt?.toMillis ? a.requestedAt.toMillis() : 0;
+                const tb = b.requestedAt?.toMillis ? b.requestedAt.toMillis() : 0;
+                return tb - ta;
+            });
+
+            if (!filteredReqs.length) {
+                reqList.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;"><i class="fa-solid fa-inbox" style="display:block;font-size:24px;opacity:0.3;margin-bottom:8px;"></i>${isAR?'لا توجد طلبات في هذا القسم':'No requests in this section'}</div>`;
             } else {
-                reqList.innerHTML = pendingReqs.map(r => {
-                    const timeStr = r.requestedAt?.toDate ? r.requestedAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric'}) : '';
-                    const waLink = r.phone ? `https://wa.me/${r.phone.replace(/\D/g,'')}` : '#';
-                    return `<div id="req_${r.id}" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(212,160,23,0.05);border:1px solid rgba(212,160,23,0.2);border-radius:12px;flex-wrap:wrap;transition:0.2s;">
-                        <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold2),var(--gold3));display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;font-size:15px;flex-shrink:0;">${(r.firstName||'U')[0].toUpperCase()}</div>
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-size:13px;font-weight:700;">${r.firstName||''} ${r.lastName||''}</div>
-                            <div style="font-size:11px;color:var(--muted);margin-top:1px;">${r.email||''} ${r.phone ? '· <b style="color:var(--text);">'+r.phone+'</b>' : ''}</div>
-                            <div style="font-size:10px;color:var(--muted);margin-top:2px;"><i class="fa-regular fa-clock" style="margin-left:3px;"></i>${timeStr}</div>
+                const methodLabel = (m) => m === 'instapay' ? 'InstaPay' : (m === 'vodafone' ? 'Vodafone Cash' : (m || (isAR?'غير محدد':'Not specified')));
+                const statusBadge = (status) => {
+                    if (status === 'approved') return `<span style="background:rgba(39,163,70,0.15);color:var(--green4);font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;">✅ ${isAR?'مقبول':'Approved'}</span>`;
+                    if (status === 'rejected') return `<span style="background:rgba(220,50,50,0.15);color:#ff6b6b;font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;">❌ ${isAR?'مرفوض':'Rejected'}</span>`;
+                    return `<span style="background:rgba(212,160,23,0.15);color:var(--gold3);font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;">⏳ ${isAR?'قيد المراجعة':'Pending'}</span>`;
+                };
+                reqList.innerHTML = filteredReqs.map(r => {
+                    const status = r.status || 'pending';
+                    const timeStr = r.requestedAt?.toDate ? r.requestedAt.toDate().toLocaleString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+                    const reviewedStr = r.reviewedAt?.toDate ? r.reviewedAt.toDate().toLocaleString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+                    const shotHtml = r.screenshot
+                        ? `<img src="${r.screenshot}" onclick="window.open(this.src,'_blank')" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0;" title="${isAR?'اضغط للتكبير':'Click to enlarge'}">`
+                        : `<div style="width:64px;height:64px;border-radius:8px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;flex-shrink:0;"><i class="fa-regular fa-image"></i></div>`;
+                    return `<div id="req_${r.id}" style="padding:14px;background:rgba(212,160,23,0.04);border:1px solid rgba(212,160,23,0.18);border-radius:14px;transition:0.2s;">
+                        <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                            ${shotHtml}
+                            <div style="flex:1;min-width:180px;">
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
+                                    <span style="font-size:13.5px;font-weight:700;">${r.firstName||''} ${r.lastName||''}</span>
+                                    ${statusBadge(status)}
+                                </div>
+                                <div style="font-size:11px;color:var(--muted);">
+                                    ${r.email||''}${r.username ? ' · @'+r.username : ''}
+                                </div>
+                                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--muted);">
+                                    <span><i class="fa-solid fa-credit-card" style="margin-left:3px;color:var(--gold3);"></i>${methodLabel(r.paymentMethod)}</span>
+                                    ${r.months ? `<span><i class="fa-solid fa-calendar-days" style="margin-left:3px;color:var(--gold3);"></i>${r.months}${isAR?' شهر':' mo'}</span>` : ''}
+                                    ${r.amount ? `<span><i class="fa-solid fa-money-bill" style="margin-left:3px;color:var(--gold3);"></i>${r.amount} ${isAR?'ج':'EGP'}</span>` : ''}
+                                    ${r.paymentDate ? `<span><i class="fa-regular fa-calendar" style="margin-left:3px;"></i>${r.paymentDate}</span>` : ''}
+                                </div>
+                                <div style="font-size:10px;color:var(--muted);margin-top:4px;"><i class="fa-regular fa-clock" style="margin-left:3px;"></i>${isAR?'أُرسل':'Sent'}: ${timeStr}</div>
+                                ${reviewedStr ? `<div style="font-size:10px;color:var(--muted);margin-top:1px;"><i class="fa-solid fa-check-double" style="margin-left:3px;"></i>${isAR?'روجع':'Reviewed'}: ${reviewedStr}${r.approvedMonths ? ' · '+r.approvedMonths+(isAR?' شهر':' mo') : ''}</div>` : ''}
+                                ${r.rejectionReason ? `<div style="font-size:11px;color:#ff6b6b;margin-top:6px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.2);border-radius:8px;padding:6px 10px;">${isAR?'سبب الرفض':'Rejection reason'}: ${r.rejectionReason}</div>` : ''}
+                            </div>
+                            ${status === 'pending' ? `
+                            <div style="display:flex;gap:6px;flex-shrink:0;align-items:flex-start;">
+                                <button onclick="adminToggleApprovePanel('${r.id}')" style="display:flex;align-items:center;gap:5px;padding:7px 12px;background:rgba(39,163,70,0.12);border:1px solid rgba(39,163,70,0.3);border-radius:8px;color:var(--green4);font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;" title="${isAR?'قبول':'Approve'}">
+                                    <i class="fa-solid fa-check"></i> ${isAR?'قبول':'Approve'}
+                                </button>
+                                <button onclick="adminToggleRejectPanel('${r.id}')" style="display:flex;align-items:center;gap:5px;padding:7px 12px;background:rgba(220,50,50,0.1);border:1px solid rgba(220,50,50,0.3);border-radius:8px;color:#ff6b6b;font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;" title="${isAR?'رفض':'Reject'}">
+                                    <i class="fa-solid fa-xmark"></i> ${isAR?'رفض':'Reject'}
+                                </button>
+                            </div>` : ''}
                         </div>
-                        <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
-                            <a href="${waLink}" target="_blank" style="display:flex;align-items:center;gap:5px;padding:7px 12px;background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);border-radius:8px;color:#25d366;font-size:11px;font-weight:700;text-decoration:none;" title="${isAR?'فتح واتساب':'Open WhatsApp'}">
-                                <i class="fa-brands fa-whatsapp" style="font-size:15px;"></i> ${isAR?'واتساب':'WhatsApp'}
-                            </a>
-                            <button onclick="adminActivatePro('${r.uid}','${r.id}')" style="display:flex;align-items:center;gap:5px;padding:7px 12px;background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:8px;color:var(--gold3);font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;" title="${isAR?'تفعيل Pro':'Activate Pro'}">
-                                <i class="fa-solid fa-crown"></i> ${isAR?'تفعيل Pro':'Activate Pro'}
+                        <div id="approvePanel_${r.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(212,160,23,0.15);align-items:center;gap:10px;flex-wrap:wrap;">
+                            <label style="font-size:12px;color:var(--muted);">${isAR?'باقة الاشتراك':'Subscription package'}</label>
+                            <select id="approveMonths_${r.id}" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-family:'Tajawal',sans-serif;font-size:12px;">
+                                <option value="1" ${(r.months||1)===1?'selected':''}>${isAR?'شهر واحد — 50 ج':'1 month — 50 EGP'}</option>
+                                <option value="3" ${r.months===3?'selected':''}>${isAR?'3 أشهر — 150 ج':'3 months — 150 EGP'}</option>
+                                <option value="6" ${r.months===6?'selected':''}>${isAR?'6 أشهر — 200 ج':'6 months — 200 EGP'}</option>
+                            </select>
+                            <button onclick="adminActivatePro('${r.uid}','${r.id}')" style="padding:7px 16px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#000;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                                <i class="fa-solid fa-crown"></i> ${isAR?'تأكيد التفعيل':'Confirm activation'}
                             </button>
-                            <button onclick="adminDeleteRequest('${r.id}')" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.25);border-radius:8px;color:#ff6b6b;cursor:pointer;transition:0.2s;flex-shrink:0;" title="${isAR?'حذف الطلب':'Delete request'}" onmouseover="this.style.background='rgba(220,50,50,0.2)'" onmouseout="this.style.background='rgba(220,50,50,0.08)'">
-                                <i class="fa-solid fa-xmark" style="font-size:14px;"></i>
+                        </div>
+                        <div id="rejectPanel_${r.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(220,50,50,0.15);flex-direction:column;gap:8px;">
+                            <label style="font-size:12px;color:var(--muted);">${isAR?'سبب الرفض (سيصل للطالب)':'Rejection reason (sent to the student)'}</label>
+                            <textarea id="rejectReason_${r.id}" rows="2" placeholder="${isAR?'مثال: صورة إثبات الدفع غير واضحة':'e.g. Payment proof image is unclear'}" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-family:'Tajawal',sans-serif;font-size:12.5px;resize:vertical;"></textarea>
+                            <button onclick="adminRejectRequest('${r.uid}','${r.id}')" style="align-self:flex-start;padding:7px 16px;background:rgba(220,50,50,0.85);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                                <i class="fa-solid fa-paper-plane"></i> ${isAR?'إرسال الرفض':'Send rejection'}
                             </button>
                         </div>
                     </div>`;
@@ -10211,6 +10356,18 @@
                 // Store users data globally for the modal
                 window._adminUsersCache = users;
                 memList.innerHTML = `
+                <!-- Plan Picker Modal (choose subscription package when manually setting a member to Pro) -->
+                <div id="planPickerModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closePlanPickerModal()">
+                    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:18px;max-width:380px;width:100%;box-shadow:0 12px 60px rgba(0,0,0,0.6);padding:20px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                            <h3 style="font-size:15px;margin:0;display:flex;align-items:center;gap:8px;"><i class="fa-solid fa-crown" style="color:var(--gold3);"></i> ${isAR?'اختر باقة الاشتراك':'Choose subscription package'}</h3>
+                            <button onclick="closePlanPickerModal()" style="width:28px;height:28px;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:50%;color:var(--muted);cursor:pointer;">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <div id="planPickerOptions" style="display:flex;flex-direction:column;gap:10px;"></div>
+                    </div>
+                </div>
                 <!-- Member Detail Modal -->
                 <div id="memberDetailModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:flex-end;justify-content:center;padding:0;" onclick="if(event.target===this)closeMemberModal()">
                     <div id="memberDetailBox" style="background:var(--bg2);border:1px solid var(--border2);border-radius:20px 20px 0 0;max-width:480px;width:100%;position:relative;box-shadow:0 -12px 60px rgba(0,0,0,0.6);animation:slideUp 0.28s cubic-bezier(0.4,0,0.2,1) both;display:flex;flex-direction:column;max-height:92vh;">
@@ -10252,7 +10409,7 @@
                                 ${proRemRowHtml}
                             </div>
                             <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-                                <button onclick="adminSetPlan('${u.uid}','${isPro?'basic':'pro'}')" style="display:flex;align-items:center;gap:4px;padding:6px 11px;background:${isPro?'rgba(220,50,50,0.08)':'rgba(212,160,23,0.1)'};border:1px solid ${isPro?'rgba(220,50,50,0.25)':'rgba(212,160,23,0.3)'};border-radius:8px;color:${isPro?'#ff6b6b':'var(--gold3)'};font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" title="${isPro?(isAR?'تحويل Basic':'Set Basic'):(isAR?'ترقية Pro':'Set Pro')}">
+                                <button onclick="${isPro ? `adminSetPlan('${u.uid}','basic')` : `openPlanPickerModal('${u.uid}')`}" style="display:flex;align-items:center;gap:4px;padding:6px 11px;background:${isPro?'rgba(220,50,50,0.08)':'rgba(212,160,23,0.1)'};border:1px solid ${isPro?'rgba(220,50,50,0.25)':'rgba(212,160,23,0.3)'};border-radius:8px;color:${isPro?'#ff6b6b':'var(--gold3)'};font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" title="${isPro?(isAR?'تحويل Basic':'Set Basic'):(isAR?'ترقية Pro':'Set Pro')}">
                                     <i class="fa-solid ${isPro?'fa-arrow-down':'fa-crown'}"></i>
                                     <span class="row-btn-label">${isPro?(isAR?'Basic':'Basic'):(isAR?'Pro':'Pro')}</span>
                                 </button>
@@ -10326,7 +10483,7 @@
                             ${u.bio ? row('fa-align-left', isAR?'النبذة الشخصية':'Bio', u.bio) : ''}
                         </div>
                         <div style="display:flex;flex-direction:column;gap:8px;">
-                            <button onclick="adminSetPlan('${u.uid}','${isPro?'basic':'pro'}');closeMemberModal();" style="width:100%;padding:11px;background:${isPro?'rgba(220,50,50,0.1)':'linear-gradient(135deg,var(--gold3),var(--gold2))'};border:1px solid ${isPro?'rgba(220,50,50,0.3)':'transparent'};border-radius:10px;color:${isPro?'#ff6b6b':'#000'};font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
+                            <button onclick="${isPro ? `adminSetPlan('${u.uid}','basic');closeMemberModal();` : `closeMemberModal();openPlanPickerModal('${u.uid}');`}" style="width:100%;padding:11px;background:${isPro?'rgba(220,50,50,0.1)':'linear-gradient(135deg,var(--gold3),var(--gold2))'};border:1px solid ${isPro?'rgba(220,50,50,0.3)':'transparent'};border-radius:10px;color:${isPro?'#ff6b6b':'#000'};font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
                                 <i class="fa-solid ${isPro?'fa-arrow-down':'fa-crown'}"></i>
                                 ${isPro?(isAR?'تحويل إلى Basic':'Downgrade to Basic'):(isAR?'ترقية إلى Pro':'Upgrade to Pro')}
                             </button>
@@ -10354,6 +10511,45 @@
                     const modal = document.getElementById('memberDetailModal');
                     if (modal) modal.style.display = 'none';
                 };
+
+                /* Opens the subscription-package picker before manually setting a member to Pro */
+                window.openPlanPickerModal = function(uid) {
+                    const PRO_PLANS = [
+                        { months: 1, price: 50 },
+                        { months: 3, price: 150 },
+                        { months: 6, price: 200 }
+                    ];
+                    const optsEl = document.getElementById('planPickerOptions');
+                    if (optsEl) {
+                        optsEl.innerHTML = PRO_PLANS.map(p => {
+                            const perMonth = (p.price / p.months).toFixed(0);
+                            const durLabel = isAR ? (p.months === 1 ? 'شهر واحد' : (p.months === 3 ? '3 أشهر' : '6 أشهر')) : `${p.months} month${p.months > 1 ? 's' : ''}`;
+                            const bestValue = p.months === 6;
+                            return `<div onclick="adminConfirmManualPro('${uid}', ${p.months})" style="cursor:pointer;position:relative;display:flex;align-items:center;gap:12px;padding:14px;border:1px solid ${bestValue?'var(--gold3)':'var(--border)'};border-radius:12px;background:${bestValue?'rgba(212,160,23,0.06)':'transparent'};transition:0.2s;" onmouseover="this.style.borderColor='var(--gold3)'" onmouseout="this.style.borderColor='${bestValue?'var(--gold3)':'var(--border)'}'">
+                                ${bestValue ? `<span style="position:absolute;top:-9px;${isAR?'right':'left'}:12px;background:var(--gold3);color:#000;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;">${isAR?'أفضل قيمة':'Best value'}</span>` : ''}
+                                <div style="width:38px;height:38px;border-radius:10px;background:rgba(212,160,23,0.12);display:flex;align-items:center;justify-content:center;color:var(--gold3);font-size:15px;flex-shrink:0;"><i class="fa-solid fa-crown"></i></div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:700;font-size:13.5px;">${durLabel}</div>
+                                    <div style="color:var(--muted);font-size:11px;">${isAR?'بمعدل':'~'} ${perMonth} ${isAR?'ج/شهر':'EGP/mo'}</div>
+                                </div>
+                                <div style="font-weight:700;font-size:15px;color:var(--gold3);">${p.price} ${isAR?'ج':'EGP'}</div>
+                            </div>`;
+                        }).join('');
+                    }
+                    const modal = document.getElementById('planPickerModal');
+                    if (modal) modal.style.display = 'flex';
+                };
+
+                window.closePlanPickerModal = function() {
+                    const modal = document.getElementById('planPickerModal');
+                    if (modal) modal.style.display = 'none';
+                };
+
+                /* Applies the chosen package from the plan picker (manual Pro upgrade, no request involved) */
+                window.adminConfirmManualPro = async function(uid, months) {
+                    closePlanPickerModal();
+                    await adminSetPlan(uid, 'pro', months);
+                };
             }
             }
         } catch(e) {
@@ -10362,29 +10558,101 @@
         }
     };
 
-    window.adminSetPlan = async function(uid, plan) {
+    window.adminSetPlan = async function(uid, plan, months) {
         const isAR = lang === 'AR';
         try {
-            await window._setUserPlan(uid, plan);
-            showToast(isAR ? `✓ تم تغيير الخطة إلى ${plan === 'pro' ? 'Pro' : 'Basic'}` : `✓ Plan changed to ${plan === 'pro' ? 'Pro' : 'Basic'}`);
+            await window._setUserPlan(uid, plan, months);
+            const durLabel = (plan === 'pro' && months) ? ` (${months}${isAR?' شهر':' mo'})` : '';
+            showToast(isAR ? `✓ تم تغيير الخطة إلى ${plan === 'pro' ? 'Pro' : 'Basic'}${durLabel}` : `✓ Plan changed to ${plan === 'pro' ? 'Pro' : 'Basic'}${durLabel}`);
             adminLoadMembers();
         } catch(e) {
             showToast(isAR ? 'خطأ في التغيير' : 'Failed to change plan', true);
         }
     };
 
+    /* Toggle the inline duration-picker panel under a pending request card */
+    window.adminToggleApprovePanel = function(reqId) {
+        const rejectPanel = document.getElementById('rejectPanel_' + reqId);
+        if (rejectPanel) rejectPanel.style.display = 'none';
+        const panel = document.getElementById('approvePanel_' + reqId);
+        if (!panel) return;
+        panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'flex' : 'none';
+    };
+
+    /* Toggle the inline rejection-reason panel under a pending request card */
+    window.adminToggleRejectPanel = function(reqId) {
+        const approvePanel = document.getElementById('approvePanel_' + reqId);
+        if (approvePanel) approvePanel.style.display = 'none';
+        const panel = document.getElementById('rejectPanel_' + reqId);
+        if (!panel) return;
+        panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'flex' : 'none';
+    };
+
     window.adminActivatePro = async function(uid, reqId) {
         const isAR = lang === 'AR';
+        const monthsSel = document.getElementById('approveMonths_' + reqId);
+        const months = monthsSel ? parseInt(monthsSel.value, 10) : 1;
         try {
-            await window._setUserPlan(uid, 'pro');
-            await window._deleteUpgradeRequest(reqId);
-            showToast(isAR ? '✓ تم تفعيل Pro وحذف الطلب' : '✓ Pro activated & request removed');
+            // Find the request to know the student's name/email for the notification & email
+            const allReqs = await window._loadUpgradeRequests();
+            const reqData = allReqs.find(r => r.id === reqId) || {};
+
+            await window._setUserPlan(uid, 'pro', months);
+            await window._reviewUpgradeRequest(reqId, 'approved', { months });
+
+            const durationLabel = isAR
+                ? (months === 1 ? 'شهر واحد' : (months === 3 ? '3 أشهر' : '6 أشهر'))
+                : `${months} month(s)`;
+            const alertMsg = isAR
+                ? `🎉 تم قبول طلب اشتراكك في ATLASYA PRO لمدة ${durationLabel}! استمتع بجميع المميزات الآن.`
+                : `🎉 Your ATLASYA PRO subscription request was approved for ${durationLabel}! Enjoy all Pro features now.`;
+            if (typeof window._sendAdminAlert === 'function') await window._sendAdminAlert(uid, alertMsg);
+            if (typeof window._sendSubscriptionEmail === 'function') {
+                await window._sendSubscriptionEmail(
+                    reqData.email, ((reqData.firstName||'')+' '+(reqData.lastName||'')).trim(),
+                    isAR ? 'تم تفعيل اشتراكك في ATLASYA PRO' : 'Your ATLASYA PRO subscription is active',
+                    alertMsg
+                );
+            }
+
+            showToast(isAR ? '✓ تم تفعيل Pro وإشعار الطالب' : '✓ Pro activated & student notified');
             adminLoadMembers();
         } catch(e) {
             showToast(isAR ? 'خطأ في التفعيل' : 'Activation failed', true);
         }
     };
 
+    window.adminRejectRequest = async function(uid, reqId) {
+        const isAR = lang === 'AR';
+        const reasonEl = document.getElementById('rejectReason_' + reqId);
+        const reason = reasonEl ? reasonEl.value.trim() : '';
+        try {
+            const allReqs = await window._loadUpgradeRequests();
+            const reqData = allReqs.find(r => r.id === reqId) || {};
+
+            await window._reviewUpgradeRequest(reqId, 'rejected', { reason });
+
+            const alertMsg = isAR
+                ? `تم رفض طلب اشتراكك في ATLASYA PRO.${reason ? ' السبب: ' + reason : ''} يمكنك إعادة التقديم في أي وقت.`
+                : `Your ATLASYA PRO subscription request was declined.${reason ? ' Reason: ' + reason : ''} You can submit a new request anytime.`;
+            if (typeof window._sendAdminAlert === 'function') await window._sendAdminAlert(uid, alertMsg);
+            if (typeof window._sendSubscriptionEmail === 'function') {
+                await window._sendSubscriptionEmail(
+                    reqData.email, ((reqData.firstName||'')+' '+(reqData.lastName||'')).trim(),
+                    isAR ? 'حالة طلب اشتراكك في ATLASYA PRO' : 'Update on your ATLASYA PRO request',
+                    alertMsg
+                );
+            }
+
+            showToast(isAR ? '✓ تم رفض الطلب وإشعار الطالب' : '✓ Request rejected & student notified');
+            adminLoadMembers();
+        } catch(e) {
+            showToast(isAR ? 'خطأ في الرفض' : 'Rejection failed', true);
+        }
+    };
+
+    /* Permanently deletes a request record (spam/duplicate cleanup only —
+       approve/reject above keep full history instead of deleting). */
     window.adminDeleteRequest = async function(reqId) {
         const isAR = lang === 'AR';
         try {
@@ -10404,6 +10672,7 @@
             showToast(isAR ? 'خطأ في الحذف' : 'Delete failed', true);
         }
     };
+
 
     /* ─── ADMIN: SUSPEND / UNSUSPEND ─── */
     window.adminToggleSuspend = async function(uid, currentlySuspended) {
@@ -12003,7 +12272,13 @@
         const icon = document.getElementById('themeToggleIcon');
         if (icon) icon.className = 'fa-solid fa-moon'; // moon = switch to dark
         applyLang();
-        navigate('dashboard', document.getElementById('menuDash'));
+        const deepLinkPage = getPageFromUrl();
+        if (deepLinkPage && deepLinkPage !== 'dashboard') {
+            const navEl = PAGE_NAV_ID_MAP[deepLinkPage] ? document.getElementById(PAGE_NAV_ID_MAP[deepLinkPage]) : null;
+            navigate(deepLinkPage, navEl, false, true);
+        } else {
+            navigate('dashboard', document.getElementById('menuDash'));
+        }
         // Apply any admin-saved content from Firebase
         if (window._applyContent) window._applyContent();
         // Auto-fill remembered login credentials
