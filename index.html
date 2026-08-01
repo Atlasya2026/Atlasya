@@ -2079,6 +2079,9 @@
 
             /* ─── TIPS JOURNEY — stage/box grid ─── */
             .ins-stage-wrap { margin-bottom:22px; }
+            .ins-stage-group { margin-bottom:18px; }
+            .ins-stage-group-label { font-size:12.5px; font-weight:800; color:var(--muted); margin-bottom:9px; display:flex; align-items:center; gap:6px; }
+            .ins-stage-group-label span { font-weight:600; color:var(--muted); opacity:.75; font-family:'Space Mono',monospace; font-size:11px; }
             .ins-stage-grid { display:flex; flex-wrap:wrap; gap:12px; }
             .ins-stage-box { width:64px; height:64px; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center;
                 border:1px solid var(--border); background:var(--bg2); cursor:pointer; transition:.15s; }
@@ -4733,6 +4736,20 @@
                 window._userData.tipLikes = liked ? [...new Set([...arr, tipId])] : arr.filter(x => x !== tipId);
             }
         };
+        // records which student shared which tip, so admins can see who shared what
+        window._trackTipShare = async (tipId) => {
+            if (!currentUid) return;
+            await setDoc(doc(db, 'users', currentUid), {
+                tipShares: arrayUnion(tipId)
+            }, { merge: true });
+            await setDoc(doc(db, 'daily_tips', tipId), {
+                shares: increment(1)
+            }, { merge: true });
+            if (window._userData) {
+                const arr = window._userData.tipShares || [];
+                window._userData.tipShares = [...new Set([...arr, tipId])];
+            }
+        };
         // kicks off the student's personal 24h-per-box journey the first time they open the tips page
         window._startTipsJourney = async () => {
             if (!currentUid) throw new Error('Not logged in');
@@ -5822,15 +5839,28 @@
             const total = insTotalStages();
             const unlocked = insUnlockedStage();
 
-            const boxesHTML = _insTips.map((t, i) => {
-                const stage = i + 1;
-                const cls = stage < unlocked ? 'done' : (stage === unlocked ? 'current' : 'locked');
-                const icon = stage < unlocked ? '<i class="fa-solid fa-check ic"></i>'
-                           : (stage === unlocked ? '<i class="fa-solid fa-box-open ic"></i>' : '<i class="fa-solid fa-lock ic"></i>');
-                return `<div class="ins-stage-box ${cls}" onclick="insOpenStage(${stage})" title="${isAR?'بوكس':'Box'} ${stage}">
-                            <span class="num">${stage}</span>
-                            ${icon}
-                        </div>`;
+            const INS_GROUP_SIZE = 15;
+            const insGroups = [];
+            for (let gi = 0; gi * INS_GROUP_SIZE < _insTips.length; gi++) {
+                insGroups.push(_insTips.slice(gi * INS_GROUP_SIZE, gi * INS_GROUP_SIZE + INS_GROUP_SIZE));
+            }
+            const boxesHTML = insGroups.map((group, gi) => {
+                const startNum = gi * INS_GROUP_SIZE + 1;
+                const endNum = startNum + group.length - 1;
+                const groupBoxes = group.map((t, j) => {
+                    const stage = startNum + j;
+                    const cls = stage < unlocked ? 'done' : (stage === unlocked ? 'current' : 'locked');
+                    const icon = stage < unlocked ? '<i class="fa-solid fa-check ic"></i>'
+                               : (stage === unlocked ? '<i class="fa-solid fa-box-open ic"></i>' : '<i class="fa-solid fa-lock ic"></i>');
+                    return `<div class="ins-stage-box ${cls}" onclick="insOpenStage(${stage})" title="${isAR?'بوكس':'Box'} ${stage}">
+                                <span class="num">${stage}</span>
+                                ${icon}
+                            </div>`;
+                }).join('');
+                const groupLabel = insGroups.length > 1
+                    ? `<div class="ins-stage-group-label">${isAR?`المجموعة ${gi+1}`:`Batch ${gi+1}`} <span>(${startNum}–${endNum})</span></div>`
+                    : '';
+                return `<div class="ins-stage-group">${groupLabel}<div class="ins-stage-grid">${groupBoxes}</div></div>`;
             }).join('');
 
             const countdownHTML = unlocked >= total
@@ -5849,7 +5879,7 @@
             </div>
 
             <div class="ins-stage-wrap">
-                <div class="ins-stage-grid">${boxesHTML}</div>
+                ${boxesHTML}
                 ${countdownHTML}
             </div>
 
@@ -5940,6 +5970,7 @@
             else if (channel === 'telegram') window.open(`https://t.me/share/url?url=${encodeURIComponent(INS_SHARE_LINK)}&text=${enc}`, '_blank');
             else if (channel === 'facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(INS_SHARE_LINK)}&quote=${enc}`, '_blank');
             else if (channel === 'copy') { navigator.clipboard?.writeText(text).then(() => showToast(lang==='AR'?'✅ اتنسخ النص':'✅ Copied')); }
+            if (window._trackTipShare) window._trackTipShare(tip.id).catch(e => console.error('trackTipShare error:', e));
             insCloseShare();
         };
 
