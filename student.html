@@ -6009,7 +6009,13 @@
         window.insOpenRandom = function() {
             const isAR = lang === 'AR';
             if (!insQualifiedToday()) return;
-            const pool = insPastTips();
+            const todayId = insTodayTip().id;
+            const seen = new Set();
+            const pool = insPastTips().filter(t => {
+                if (t.id === todayId || seen.has(t.id)) return false;
+                seen.add(t.id);
+                return true;
+            });
             if (!pool.length) { showToast(isAR?'لسه مفيش نصائح سابقة تانية':'No older tips available yet'); return; }
             const tip = pool[Math.floor(Math.random() * pool.length)];
             document.getElementById('insRandomModalContent').innerHTML = `
