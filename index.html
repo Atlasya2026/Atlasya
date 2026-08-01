@@ -2494,6 +2494,57 @@
             .playlist-card:hover .pl-arrow { transform: scale(1.15); }
             @media (max-width: 640px) { .playlists-grid { grid-template-columns: 1fr; } }
 
+            /* ─── PLAYLIST THUMBNAIL / SEARCH / CATEGORY CHIPS / DETAIL ─── */
+            .pl-thumb-wrap {
+                width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden;
+                margin-bottom: 16px; flex-shrink: 0; background: var(--bg3);
+                display: flex; align-items: center; justify-content: center; position: relative;
+            }
+            .pl-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            .pl-thumb-wrap .pl-play-badge {
+                position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+                background: rgba(0,0,0,0.15); opacity: 0; transition: opacity .2s;
+            }
+            .playlist-card:hover .pl-thumb-wrap .pl-play-badge { opacity: 1; }
+            .pl-play-badge i { font-size: 34px; color: #fff; filter: drop-shadow(0 2px 8px rgba(0,0,0,.5)); }
+            .pl-search-bar {
+                display: flex; align-items: center; gap: 10px; background: var(--bg3);
+                border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px;
+            }
+            .pl-search-bar input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: inherit; font-size: 14px; }
+            .pl-search-bar i { color: var(--muted); }
+            .pl-cats-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+            .pl-cat-chip {
+                display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 99px;
+                background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+                font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap;
+            }
+            .pl-cat-chip.active { background: var(--g3); border-color: var(--g3); color: #fff; }
+            .pl-empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; border: 1px dashed var(--border); border-radius: 12px; }
+            .pl-back-btn {
+                display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; cursor: pointer;
+                color: var(--muted); font-size: 13px; font-weight: 700; background: none; border: none; font-family: inherit;
+            }
+            .pl-back-btn:hover { color: var(--g4); }
+            .pl-player-wrap { width: 100%; aspect-ratio: 16/9; border-radius: 16px; overflow: hidden; background: #000; box-shadow: var(--shadow); }
+            .pl-player-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
+            .pl-detail-title { font-size: 20px; font-weight: 800; margin: 18px 0 6px; }
+            .pl-detail-tag { display: inline-block; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 99px; margin-bottom: 10px; }
+            .pl-detail-desc { font-size: 14px; color: var(--muted); line-height: 1.8; margin: 10px 0 18px; white-space: pre-wrap; }
+            .pl-channel-link { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--g4); text-decoration: none; font-weight: 700; margin-bottom: 18px; }
+            .pl-actions-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+            .pl-action-btn {
+                display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px;
+                background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+                font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s; font-family: inherit;
+            }
+            .pl-action-btn:hover { border-color: var(--g3); }
+            .pl-action-btn.active { background: rgba(255,85,119,0.12); border-color: #ff5577; color: #ff5577; }
+            .pl-action-btn.active i { color: #ff5577; }
+            .pl-action-btn.saved { background: rgba(240,192,64,0.12); border-color: var(--gold3); color: var(--gold3); }
+            .pl-action-btn.saved i { color: var(--gold3); }
+            @media (max-width: 640px) { .pl-actions-row { gap: 8px; } .pl-action-btn { flex: 1 1 auto; justify-content: center; font-size:12px; padding: 10px 8px; } }
+
             /* ─── SUPPORT TICKETS ─── */
             .tk-tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
             .tk-tab {
@@ -4011,6 +4062,24 @@
         window._rateBook = async (bookId, uid, value) => {
             const field = `ratings.${uid}`;
             await updateDoc(doc(db, 'library_books', bookId), { [field]: value });
+        };
+
+        /* ─── PLAYLISTS (ATLASYA) — student-facing ─── */
+        window._loadPlaylists = async () => {
+            const snap = await getDocs(collection(db, 'playlists'));
+            return snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !p.hidden);
+        };
+        window._togglePlaylistFavorite = async (id, isFav) => {
+            if (!currentUid) throw new Error('Not logged in');
+            await updateDoc(doc(db, 'users', currentUid), {
+                favoritePlaylists: isFav ? arrayUnion(id) : arrayRemove(id)
+            });
+        };
+        window._togglePlaylistSaved = async (id, isSaved) => {
+            if (!currentUid) throw new Error('Not logged in');
+            await updateDoc(doc(db, 'users', currentUid), {
+                savedPlaylists: isSaved ? arrayUnion(id) : arrayRemove(id)
+            });
         };
 
         window._bookMentorshipSlot = async (slotData) => {
@@ -5549,123 +5618,26 @@
 
         /* ─── SPATIAL DATA LIBRARY ─── */
         const SPATIAL_CATEGORIES = [
-            { key:'base', icon:'🗺️', ar:'البيانات الأساسية', en:'Base Data', sub:[
-                {key:'country_borders', ar:'حدود الدول', en:'Country Borders'},
-                {key:'gov_borders', ar:'حدود المحافظات', en:'Governorate Borders'},
-                {key:'district_borders', ar:'حدود المراكز', en:'District Borders'},
-                {key:'village_borders', ar:'حدود القرى', en:'Village Borders'},
-                {key:'neighborhoods', ar:'الأحياء', en:'Neighborhoods'},
-                {key:'admin_divisions', ar:'التقسيمات الإدارية', en:'Administrative Divisions'},
-            ]},
-            { key:'roads', icon:'🛣️', ar:'شبكة الطرق', en:'Road Network', sub:[
-                {key:'main_roads', ar:'الطرق الرئيسية', en:'Main Roads'},
-                {key:'secondary_roads', ar:'الطرق الفرعية', en:'Secondary Roads'},
-                {key:'railways', ar:'السكك الحديدية', en:'Railways'},
-                {key:'bridges', ar:'الكباري', en:'Bridges'},
-                {key:'tunnels', ar:'الأنفاق', en:'Tunnels'},
-            ]},
-            { key:'water', icon:'🌊', ar:'الموارد المائية', en:'Water Resources', sub:[
-                {key:'rivers', ar:'الأنهار', en:'Rivers'},
-                {key:'canals', ar:'الترع', en:'Canals'},
-                {key:'drains', ar:'المصارف', en:'Drains'},
-                {key:'lakes', ar:'البحيرات', en:'Lakes'},
-                {key:'dams', ar:'السدود', en:'Dams'},
-                {key:'wells', ar:'الآبار', en:'Wells'},
-            ]},
-            { key:'buildings', icon:'🏢', ar:'المباني والمنشآت', en:'Buildings & Facilities', sub:[
-                {key:'schools', ar:'المدارس', en:'Schools'},
-                {key:'universities', ar:'الجامعات', en:'Universities'},
-                {key:'hospitals', ar:'المستشفيات', en:'Hospitals'},
-                {key:'mosques', ar:'المساجد', en:'Mosques'},
-                {key:'churches', ar:'الكنائس', en:'Churches'},
-                {key:'police', ar:'مراكز الشرطة', en:'Police Stations'},
-                {key:'fire', ar:'المطافئ', en:'Fire Stations'},
-                {key:'banks', ar:'البنوك', en:'Banks'},
-                {key:'post', ar:'مكاتب البريد', en:'Post Offices'},
-            ]},
-            { key:'terrain', icon:'🌍', ar:'بيانات التضاريس', en:'Terrain Data', sub:[
-                {key:'dem', ar:'DEM', en:'DEM'},
-                {key:'dsm', ar:'DSM', en:'DSM'},
-                {key:'contours', ar:'Contours', en:'Contours'},
-                {key:'hillshade', ar:'Hillshade', en:'Hillshade'},
-                {key:'slope', ar:'Slope', en:'Slope'},
-                {key:'aspect', ar:'Aspect', en:'Aspect'},
-            ]},
-            { key:'satellite', icon:'🛰️', ar:'صور الأقمار الصناعية', en:'Satellite Imagery', sub:[
-                {key:'sentinel2', ar:'Sentinel-2', en:'Sentinel-2'},
-                {key:'landsat', ar:'Landsat', en:'Landsat'},
-                {key:'modis', ar:'MODIS', en:'MODIS'},
-                {key:'planet', ar:'Planet', en:'Planet'},
-                {key:'aerial', ar:'صور جوية مجانية', en:'Free Aerial Imagery'},
-            ]},
-            { key:'environment', icon:'🌿', ar:'البيئة', en:'Environment', sub:[
-                {key:'landcover', ar:'الغطاء الأرضي', en:'Land Cover'},
-                {key:'landuse', ar:'استخدامات الأراضي', en:'Land Use'},
-                {key:'ndvi', ar:'NDVI', en:'NDVI'},
-                {key:'soil', ar:'التربة', en:'Soil'},
-                {key:'forests', ar:'الغابات', en:'Forests'},
-                {key:'protected_areas', ar:'المحميات الطبيعية', en:'Protected Areas'},
-            ]},
-            { key:'climate', icon:'🌦️', ar:'المناخ', en:'Climate', sub:[
-                {key:'rainfall', ar:'الأمطار', en:'Rainfall'},
-                {key:'temperature', ar:'الحرارة', en:'Temperature'},
-                {key:'humidity', ar:'الرطوبة', en:'Humidity'},
-                {key:'wind', ar:'الرياح', en:'Wind'},
-                {key:'evaporation', ar:'التبخر', en:'Evaporation'},
-            ]},
-            { key:'population', icon:'👥', ar:'السكان', en:'Population', sub:[
-                {key:'density', ar:'الكثافة السكانية', en:'Population Density'},
-                {key:'count', ar:'عدد السكان', en:'Population Count'},
-                {key:'census', ar:'التعداد', en:'Census'},
-                {key:'indicators', ar:'المؤشرات السكانية', en:'Population Indicators'},
-            ]},
-            { key:'osm', icon:'🌍', ar:'OpenStreetMap', en:'OpenStreetMap', sub:[
-                {key:'osm_buildings', ar:'Buildings', en:'Buildings'},
-                {key:'osm_roads', ar:'Roads', en:'Roads'},
-                {key:'osm_railways', ar:'Railways', en:'Railways'},
-                {key:'osm_rivers', ar:'Rivers', en:'Rivers'},
-                {key:'osm_landuse', ar:'Landuse', en:'Landuse'},
-                {key:'osm_poi', ar:'Points of Interest', en:'Points of Interest'},
-            ]},
-            { key:'topo_maps', icon:'🧭', ar:'خرائط طبوغرافية', en:'Topographic Maps', sub:[
-                {key:'scale_25k', ar:'مقياس 1:25,000', en:'Scale 1:25,000'},
-                {key:'scale_50k', ar:'مقياس 1:50,000', en:'Scale 1:50,000'},
-                {key:'scale_100k', ar:'مقياس 1:100,000', en:'Scale 1:100,000'},
-                {key:'scale_250k', ar:'مقياس 1:250,000', en:'Scale 1:250,000'},
-                {key:'historical_topo', ar:'خرائط تاريخية قديمة', en:'Historical Maps'},
-                {key:'scanned_topo', ar:'خرائط ممسوحة ضوئياً', en:'Scanned Maps'},
-                {key:'georeferenced_topo', ar:'خرائط مرجعة جغرافياً', en:'Georeferenced Maps'},
-            ]},
-            { key:'arab_shapefiles', icon:'🗂️', ar:'شيب فايلات دول عربية', en:'Arab Countries Shapefiles', sub:[
-                {key:'egypt', ar:'مصر', en:'Egypt'},
-                {key:'saudi', ar:'السعودية', en:'Saudi Arabia'},
-                {key:'uae', ar:'الإمارات', en:'UAE'},
-                {key:'kuwait', ar:'الكويت', en:'Kuwait'},
-                {key:'qatar', ar:'قطر', en:'Qatar'},
-                {key:'bahrain', ar:'البحرين', en:'Bahrain'},
-                {key:'oman', ar:'عُمان', en:'Oman'},
-                {key:'yemen', ar:'اليمن', en:'Yemen'},
-                {key:'iraq', ar:'العراق', en:'Iraq'},
-                {key:'jordan', ar:'الأردن', en:'Jordan'},
-                {key:'syria', ar:'سوريا', en:'Syria'},
-                {key:'lebanon', ar:'لبنان', en:'Lebanon'},
-                {key:'palestine', ar:'فلسطين', en:'Palestine'},
-                {key:'libya', ar:'ليبيا', en:'Libya'},
-                {key:'tunisia', ar:'تونس', en:'Tunisia'},
-                {key:'algeria', ar:'الجزائر', en:'Algeria'},
-                {key:'morocco', ar:'المغرب', en:'Morocco'},
-                {key:'sudan', ar:'السودان', en:'Sudan'},
-                {key:'mauritania', ar:'موريتانيا', en:'Mauritania'},
-                {key:'somalia', ar:'الصومال', en:'Somalia'},
-                {key:'djibouti', ar:'جيبوتي', en:'Djibouti'},
-                {key:'comoros', ar:'جزر القمر', en:'Comoros'},
-            ]},
+            { key:'base', icon:'🗺️', ar:'البيانات الأساسية', en:'Base Data' },
+            { key:'roads', icon:'🛣️', ar:'شبكة الطرق', en:'Road Network' },
+            { key:'water', icon:'🌊', ar:'الموارد المائية', en:'Water Resources' },
+            { key:'buildings', icon:'🏢', ar:'المباني والمنشآت', en:'Buildings & Facilities' },
+            { key:'terrain', icon:'🌍', ar:'بيانات التضاريس', en:'Terrain Data' },
+            { key:'satellite', icon:'🛰️', ar:'صور الأقمار الصناعية', en:'Satellite Imagery' },
+            { key:'environment', icon:'🌿', ar:'البيئة', en:'Environment' },
+            { key:'climate', icon:'🌦️', ar:'المناخ', en:'Climate' },
+            { key:'population', icon:'👥', ar:'السكان', en:'Population' },
+            { key:'geology', icon:'🪨', ar:'الجيولوجيا', en:'Geology' },
+            { key:'osm', icon:'🌍', ar:'OpenStreetMap', en:'OpenStreetMap' },
+            { key:'topo_maps', icon:'🧭', ar:'خرائط طبوغرافية', en:'Topographic Maps' },
+            { key:'arab_shapefiles', icon:'🗂️', ar:'شيب فايلات دول عربية', en:'Arab Countries Shapefiles' },
         ];
         const SPATIAL_FILE_TYPES = ['Shapefile (.shp)','GeoPackage (.gpkg)','GeoJSON','KML / KMZ','CSV','Raster (.tif)','File Geodatabase (.gdb)'];
 
         function scFindCat(key) { return SPATIAL_CATEGORIES.find(c => c.key === key); }
-        function scFindSub(catKey, subKey) { const c = scFindCat(catKey); return c ? c.sub.find(s => s.key === subKey) : null; }
+        function scFindSub(catKey, subKey) { return null; }
         function scCatLabel(cat, isAR) { return `${cat.icon} ${isAR ? cat.ar : cat.en}`; }
+        function escapeHtmlAC(str) { return escapeHtml(str); }
 
         let _dsAll = [];
         let _dsProjects = [];
@@ -5851,25 +5823,18 @@
             const cat = scFindCat(_dsView.category);
             if (!cat) return dsHomeHTML(isAR);
             let items = _dsAll.filter(d => d.category === cat.key);
-            if (_dsView.sub) items = items.filter(d => d.subcategory === _dsView.sub);
             items = items.filter(dsMatchesFilters);
 
             const crumbs = dsBreadcrumbHTML([
                 { label: isAR?'الرئيسية':'Home', onclick:'dsGoHome()' },
                 { label: scCatLabel(cat, isAR) },
             ]);
-            const chips = `
-            <div class="ds-sub-chips">
-                <span class="ds-sub-chip ${!_dsView.sub?'active':''}" onclick="dsOpenCategory('${cat.key}')">${isAR?'الكل':'All'}</span>
-                ${cat.sub.map(s => `<span class="ds-sub-chip ${_dsView.sub===s.key?'active':''}" onclick="dsOpenCategory('${cat.key}','${s.key}')">${isAR?s.ar:s.en}</span>`).join('')}
-            </div>`;
 
             return `
             ${crumbs}
             <div class="page-header" style="margin-bottom:10px;">
                 <h2 style="font-size:18px;">${scCatLabel(cat, isAR)}</h2>
             </div>
-            ${chips}
             ${dsFiltersBarHTML(isAR)}
             ${dsGridHTML(items, isAR)}`;
         }
@@ -7744,139 +7709,192 @@
         window.renderCVBuilder = renderCVBuilder;
 
         /* ─── PLAYLISTS ─── */
-        function renderPlaylists(area) {
+        const PLAYLIST_CATEGORIES = [
+            { key:'gis',      ar:'GIS',                        en:'GIS',                icon:'fa-earth-americas',   color:'#1e7a34' },
+            { key:'remote',   ar:'الاستشعار عن بعد',           en:'Remote Sensing',     icon:'fa-satellite',        color:'#2980b9' },
+            { key:'python',   ar:'بايثون لـ GIS',              en:'Python for GIS',     icon:'fa-brands fa-python', color:'#d4a017' },
+            { key:'survey',   ar:'المساحة',                    en:'Surveying',          icon:'fa-ruler-combined',   color:'#8e44ad' },
+            { key:'gee',      ar:'Google Earth Engine',        en:'Google Earth Engine',icon:'fa-globe',            color:'#16a085' },
+            { key:'cartography', ar:'رسم الخرائط',             en:'Cartography',        icon:'fa-map',               color:'#c0392b' },
+        ];
+        window.PLAYLIST_CATEGORIES = PLAYLIST_CATEGORIES;
+
+        function plCatInfo(key) {
+            return PLAYLIST_CATEGORIES.find(c => c.key === key) || { ar:'أخرى', en:'Other', icon:'fa-clapperboard', color:'#6b7280' };
+        }
+        function plIconFull(icon) {
+            return icon.includes('fa-brands') ? icon : ('fa-solid ' + icon);
+        }
+
+        /* Extract the YouTube playlist ID (?list=...) from any playlist URL format */
+        function extractYTPlaylistId(url) {
+            if (!url) return '';
+            const m = String(url).match(/[?&]list=([a-zA-Z0-9_-]+)/);
+            return m ? m[1] : '';
+        }
+        window.extractYTPlaylistId = extractYTPlaylistId;
+
+        let _plAll = [];
+        let _plStage = { view: 'list', payload: null };
+        let _plSearch = '';
+        let _plCatFilter = '';
+
+        async function renderPlaylists(area) {
             const isAR = lang === 'AR';
-
-            const playlists = [
-                {
-                    id: 1,
-                    titleAR: 'رسم وحل مقاييس الرسم (مانيوال)',
-                    titleEN: 'Drawing & Solving Map Scales (Manual)',
-                    descAR:  'سلسلة فيديوهات تعليمية تشرح رسم وحل مقاييس الرسم يدوياً',
-                    descEN:  'Educational video series explaining how to draw and solve map scales manually',
-                    icon:    'fa-ruler-combined',
-                    color:   '#1e7a34',
-                    url:     'https://www.youtube.com/playlist?list=PLzcThec7X_8LGMJCkJQQCfJ1tKnzRtYon',
-                    tag:     isAR ? 'مانيوال' : 'Manual',
-                },
-                {
-                    id: 2,
-                    titleAR: 'المساحة المستوية',
-                    titleEN: 'Plane Surveying',
-                    descAR:  'فيديوهات تعليمية شاملة في علم المساحة المستوية',
-                    descEN:  'Comprehensive educational videos in plane surveying',
-                    icon:    'fa-map',
-                    color:   '#d4a017',
-                    url:     'https://www.youtube.com/playlist?list=PLzcThec7X_8JEDRaA-VqCxqBdiobtZCNJ',
-                    tag:     isAR ? 'مساحة' : 'Surveying',
-                },
-                {
-                    id: 3,
-                    titleAR: 'المساحة الجوية',
-                    titleEN: 'Aerial Surveying',
-                    descAR:  'فيديوهات تعليمية في المساحة الجوية والاستشعار عن بعد',
-                    descEN:  'Educational videos in aerial surveying and remote sensing',
-                    icon:    'fa-satellite',
-                    color:   '#2980b9',
-                    url:     'https://www.youtube.com/playlist?list=PLzcThec7X_8Kg17Ld1zvK-Ux9VOoBD1R-',
-                    tag:     isAR ? 'جوية' : 'Aerial',
-                },
-                {
-                    id: 4,
-                    titleAR: 'تطبيقات GPS',
-                    titleEN: 'GPS Applications',
-                    descAR:  'فيديوهات تعليمية في تطبيقات GPS وأنظمة تحديد المواقع',
-                    descEN:  'Educational videos on GPS applications and positioning systems',
-                    icon:    'fa-location-crosshairs',
-                    color:   '#8e44ad',
-                    url:     'https://www.youtube.com/playlist?list=PLzcThec7X_8IF6614gT7XQODuoEadzFcm',
-                    tag:     'GPS',
-                },
-                {
-                    id: 5,
-                    titleAR: 'رسم الخرائط الجيولوجية',
-                    titleEN: 'Geological Map Drawing',
-                    descAR:  'فيديوهات تعليمية في رسم وتفسير الخرائط الجيولوجية',
-                    descEN:  'Educational videos on drawing and interpreting geological maps',
-                    icon:    'fa-mountain',
-                    color:   '#c0392b',
-                    url:     'https://www.youtube.com/playlist?list=PLzcThec7X_8LI0CoxKo_Ue3BJlIccofo3',
-                    tag:     isAR ? 'جيولوجية' : 'Geological',
-                },
-                {
-                    id: 6,
-                    titleAR: 'رسم خرائط التوزيعات (مانيوال)',
-                    titleEN: 'Distribution Map Drawing (Manual)',
-                    descAR:  'فيديوهات تعليمية في رسم خرائط التوزيعات يدوياً',
-                    descEN:  'Educational videos on drawing distribution maps manually',
-                    icon:    'fa-chart-pie',
-                    color:   '#16a085',
-                    url:     'https://www.youtube.com/playlist?list=PLzcThec7X_8IXY26f7s0EoMpiQ1HCBuWB',
-                    tag:     isAR ? 'مانيوال' : 'Manual',
-                },
-                {
-                    id: 7,
-                    titleAR: 'كورس الريفت المعماري',
-                    titleEN: 'Revit Basics Course',
-                    descAR:  'كورس شامل لتعلم أساسيات برنامج Revit في التصميم المعماري',
-                    descEN:  'A complete course covering Revit basics for architectural design',
-                    icon:    'fa-drafting-compass',
-                    color:   '#e67e22',
-                    url:     'https://youtube.com/playlist?list=PL1AgriMjsPH-mFNnEvLGvUnsd0enEhNIZ&si=0mWNEBDhankQ4Zok',
-                    tag:     isAR ? 'ريفت' : 'Revit',
-                },
-                {
-                    id: 8,
-                    titleAR: 'كورس الريفيت الإنشائي من الصفر',
-                    titleEN: 'Revit Structure Course',
-                    descAR:  'كورس متكامل لتعلم Revit Structure من الصفر للتصميم الإنشائي',
-                    descEN:  'A complete Revit Structure course from scratch for structural design',
-                    icon:    'fa-building',
-                    color:   '#34495e',
-                    url:     'https://youtube.com/playlist?list=PLxP_VdwyeH_xl6f0HyAsfrwSrxJWRd_ZX&si=Ch6k06-Wcid_MqXz',
-                    tag:     isAR ? 'ريفيت إنشائي' : 'Revit Structure',
-                },
-                {
-                    id: 9,
-                    titleAR: 'إدارة وتحليل شبكات المياه باستخدام ArcGIS',
-                    titleEN: 'Water Network Management & Analysis with ArcGIS',
-                    descAR:  'فيديوهات تعليمية في إدارة وتحليل شبكات المياه باستخدام برنامج ArcGIS',
-                    descEN:  'Educational videos on managing and analyzing water networks using ArcGIS',
-                    icon:    'fa-faucet-drip',
-                    color:   '#0e7ba6',
-                    url:     'https://www.youtube.com/playlist?list=PLxKGvgVeo5DqDcOgf2Lmo_SI86zbtQOEe',
-                    tag:     isAR ? 'شبكات مياه' : 'Water Networks',
-                },
-            ];
-
             area.innerHTML = `
             <div class="page-header">
                 <h2>${isAR ? 'قوائم التشغيل' : 'Playlists'}</h2>
                 <p>${isAR ? 'مجموعة فيديوهات تعليمية مختارة في نظم المعلومات الجغرافية والمساحة' : 'Curated GIS and surveying educational video playlists'}</p>
             </div>
-            <div class="playlists-grid">
-                ${playlists.map(p => `
-                <a href="${p.url}" target="_blank" class="playlist-card" style="--pl-color:${p.color};">
-                    <div class="pl-icon-wrap" style="background:${p.color}22;border:1px solid ${p.color}44;">
-                        <i class="fa-solid ${p.icon}" style="color:${p.color};font-size:28px;"></i>
+            <div id="plStage"><div style="text-align:center;padding:60px;"><i class="fa-solid fa-spinner fa-spin" style="font-size:20px;color:var(--muted);"></i></div></div>`;
+
+            try { _plAll = await window._loadPlaylists(); } catch(e) { console.error(e); _plAll = []; }
+            _plSearch = ''; _plCatFilter = '';
+            window.plGo('list');
+        }
+        window.renderPlaylists = renderPlaylists;
+
+        window.plGo = function(view, payload) {
+            _plStage = { view, payload };
+            const stage = document.getElementById('plStage');
+            if (!stage) return;
+            if (view === 'detail') _plRenderDetail(stage, payload);
+            else _plRenderList(stage);
+            stage.scrollIntoView({ behavior:'smooth', block:'start' });
+        };
+        window.plGoDetail = function(id) { window.plGo('detail', id); };
+        window.plGoList = function() { window.plGo('list'); };
+        window.plDoSearch = function() {
+            _plSearch = document.getElementById('plSearchInput')?.value.trim().toLowerCase() || '';
+            _plRenderList(document.getElementById('plStage'));
+        };
+        window.plFilterCategory = function(key) {
+            _plCatFilter = (_plCatFilter === key) ? '' : key;
+            _plRenderList(document.getElementById('plStage'));
+        };
+
+        function _plRenderList(stage) {
+            if (!stage) return;
+            const isAR = lang === 'AR';
+            let items = [..._plAll];
+            if (_plCatFilter) items = items.filter(p => p.category === _plCatFilter);
+            if (_plSearch) items = items.filter(p => (p.title||'').toLowerCase().includes(_plSearch));
+
+            stage.innerHTML = `
+            <div class="pl-search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="plSearchInput" placeholder="${isAR?'ابحث باسم القائمة... (مثال: ArcGIS, Python, ENVI)':'Search by playlist name... (e.g. ArcGIS, Python, ENVI)'}" value="${_plSearch}" oninput="plDoSearch()">
+            </div>
+            <div class="pl-cats-row">
+                ${PLAYLIST_CATEGORIES.map(c => `
+                    <div class="pl-cat-chip ${_plCatFilter===c.key?'active':''}" onclick="plFilterCategory('${c.key}')">
+                        <i class="${plIconFull(c.icon)}"></i> ${isAR?c.ar:c.en}
+                    </div>`).join('')}
+            </div>
+            <div class="playlists-grid" id="plGrid"></div>`;
+
+            const grid = document.getElementById('plGrid');
+            if (!items.length) {
+                grid.innerHTML = `<div class="pl-empty" style="grid-column:1/-1;">${isAR?'لا توجد قوائم تشغيل مطابقة':'No matching playlists'}</div>`;
+                return;
+            }
+            grid.innerHTML = items.map(p => _plCardHTML(p, isAR)).join('');
+        }
+
+        function _plCardHTML(p, isAR) {
+            const cat = plCatInfo(p.category);
+            return `
+            <div class="playlist-card" style="--pl-color:${cat.color};" onclick="plGoDetail('${p.id}')">
+                <div class="pl-thumb-wrap">
+                    ${p.thumbData ? `<img src="${p.thumbData}" alt="">` : `<i class="${plIconFull(cat.icon)}" style="color:${cat.color};font-size:36px;"></i>`}
+                    <div class="pl-play-badge"><i class="fa-solid fa-circle-play"></i></div>
+                </div>
+                <div class="pl-body">
+                    <div class="pl-tag" style="background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}44;">${isAR?cat.ar:cat.en}</div>
+                    <h3 class="pl-title">${escapeHtmlAC(p.title||'')}</h3>
+                    ${p.description ? `<p class="pl-desc">${escapeHtmlAC((p.description||'').slice(0,90))}${p.description.length>90?'…':''}</p>` : ''}
+                </div>
+                <div class="pl-footer">
+                    <div class="pl-yt">
+                        <i class="fa-brands fa-youtube" style="color:#ff0000;font-size:16px;"></i>
+                        <span>YouTube Playlist</span>
                     </div>
-                    <div class="pl-body">
-                        <div class="pl-tag" style="background:${p.color}22;color:${p.color};border:1px solid ${p.color}44;">${p.tag}</div>
-                        <h3 class="pl-title">${isAR ? p.titleAR : p.titleEN}</h3>
-                        <p class="pl-desc">${isAR ? p.descAR : p.descEN}</p>
+                    <div class="pl-arrow" style="background:${cat.color}22;border:1px solid ${cat.color}44;">
+                        <i class="fa-solid fa-play" style="color:${cat.color};font-size:12px;"></i>
                     </div>
-                    <div class="pl-footer">
-                        <div class="pl-yt">
-                            <i class="fa-brands fa-youtube" style="color:#ff0000;font-size:16px;"></i>
-                            <span>YouTube Playlist</span>
-                        </div>
-                        <div class="pl-arrow" style="background:${p.color}22;border:1px solid ${p.color}44;">
-                            <i class="fa-solid fa-arrow-up-right-from-square" style="color:${p.color};font-size:13px;"></i>
-                        </div>
-                    </div>
-                </a>`).join('')}
+                </div>
             </div>`;
         }
+
+        function _plRenderDetail(stage, id) {
+            if (!stage) return;
+            const isAR = lang === 'AR';
+            const p = _plAll.find(x => x.id === id);
+            if (!p) { stage.innerHTML = `<div class="pl-empty">${isAR?'القائمة غير موجودة':'Playlist not found'}</div>`; return; }
+            const cat = plCatInfo(p.category);
+            const pid = extractYTPlaylistId(p.playlistUrl || p.url);
+            const favIds = window._userData?.favoritePlaylists || [];
+            const savedIds = window._userData?.savedPlaylists || [];
+            const isFav = favIds.includes(p.id);
+            const isSaved = savedIds.includes(p.id);
+
+            stage.innerHTML = `
+            <button class="pl-back-btn" onclick="plGoList()"><i class="fa-solid fa-arrow-${isAR?'right':'left'}"></i> ${isAR?'رجوع لقوائم التشغيل':'Back to Playlists'}</button>
+            <div class="pl-player-wrap">
+                ${pid
+                    ? `<iframe src="https://www.youtube.com/embed/videoseries?list=${pid}&rel=0" title="${escapeHtmlAC(p.title||'')}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`
+                    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);"><i class="fa-solid fa-triangle-exclamation"></i>&nbsp; ${isAR?'رابط القائمة غير صالح':'Invalid playlist link'}</div>`}
+            </div>
+            <div class="pl-detail-tag" style="background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}44;">${isAR?cat.ar:cat.en}</div>
+            <h2 class="pl-detail-title">${escapeHtmlAC(p.title||'')}</h2>
+            ${p.description ? `<p class="pl-detail-desc">${escapeHtmlAC(p.description)}</p>` : ''}
+            ${p.channelUrl ? `<a class="pl-channel-link" href="${p.channelUrl}" target="_blank"><i class="fa-brands fa-youtube"></i> ${p.channelName ? escapeHtmlAC(p.channelName) : (isAR?'زيارة القناة':'Visit Channel')}</a><br>` : ''}
+            <div class="pl-actions-row">
+                <button class="pl-action-btn ${isFav?'active':''}" onclick="plToggleFavorite('${p.id}')"><i class="fa-${isFav?'solid':'regular'} fa-heart"></i> ${isAR?'المفضلة':'Favorite'}</button>
+                <button class="pl-action-btn ${isSaved?'saved':''}" onclick="plToggleSaved('${p.id}')"><i class="fa-${isSaved?'solid':'regular'} fa-bookmark"></i> ${isAR?'حفظ':'Save'}</button>
+                <button class="pl-action-btn" onclick="plShare('${p.id}')"><i class="fa-solid fa-share-nodes"></i> ${isAR?'مشاركة':'Share'}</button>
+                <a class="pl-action-btn" href="${p.playlistUrl || p.url}" target="_blank" style="text-decoration:none;"><i class="fa-brands fa-youtube"></i> YouTube</a>
+            </div>`;
+        }
+
+        window.plToggleFavorite = async function(id) {
+            const isAR = lang === 'AR';
+            if (!currentUid) { showToast(isAR?'سجّل الدخول لإضافة القائمة للمفضلة':'Log in to add to favorites', true); return; }
+            const favIds = window._userData?.favoritePlaylists || [];
+            const isFav = favIds.includes(id);
+            try {
+                await window._togglePlaylistFavorite(id, !isFav);
+                window._userData.favoritePlaylists = isFav ? favIds.filter(x => x !== id) : [...favIds, id];
+                _plRenderDetail(document.getElementById('plStage'), id);
+                showToast(isFav ? (isAR?'تمت الإزالة من المفضلة':'Removed from favorites') : (isAR?'أُضيف إلى المفضلة ❤️':'Added to favorites ❤️'));
+            } catch(e) { showToast(isAR?'حدث خطأ':'An error occurred', true); }
+        };
+
+        window.plToggleSaved = async function(id) {
+            const isAR = lang === 'AR';
+            if (!currentUid) { showToast(isAR?'سجّل الدخول لحفظ القائمة':'Log in to save this playlist', true); return; }
+            const savedIds = window._userData?.savedPlaylists || [];
+            const isSaved = savedIds.includes(id);
+            try {
+                await window._togglePlaylistSaved(id, !isSaved);
+                window._userData.savedPlaylists = isSaved ? savedIds.filter(x => x !== id) : [...savedIds, id];
+                _plRenderDetail(document.getElementById('plStage'), id);
+                showToast(isSaved ? (isAR?'تم إلغاء الحفظ':'Removed from saved') : (isAR?'تم حفظ القائمة 📌':'Playlist saved 📌'));
+            } catch(e) { showToast(isAR?'حدث خطأ':'An error occurred', true); }
+        };
+
+        window.plShare = function(id) {
+            const isAR = lang === 'AR';
+            const p = _plAll.find(x => x.id === id);
+            const shareUrl = p ? (p.playlistUrl || p.url) : window.location.href;
+            if (navigator.share) {
+                navigator.share({ title: p?.title || 'ATLASYA Playlist', url: shareUrl }).catch(()=>{});
+            } else {
+                navigator.clipboard?.writeText(shareUrl).then(() => {
+                    showToast(isAR?'تم نسخ رابط القائمة':'Playlist link copied');
+                }).catch(() => showToast(isAR?'تعذّر النسخ':'Could not copy', true));
+            }
+        };
 
         /* ─── COMING SOON ─── */
         const soonProgress = { playlists:75, library:60, insights:30, datasets:50, tools:85, jobs:40, courses:55 };
