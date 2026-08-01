@@ -2014,6 +2014,85 @@
             .tip-body { font-size:13px; color:var(--muted); line-height:1.75; }
             .tip-body strong { color:var(--text); }
             body.light-mode .tip-body strong { color:#1a2030; }
+
+            /* ─── DAILY TIP ROTATION ─── */
+            .ins-today-card { background:linear-gradient(160deg,var(--card),rgba(23,92,39,0.14)); border:1px solid var(--border2);
+                border-radius:20px; padding:24px 22px; box-shadow:0 20px 50px rgba(0,0,0,0.28); margin-bottom:18px; position:relative; overflow:hidden; }
+            body.light-mode .ins-today-card { background:linear-gradient(160deg,#fff,rgba(30,122,52,0.05)); }
+            .ins-today-card::before { content:''; position:absolute; top:-40%; left:-15%; width:55%; height:170%;
+                background:radial-gradient(circle,rgba(39,163,70,0.14),transparent 70%); pointer-events:none; }
+            .ins-eyebrow { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800; color:var(--g4); margin-bottom:14px; position:relative; z-index:1; }
+            .ins-eyebrow i { color:var(--gold4); }
+            .ins-cat { display:inline-block; font-size:10.5px; font-weight:800; padding:3px 12px; border-radius:99px;
+                background:rgba(30,122,52,0.14); color:var(--g4); border:1px solid rgba(30,122,52,0.3); margin-bottom:10px; }
+            .ins-date { font-size:11.5px; color:var(--muted); margin-top:10px; }
+            .ins-countdown { display:flex; align-items:center; gap:10px; margin-top:16px; padding:12px 14px;
+                background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:12px; position:relative; z-index:1; }
+            body.light-mode .ins-countdown { background:rgba(0,0,0,0.04); }
+            .ins-countdown i { color:var(--gold4); }
+            .ins-countdown .lbl { font-size:12.5px; color:var(--muted); }
+            .ins-countdown .val { font-family:'Space Mono',monospace; font-weight:700; font-size:16px; color:var(--gold4); letter-spacing:1px; }
+            .ins-actions { display:flex; gap:8px; margin-top:16px; position:relative; z-index:1; flex-wrap:wrap; }
+            .ins-act-btn { flex:1; min-width:90px; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px 8px;
+                border-radius:12px; border:1px solid var(--border); background:var(--bg2); color:var(--text);
+                font-family:inherit; font-size:12.5px; font-weight:700; cursor:pointer; transition:.15s; }
+            body.light-mode .ins-act-btn { background:#f3f4f7; }
+            .ins-act-btn:hover { border-color:var(--border2); }
+            .ins-act-btn.liked { background:rgba(231,76,60,0.14); border-color:rgba(231,76,60,0.4); color:#f27a7a; }
+            .ins-act-btn.saved { background:rgba(212,160,23,0.14); border-color:rgba(212,160,23,0.4); color:var(--gold4); }
+            .ins-act-btn .cnt { font-family:'Space Mono',monospace; }
+            .ins-points-pill { display:inline-flex; align-items:center; gap:6px; background:rgba(212,160,23,0.12); border:1px solid rgba(212,160,23,0.3);
+                color:var(--gold4); font-weight:800; font-size:12.5px; padding:6px 14px; border-radius:99px; }
+            .ins-random-wrap { margin:20px 0; }
+            .ins-random-btn { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; padding:15px;
+                border-radius:16px; border:1px dashed var(--border2); background:rgba(39,163,70,0.07); color:var(--g4);
+                font-family:inherit; font-weight:800; font-size:14.5px; cursor:pointer; transition:.15s; }
+            .ins-random-btn:hover:not(:disabled) { background:rgba(39,163,70,0.14); }
+            .ins-random-btn:disabled { opacity:.45; cursor:not-allowed; color:var(--muted); background:var(--bg2); border-color:var(--border); }
+            .ins-random-hint { text-align:center; font-size:11.5px; color:var(--muted); margin-top:8px; }
+            .ins-section-head { display:flex; align-items:center; justify-content:space-between; margin:24px 0 14px; cursor:pointer; user-select:none; }
+            .ins-section-head h3 { font-size:15.5px; font-weight:800; display:flex; align-items:center; gap:8px; }
+            .ins-section-head i.chev { color:var(--muted); transition:.2s; }
+            .ins-section-head.open i.chev { transform:rotate(180deg); }
+            .ins-hist-list { display:none; flex-direction:column; gap:14px; }
+            .ins-hist-list.open { display:flex; }
+            .ins-hist-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:20px; }
+            body.light-mode .ins-hist-card { background:#fff; }
+            .ins-empty { text-align:center; padding:24px; color:var(--muted); font-size:13px; border:1px dashed var(--border); border-radius:12px; }
+            .ins-sheet-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99998; display:none; }
+            .ins-sheet-overlay.open { display:block; }
+            .ins-share-sheet { position:fixed; left:0; right:0; bottom:-100%; background:var(--bg2); border-radius:20px 20px 0 0;
+                z-index:99999; padding:20px; box-shadow:0 -10px 40px rgba(0,0,0,0.5); transition:bottom .25s ease; max-width:520px; margin:0 auto; }
+            .ins-share-sheet.open { bottom:0; }
+            .ins-share-sheet h4 { font-size:14px; font-weight:800; margin-bottom:14px; color:var(--muted); text-align:center; }
+            .ins-share-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+            .ins-share-opt { display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 4px; border-radius:12px;
+                background:var(--bg3); border:1px solid var(--border); cursor:pointer; font-size:11px; color:var(--text); }
+            .ins-share-opt i { font-size:20px; }
+            .ins-share-opt.wa i { color:#25D366; } .ins-share-opt.tg i { color:#29A9EA; } .ins-share-opt.fb i { color:#1877F2; } .ins-share-opt.cp i { color:var(--gold4); }
+            .ins-sheet-close { width:100%; margin-top:14px; padding:12px; border-radius:12px; border:1px solid var(--border);
+                background:var(--bg3); color:var(--muted); font-family:inherit; font-weight:700; cursor:pointer; }
+            .ins-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:99998; display:none; align-items:center; justify-content:center; padding:20px; }
+            .ins-modal-overlay.open { display:flex; }
+            .ins-modal-card { background:var(--card); border:1px solid var(--border2); border-radius:18px; padding:22px; max-width:440px; width:100%; }
+            .ins-modal-close { width:100%; margin-top:14px; padding:11px; border-radius:12px; border:none; background:var(--g3); color:#fff; font-family:inherit; font-weight:800; cursor:pointer; }
+
+            /* ─── top buttons for saved / previous tips (open as full list, not inline dropdown) ─── */
+            .ins-toplinks { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+            .ins-toplink-btn { flex:1; min-width:160px; display:flex; align-items:center; justify-content:center; gap:8px; padding:13px 10px;
+                border-radius:14px; border:1px solid var(--border2); background:var(--bg2); color:var(--text);
+                font-family:inherit; font-weight:800; font-size:13.5px; cursor:pointer; transition:.15s; }
+            body.light-mode .ins-toplink-btn { background:#fff; }
+            .ins-toplink-btn:hover { border-color:var(--g4); }
+            .ins-toplink-btn.saved-btn i { color:var(--gold4); }
+            .ins-toplink-btn.hist-btn i { color:var(--g4); }
+            .ins-list-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:99998; display:none; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+            .ins-list-modal-overlay.open { display:flex; }
+            .ins-list-modal-card { background:var(--card); border:1px solid var(--border2); border-radius:18px; padding:22px; max-width:560px; width:100%; margin:30px auto; }
+            .ins-list-modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; position:sticky; top:0; background:var(--card); z-index:1; }
+            .ins-list-modal-head h3 { font-size:15.5px; font-weight:800; display:flex; align-items:center; gap:8px; }
+            .ins-list-modal-head i.close-x { cursor:pointer; color:var(--muted); font-size:19px; padding:4px; }
+            .ins-list-modal-body { display:flex; flex-direction:column; gap:14px; }
             .tip-body ul, .tip-body ol { padding-right:18px; padding-left:0; margin:8px 0 0; }
             body:not(.rtl) .tip-body ul, body:not(.rtl) .tip-body ol { padding-left:18px; padding-right:0; }
             .tip-body li { margin-bottom:5px; }
@@ -4580,6 +4659,45 @@
         window._getUserUploadCount = async () => window._getDailyDownloadCount();
         window._incrementUploadCount = async () => { await window._incrementDailyDownload(); };
 
+        /* ─── DAILY TIPS (read + interactions) ─── */
+        window._loadDailyTips = async () => {
+            const q = query(collection(db, 'daily_tips'), orderBy('createdAt', 'asc'));
+            const snap = await getDocs(q);
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        };
+        window._toggleTipLike = async (tipId, liked) => {
+            if (!currentUid) throw new Error('Not logged in');
+            await updateDoc(doc(db, 'users', currentUid), {
+                tipLikes: liked ? arrayUnion(tipId) : arrayRemove(tipId)
+            });
+            await updateDoc(doc(db, 'daily_tips', tipId), {
+                likes: increment(liked ? 1 : -1)
+            });
+            if (window._userData) {
+                const arr = window._userData.tipLikes || [];
+                window._userData.tipLikes = liked ? [...new Set([...arr, tipId])] : arr.filter(x => x !== tipId);
+            }
+        };
+        window._toggleTipSave = async (tipId, saved) => {
+            if (!currentUid) throw new Error('Not logged in');
+            await updateDoc(doc(db, 'users', currentUid), {
+                tipSaves: saved ? arrayUnion(tipId) : arrayRemove(tipId)
+            });
+            if (window._userData) {
+                const arr = window._userData.tipSaves || [];
+                window._userData.tipSaves = saved ? [...new Set([...arr, tipId])] : arr.filter(x => x !== tipId);
+            }
+        };
+        window._awardTipPoints = async () => {
+            if (!currentUid) return false;
+            const today = _getTodayStr();
+            if (window._userData?.lastTipPointDate === today) return false;
+            const newPoints = (window._userData?.tipPoints || 0) + 10;
+            await updateDoc(doc(db, 'users', currentUid), { tipPoints: newPoints, lastTipPointDate: today });
+            if (window._userData) { window._userData.tipPoints = newPoints; window._userData.lastTipPointDate = today; }
+            return true;
+        };
+
         /* ─── ADMIN CONTENT (Firestore) ─── */
         window._saveContent = async (contentMap) => {
             // contentMap = { 'element-id': 'new text', ... }
@@ -5573,48 +5691,343 @@
             </div>`;
         }
 
-        /* ─── GIS INSIGHTS ─── */
-        function renderInsights(area) {
-            const isAR = lang === 'AR';
-            const tips = [
-                { icon:'fa-graduation-cap', color:'#1e7a34', titleAR:'ابدأ بالأساسيات قبل البرامج', titleEN:'Master the Basics Before Software', bodyAR:'قبل ما تفتح أي برنامج GIS، ركّز على المفاهيم الأساسية: الفرق بين <strong>Raster</strong> و<strong>Vector</strong>، نظم الإحداثيات <strong>Projection & Coordinate Systems</strong>، وقواعد البيانات المكانية <strong>Spatial Databases</strong>.<br><br>🎯 الفهم ده هيسهّل عليك التعامل مع أي برنامج بعدين.', bodyEN:'Before opening any GIS software, focus on core concepts: the difference between <strong>Raster</strong> and <strong>Vector</strong>, <strong>Projection & Coordinate Systems</strong>, and <strong>Spatial Databases</strong>.<br><br>🎯 This understanding makes any software much easier to learn.' },
-                { icon:'fa-briefcase', color:'#d4a017', titleAR:'التطبيق العملي أهم من الشهادات', titleEN:'Practical Experience Over Certificates', bodyAR:'الشهادات مهمة، بس الخبرة العملية هي اللي بتفرق:<ul><li>اعمل مشاريع حقيقية حتى لو صغيرة</li><li>استخدم بيانات مفتوحة <strong>Open Data</strong> لتطبيق الدروس</li><li>ابنِ <strong>Portfolio</strong> قوي بخرائطك ومشاريعك الخاصة</li></ul>', bodyEN:'Certificates matter, but practical experience makes the real difference:<ul><li>Work on real projects, even small ones</li><li>Use <strong>Open Data</strong> to apply lessons</li><li>Build a strong <strong>Portfolio</strong> with your own maps and analyses</li></ul>' },
-                { icon:'fa-folder-open', color:'#1e7a34', titleAR:'اشتغل على Projects حقيقية', titleEN:'Work on Real-World Projects', bodyAR:'المشاريع الواقعية بتخليك تتعلم:<ol><li>تحليل البيانات البيئية <strong>Environmental Analysis</strong></li><li>رسم خرائط الشبكات <strong>Network Analysis</strong></li><li>دراسات الأراضي <strong>Land Use & Land Cover</strong></li></ol>🎯 كل مشروع هيديك فكرة عن سوق الشغل وطلبات الشركات.', bodyEN:'Real-world projects help you learn:<ol><li><strong>Environmental Analysis</strong></li><li><strong>Network Analysis</strong></li><li><strong>Land Use & Land Cover</strong> studies</li></ol>🎯 Each project gives you insight into what employers actually need.' },
-                { icon:'fa-laptop-code', color:'#d4a017', titleAR:'اتعلم QGIS مع ArcGIS', titleEN:'Learn QGIS Alongside ArcGIS', bodyAR:'حتى لو هتستخدم ArcGIS Pro، لازم تعرف QGIS:<ul><li>QGIS مجاني ومفتوح المصدر</li><li>فيه <strong>Plugins</strong> كتيرة تساعدك في Analysis وVisualization</li><li>الشركات الصغيرة والمشاريع الحرة <strong>Freelance</strong> غالبًا بتستخدم QGIS</li></ul>', bodyEN:'Even if you use ArcGIS Pro, you must know QGIS:<ul><li>QGIS is free and open-source</li><li>Rich <strong>Plugins</strong> ecosystem for Analysis & Visualization</li><li>Small companies and <strong>Freelance</strong> projects often prefer QGIS</li></ul>' },
-                { icon:'fa-table', color:'#1e7a34', titleAR:'اعرف أساسيات Excel وSQL', titleEN:'Learn Excel & SQL Basics', bodyAR:'مهارات التحليل مهمّة لأي GIS Specialist:<ul><li><strong>Excel:</strong> sorting, filtering, pivot tables</li><li><strong>SQL:</strong> استعلامات على قواعد البيانات المكانية</li></ul>هيساعدك في التعامل مع أي Dataset كبير بسهولة.', bodyEN:'Analytical skills are essential for any GIS Specialist:<ul><li><strong>Excel:</strong> sorting, filtering, pivot tables</li><li><strong>SQL:</strong> queries on spatial databases</li></ul>This will help you handle any large dataset with ease.' },
-                { icon:'fa-folder-tree', color:'#d4a017', titleAR:'نظّم ملفاتك GIS', titleEN:'Organize Your GIS Files', bodyAR:'لازم يكون عندك نظام واضح لتنظيم ملفاتك:<ul><li>اعمل فولدر لكل مشروع</li><li>قسّم البيانات حسب النوع <strong>Raster / Vector</strong></li><li>خلي الخرائط، التحليلات، والبيانات المصدرية في مكان منفصل</li></ul>🎯 ده هيوفر وقتك ويخليك تشتغل بكفاءة.', bodyEN:'You need a clear file organization system:<ul><li>Create a folder for each project</li><li>Separate data by type: <strong>Raster / Vector</strong></li><li>Keep maps, analyses, and source data in separate folders</li></ul>🎯 This saves time and keeps you working efficiently.' },
-                { icon:'fa-rotate', color:'#1e7a34', titleAR:'تابع التحديثات والأدوات الجديدة', titleEN:'Stay Updated with New Tools', bodyAR:'برامج GIS دايمًا بتتحدث:<ol><li>تابع المدونات الرسمية لـ ArcGIS و QGIS</li><li>تابع حسابات GitHub الخاصة بالـ Plugins</li><li>جرّب الأدوات الجديدة على مشاريع صغيرة</li></ol>🎯 ده هيخليك دائمًا محدث ومواكب لأي وظيفة أو مشروع.', bodyEN:'GIS software is always evolving:<ol><li>Follow official ArcGIS & QGIS blogs</li><li>Watch GitHub repos for new Plugins</li><li>Test new tools on small projects</li></ol>🎯 This keeps you current and competitive in the job market.' },
-                { icon:'fa-database', color:'#d4a017', titleAR:'استخدم بيانات مفتوحة Open Data', titleEN:'Use Open Data Sources', bodyAR:'لتطبيق مشاريع GIS بدون تعقيدات:<ol><li>استخدم بيانات مفتوحة من مواقع حكومية أو بحثية</li><li>جرّب مشاريع صغيرة زي رسم خرائط استخدام الأراضي</li><li>افتح ملفات البيانات بنفسك لتفهم هيكلها</li></ol>🎯 ده هيساعدك تتعلم التحليل العملي بدون قيود تراخيص.', bodyEN:'Apply GIS projects without complications:<ol><li>Use open data from government or research portals</li><li>Try small projects like mapping land use</li><li>Open data files yourself to understand their structure</li></ol>🎯 This helps you learn practical analysis without license restrictions.' },
-                { icon:'fa-share-nodes', color:'#1e7a34', titleAR:'شارك مشاريعك وخبراتك', titleEN:'Share Your Projects & Experience', bodyAR:'مشاركة مشاريعك خطوة مهمة لبناء Portfolio:<ol><li>انشر خرائطك ومشاريعك على LinkedIn أو GitHub</li><li>اشرح كل مشروع: البيانات، الأدوات، النتائج</li></ol>🎯 ده هيخلي أصحاب الشغل يشوفوا مهاراتك.<br>⚠️ مهم جدًا لو عايز Freelance أو وظيفة ثابتة.', bodyEN:'Sharing is key to building your Portfolio:<ol><li>Post your maps and projects on LinkedIn or GitHub</li><li>Describe each project: data, tools, and results</li></ol>🎯 This lets employers see and appreciate your skills.<br>⚠️ Essential if you want Freelance or a permanent GIS job.' },
-                { icon:'fa-magnifying-glass-location', color:'#d4a017', titleAR:'ركّز على التحليل المكاني Spatial Analysis', titleEN:'Master Spatial Analysis', bodyAR:'مهارة التحليل المكاني مطلوبة في كل مشاريع GIS:<ol><li>اتعلم كيفية تحليل البيانات المكانية وعلاقاتها</li><li>جرّب أدوات مثل <strong>Buffer, Overlay, Spatial Join</strong></li><li>اربط النتائج بخطط عملية أو خرائط توضيحية</li></ol>🎯 التطبيق العملي هو اللي هيخلي مهارتك واضحة.', bodyEN:'Spatial analysis skills are required in every GIS project:<ol><li>Learn how to analyze spatial data and its relationships</li><li>Practice tools like <strong>Buffer, Overlay, Spatial Join</strong></li><li>Link results to practical plans or illustrative maps</li></ol>🎯 Hands-on practice is what makes your skill visible.' },
-                { icon:'fa-satellite', color:'#1e7a34', titleAR:'تعلّم Remote Sensing', titleEN:'Learn Remote Sensing', bodyAR:'الـ Remote Sensing جزء أساسي من GIS:<ul><li>افهم أنواع الأقمار الصناعية مثل <strong>Landsat, Sentinel</strong></li><li>تعلّم استخدام وتحليل الصور الفضائية</li><li>اربط النتائج بالخرائط GIS</li></ul>ده هيفتحلك مجالات كبيرة في البيئة، الزراعة، والتخطيط العمراني.', bodyEN:'Remote Sensing is a core part of GIS:<ul><li>Understand satellite types like <strong>Landsat, Sentinel</strong></li><li>Learn to use and analyze satellite imagery</li><li>Link results back to GIS maps</li></ul>This opens huge opportunities in environment, agriculture, and urban planning.' },
-                { icon:'fa-palette', color:'#d4a017', titleAR:'ركّز على Visualization', titleEN:'Focus on Visualization', bodyAR:'العرض البصري للخرائط مهم جدًا:<ul><li>استخدم <strong>Symbols, Labels, Color Schemes</strong> بشكل واضح</li><li>تعلّم عمل <strong>Interactive Maps</strong> في ArcGIS أو QGIS</li><li>تقديم الخرائط بشكل جذاب يسهّل فهم البيانات</li></ul>يزيد فرصك في الشغل ويجعل نتائجك أكثر تأثيراً.', bodyEN:'Map visualization is critically important:<ul><li>Use clear <strong>Symbols, Labels, Color Schemes</strong></li><li>Learn to create <strong>Interactive Maps</strong> in ArcGIS or QGIS</li><li>Attractive map presentation makes data easier to understand</li></ul>This increases your job opportunities and makes your results more impactful.' },
-                { icon:'fa-file-lines', color:'#1e7a34', titleAR:'اعمل Portfolio رقمي', titleEN:'Build a Digital Portfolio', bodyAR:'لكي تُثبت مهاراتك لأي وظيفة أو مشروع:<ul><li>احتفظ بمشاريعك، خرائطك، تحليلاتك في ملف أو موقع</li><li>اعمل شرح لكل مشروع: الهدف، البيانات، التحليل، النتائج</li><li>استخدم <strong>GitHub</strong> أو <strong>LinkedIn</strong> لعرض Portfolio</li></ul>', bodyEN:'To prove your skills for any job or project:<ul><li>Keep your projects, maps, and analyses in one place</li><li>Document each project: goal, data, analysis, results</li><li>Use <strong>GitHub</strong> or <strong>LinkedIn</strong> to showcase your Portfolio</li></ul>' },
-                { icon:'fa-code', color:'#d4a017', titleAR:'اتعلّم Python وGIS', titleEN:'Learn Python for GIS', bodyAR:'البرمجة مهمة جدًا في GIS:<ul><li>استخدم <strong>Python + ArcPy</strong> لتسريع التحليل المكرّر</li><li>جرّب <strong>QGIS Python Plugins</strong></li><li>كتابة سكربتات صغيرة هتوفر وقتك وتديك قوة في تحليل البيانات الكبيرة</li></ul>', bodyEN:'Programming is very important in GIS:<ul><li>Use <strong>Python + ArcPy</strong> to automate repetitive analysis</li><li>Try <strong>QGIS Python Plugins</strong></li><li>Writing small scripts saves time and gives you power over large datasets</li></ul>' },
-                { icon:'fa-users', color:'#1e7a34', titleAR:'شارك في مجتمعات GIS', titleEN:'Join GIS Communities', bodyAR:'المجتمع هيساعدك تتعلم أسرع:<ul><li>انضم لمجموعات GIS على Facebook، LinkedIn، Reddit</li><li>اسأل، شارك مشاريعك، خذ نصايح من محترفين</li><li>ده هيوصلك لفرص تدريبية وشغل أكثر</li></ul>', bodyEN:'Community will help you learn faster:<ul><li>Join GIS groups on Facebook, LinkedIn, Reddit</li><li>Ask questions, share your projects, get advice from professionals</li><li>This connects you to more training and job opportunities</li></ul>' }
-            ];
+        /* ─── GIS INSIGHTS — DAILY TIP ROTATION ─── */
+        const INS_SEED_TIPS = [
+            { id:'seed01', icon:'fa-graduation-cap', color:'#1e7a34', categoryAR:'أساسيات', categoryEN:'Basics', titleAR:'ابدأ بالأساسيات قبل البرامج', titleEN:'Master the Basics Before Software', bodyAR:'قبل ما تفتح أي برنامج GIS، ركّز على المفاهيم الأساسية: الفرق بين <strong>Raster</strong> و<strong>Vector</strong>، نظم الإحداثيات <strong>Projection & Coordinate Systems</strong>، وقواعد البيانات المكانية <strong>Spatial Databases</strong>.<br><br>🎯 الفهم ده هيسهّل عليك التعامل مع أي برنامج بعدين.', bodyEN:'Before opening any GIS software, focus on core concepts: the difference between <strong>Raster</strong> and <strong>Vector</strong>, <strong>Projection & Coordinate Systems</strong>, and <strong>Spatial Databases</strong>.<br><br>🎯 This understanding makes any software much easier to learn.' },
+            { id:'seed02', icon:'fa-briefcase', color:'#d4a017', categoryAR:'مسار مهني', categoryEN:'Career', titleAR:'التطبيق العملي أهم من الشهادات', titleEN:'Practical Experience Over Certificates', bodyAR:'الشهادات مهمة، بس الخبرة العملية هي اللي بتفرق:<ul><li>اعمل مشاريع حقيقية حتى لو صغيرة</li><li>استخدم بيانات مفتوحة <strong>Open Data</strong> لتطبيق الدروس</li><li>ابنِ <strong>Portfolio</strong> قوي بخرائطك ومشاريعك الخاصة</li></ul>', bodyEN:'Certificates matter, but practical experience makes the real difference:<ul><li>Work on real projects, even small ones</li><li>Use <strong>Open Data</strong> to apply lessons</li><li>Build a strong <strong>Portfolio</strong> with your own maps and analyses</li></ul>' },
+            { id:'seed03', icon:'fa-folder-open', color:'#1e7a34', categoryAR:'مشاريع', categoryEN:'Projects', titleAR:'اشتغل على Projects حقيقية', titleEN:'Work on Real-World Projects', bodyAR:'المشاريع الواقعية بتخليك تتعلم:<ol><li>تحليل البيانات البيئية <strong>Environmental Analysis</strong></li><li>رسم خرائط الشبكات <strong>Network Analysis</strong></li><li>دراسات الأراضي <strong>Land Use & Land Cover</strong></li></ol>🎯 كل مشروع هيديك فكرة عن سوق الشغل وطلبات الشركات.', bodyEN:'Real-world projects help you learn:<ol><li><strong>Environmental Analysis</strong></li><li><strong>Network Analysis</strong></li><li><strong>Land Use & Land Cover</strong> studies</li></ol>🎯 Each project gives you insight into what employers actually need.' },
+            { id:'seed04', icon:'fa-laptop-code', color:'#d4a017', categoryAR:'برامج', categoryEN:'Software', titleAR:'اتعلم QGIS مع ArcGIS', titleEN:'Learn QGIS Alongside ArcGIS', bodyAR:'حتى لو هتستخدم ArcGIS Pro، لازم تعرف QGIS:<ul><li>QGIS مجاني ومفتوح المصدر</li><li>فيه <strong>Plugins</strong> كتيرة تساعدك في Analysis وVisualization</li><li>الشركات الصغيرة والمشاريع الحرة <strong>Freelance</strong> غالبًا بتستخدم QGIS</li></ul>', bodyEN:'Even if you use ArcGIS Pro, you must know QGIS:<ul><li>QGIS is free and open-source</li><li>Rich <strong>Plugins</strong> ecosystem for Analysis & Visualization</li><li>Small companies and <strong>Freelance</strong> projects often prefer QGIS</li></ul>' },
+            { id:'seed05', icon:'fa-table', color:'#1e7a34', categoryAR:'تحليل بيانات', categoryEN:'Data Analysis', titleAR:'اعرف أساسيات Excel وSQL', titleEN:'Learn Excel & SQL Basics', bodyAR:'مهارات التحليل مهمّة لأي GIS Specialist:<ul><li><strong>Excel:</strong> sorting, filtering, pivot tables</li><li><strong>SQL:</strong> استعلامات على قواعد البيانات المكانية</li></ul>هيساعدك في التعامل مع أي Dataset كبير بسهولة.', bodyEN:'Analytical skills are essential for any GIS Specialist:<ul><li><strong>Excel:</strong> sorting, filtering, pivot tables</li><li><strong>SQL:</strong> queries on spatial databases</li></ul>This will help you handle any large dataset with ease.' },
+            { id:'seed06', icon:'fa-folder-tree', color:'#d4a017', categoryAR:'تنظيم', categoryEN:'Organization', titleAR:'نظّم ملفاتك GIS', titleEN:'Organize Your GIS Files', bodyAR:'لازم يكون عندك نظام واضح لتنظيم ملفاتك:<ul><li>اعمل فولدر لكل مشروع</li><li>قسّم البيانات حسب النوع <strong>Raster / Vector</strong></li><li>خلي الخرائط، التحليلات، والبيانات المصدرية في مكان منفصل</li></ul>🎯 ده هيوفر وقتك ويخليك تشتغل بكفاءة.', bodyEN:'You need a clear file organization system:<ul><li>Create a folder for each project</li><li>Separate data by type: <strong>Raster / Vector</strong></li><li>Keep maps, analyses, and source data in separate folders</li></ul>🎯 This saves time and keeps you working efficiently.' },
+            { id:'seed07', icon:'fa-rotate', color:'#1e7a34', categoryAR:'أدوات', categoryEN:'Tools', titleAR:'تابع التحديثات والأدوات الجديدة', titleEN:'Stay Updated with New Tools', bodyAR:'برامج GIS دايمًا بتتحدث:<ol><li>تابع المدونات الرسمية لـ ArcGIS و QGIS</li><li>تابع حسابات GitHub الخاصة بالـ Plugins</li><li>جرّب الأدوات الجديدة على مشاريع صغيرة</li></ol>🎯 ده هيخليك دائمًا محدث ومواكب لأي وظيفة أو مشروع.', bodyEN:'GIS software is always evolving:<ol><li>Follow official ArcGIS & QGIS blogs</li><li>Watch GitHub repos for new Plugins</li><li>Test new tools on small projects</li></ol>🎯 This keeps you current and competitive in the job market.' },
+            { id:'seed08', icon:'fa-database', color:'#d4a017', categoryAR:'بيانات مفتوحة', categoryEN:'Open Data', titleAR:'استخدم بيانات مفتوحة Open Data', titleEN:'Use Open Data Sources', bodyAR:'لتطبيق مشاريع GIS بدون تعقيدات:<ol><li>استخدم بيانات مفتوحة من مواقع حكومية أو بحثية</li><li>جرّب مشاريع صغيرة زي رسم خرائط استخدام الأراضي</li><li>افتح ملفات البيانات بنفسك لتفهم هيكلها</li></ol>🎯 ده هيساعدك تتعلم التحليل العملي بدون قيود تراخيص.', bodyEN:'Apply GIS projects without complications:<ol><li>Use open data from government or research portals</li><li>Try small projects like mapping land use</li><li>Open data files yourself to understand their structure</li></ol>🎯 This helps you learn practical analysis without license restrictions.' },
+            { id:'seed09', icon:'fa-share-nodes', color:'#1e7a34', categoryAR:'مشاركة', categoryEN:'Sharing', titleAR:'شارك مشاريعك وخبراتك', titleEN:'Share Your Projects & Experience', bodyAR:'مشاركة مشاريعك خطوة مهمة لبناء Portfolio:<ol><li>انشر خرائطك ومشاريعك على LinkedIn أو GitHub</li><li>اشرح كل مشروع: البيانات، الأدوات، النتائج</li></ol>🎯 ده هيخلي أصحاب الشغل يشوفوا مهاراتك.<br>⚠️ مهم جدًا لو عايز Freelance أو وظيفة ثابتة.', bodyEN:'Sharing is key to building your Portfolio:<ol><li>Post your maps and projects on LinkedIn or GitHub</li><li>Describe each project: data, tools, and results</li></ol>🎯 This lets employers see and appreciate your skills.<br>⚠️ Essential if you want Freelance or a permanent GIS job.' },
+            { id:'seed10', icon:'fa-magnifying-glass-location', color:'#d4a017', categoryAR:'تحليل مكاني', categoryEN:'Spatial Analysis', titleAR:'ركّز على التحليل المكاني Spatial Analysis', titleEN:'Master Spatial Analysis', bodyAR:'مهارة التحليل المكاني مطلوبة في كل مشاريع GIS:<ol><li>اتعلم كيفية تحليل البيانات المكانية وعلاقاتها</li><li>جرّب أدوات مثل <strong>Buffer, Overlay, Spatial Join</strong></li><li>اربط النتائج بخطط عملية أو خرائط توضيحية</li></ol>🎯 التطبيق العملي هو اللي هيخلي مهارتك واضحة.', bodyEN:'Spatial analysis skills are required in every GIS project:<ol><li>Learn how to analyze spatial data and its relationships</li><li>Practice tools like <strong>Buffer, Overlay, Spatial Join</strong></li><li>Link results to practical plans or illustrative maps</li></ol>🎯 Hands-on practice is what makes your skill visible.' },
+            { id:'seed11', icon:'fa-satellite', color:'#1e7a34', categoryAR:'استشعار عن بعد', categoryEN:'Remote Sensing', titleAR:'تعلّم Remote Sensing', titleEN:'Learn Remote Sensing', bodyAR:'الـ Remote Sensing جزء أساسي من GIS:<ul><li>افهم أنواع الأقمار الصناعية مثل <strong>Landsat, Sentinel</strong></li><li>تعلّم استخدام وتحليل الصور الفضائية</li><li>اربط النتائج بالخرائط GIS</li></ul>ده هيفتحلك مجالات كبيرة في البيئة، الزراعة، والتخطيط العمراني.', bodyEN:'Remote Sensing is a core part of GIS:<ul><li>Understand satellite types like <strong>Landsat, Sentinel</strong></li><li>Learn to use and analyze satellite imagery</li><li>Link results back to GIS maps</li></ul>This opens huge opportunities in environment, agriculture, and urban planning.' },
+            { id:'seed12', icon:'fa-palette', color:'#d4a017', categoryAR:'تصميم خرائط', categoryEN:'Cartography', titleAR:'ركّز على Visualization', titleEN:'Focus on Visualization', bodyAR:'العرض البصري للخرائط مهم جدًا:<ul><li>استخدم <strong>Symbols, Labels, Color Schemes</strong> بشكل واضح</li><li>تعلّم عمل <strong>Interactive Maps</strong> في ArcGIS أو QGIS</li><li>تقديم الخرائط بشكل جذاب يسهّل فهم البيانات</li></ul>يزيد فرصك في الشغل ويجعل نتائجك أكثر تأثيراً.', bodyEN:'Map visualization is critically important:<ul><li>Use clear <strong>Symbols, Labels, Color Schemes</strong></li><li>Learn to create <strong>Interactive Maps</strong> in ArcGIS or QGIS</li><li>Attractive map presentation makes data easier to understand</li></ul>This increases your job opportunities and makes your results more impactful.' },
+            { id:'seed13', icon:'fa-file-lines', color:'#1e7a34', categoryAR:'بورتفوليو', categoryEN:'Portfolio', titleAR:'اعمل Portfolio رقمي', titleEN:'Build a Digital Portfolio', bodyAR:'لكي تُثبت مهاراتك لأي وظيفة أو مشروع:<ul><li>احتفظ بمشاريعك، خرائطك، تحليلاتك في ملف أو موقع</li><li>اعمل شرح لكل مشروع: الهدف، البيانات، التحليل، النتائج</li><li>استخدم <strong>GitHub</strong> أو <strong>LinkedIn</strong> لعرض Portfolio</li></ul>', bodyEN:'To prove your skills for any job or project:<ul><li>Keep your projects, maps, and analyses in one place</li><li>Document each project: goal, data, analysis, results</li><li>Use <strong>GitHub</strong> or <strong>LinkedIn</strong> to showcase your Portfolio</li></ul>' },
+            { id:'seed14', icon:'fa-code', color:'#d4a017', categoryAR:'برمجة', categoryEN:'Programming', titleAR:'اتعلّم Python وGIS', titleEN:'Learn Python for GIS', bodyAR:'البرمجة مهمة جدًا في GIS:<ul><li>استخدم <strong>Python + ArcPy</strong> لتسريع التحليل المكرّر</li><li>جرّب <strong>QGIS Python Plugins</strong></li><li>كتابة سكربتات صغيرة هتوفر وقتك وتديك قوة في تحليل البيانات الكبيرة</li></ul>', bodyEN:'Programming is very important in GIS:<ul><li>Use <strong>Python + ArcPy</strong> to automate repetitive analysis</li><li>Try <strong>QGIS Python Plugins</strong></li><li>Writing small scripts saves time and gives you power over large datasets</li></ul>' },
+            { id:'seed15', icon:'fa-users', color:'#1e7a34', categoryAR:'مجتمع', categoryEN:'Community', titleAR:'شارك في مجتمعات GIS', titleEN:'Join GIS Communities', bodyAR:'المجتمع هيساعدك تتعلم أسرع:<ul><li>انضم لمجموعات GIS على Facebook، LinkedIn، Reddit</li><li>اسأل، شارك مشاريعك، خذ نصايح من محترفين</li><li>ده هيوصلك لفرص تدريبية وشغل أكثر</li></ul>', bodyEN:'Community will help you learn faster:<ul><li>Join GIS groups on Facebook, LinkedIn, Reddit</li><li>Ask questions, share your projects, get advice from professionals</li><li>This connects you to more training and job opportunities</li></ul>' }
+        ];
+        const INS_EPOCH = new Date('2025-01-01T00:00:00');
+        const INS_SHARE_LINK = 'https://atlasya2026.github.io/Atlasya/';
+        const INS_HASHTAGS = '#ATLASYA #GIS #GISExplorer';
+        let _insTips = null;      // combined seed + Firestore tips, loaded once per session
+        let _insCountdownTimer = null;
+        let _insShareTipId = null;
+        let _insViewedToday = false;
 
+        async function renderInsights(area) {
+            area.innerHTML = `<div style="text-align:center;padding:60px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin" style="font-size:22px;"></i></div>`;
+            if (!_insTips) {
+                let fsTips = [];
+                try { fsTips = window._loadDailyTips ? await window._loadDailyTips() : []; }
+                catch(e) { console.error('loadDailyTips error:', e); }
+                _insTips = [...INS_SEED_TIPS, ...fsTips];
+            }
+            insRenderPage(area);
+        }
+
+        function insDateStr(d) {
+            const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+        // tips without an admin-assigned scheduledDate fall back to automatic day-by-day rotation
+        function insAutoPool() { return _insTips.filter(t => !t.scheduledDate); }
+        function insDayIndex(d) { return Math.floor(((d || new Date()).getTime() - INS_EPOCH.getTime()) / 86400000); }
+        function insAutoTipForDayIndex(di) {
+            const pool = insAutoPool();
+            if (!pool.length) return null;
+            const n = pool.length;
+            return pool[((di % n) + n) % n];
+        }
+        // admin can pin a specific tip to a specific date; that always wins over the automatic rotation
+        function insTipForDate(d) {
+            const ds = insDateStr(d);
+            const scheduled = _insTips.find(t => t.scheduledDate === ds);
+            if (scheduled) return scheduled;
+            return insAutoTipForDayIndex(insDayIndex(d));
+        }
+        function insTodayTip() { return insTipForDate(new Date()); }
+        function insPastTips() {
+            const out = [];
+            const today = new Date();
+            const lookback = Math.max(_insTips.length - 1, 30);
+            for (let i = 1; i <= lookback; i++) {
+                const d = new Date(today.getTime() - i * 86400000);
+                const tip = insTipForDate(d);
+                if (!tip) continue;
+                out.push({ ...tip, _dateObj: d });
+            }
+            return out;
+        }
+        function insLikedIds() { return window._userData?.tipLikes || []; }
+        function insSavedIds() { return window._userData?.tipSaves || []; }
+        function insIsLiked(id) { return insLikedIds().includes(id); }
+        function insIsSaved(id) { return insSavedIds().includes(id); }
+        function insQualifiedToday() { return _insViewedToday && insIsLiked(insTodayTip().id); }
+
+        function insActionsHTML(tip, isAR) {
+            const liked = insIsLiked(tip.id);
+            const saved = insIsSaved(tip.id);
+            return `
+            <button class="ins-act-btn ${liked?'liked':''}" onclick="insToggleLike('${tip.id}')">
+                <i class="fa-solid fa-heart"></i> ${isAR?'إعجاب':'Like'} <span class="cnt">${tip.likes||0}</span>
+            </button>
+            <button class="ins-act-btn ${saved?'saved':''}" onclick="insToggleSave('${tip.id}')">
+                <i class="fa-solid fa-bookmark"></i> ${isAR?'حفظ':'Save'}
+            </button>
+            <button class="ins-act-btn" onclick="insOpenShare('${tip.id}')">
+                <i class="fa-solid fa-share-nodes"></i> ${isAR?'مشاركة':'Share'}
+            </button>`;
+        }
+
+        function insRenderPage(area) {
+            const isAR = lang === 'AR';
+            const tip = insTodayTip();
+            const points = window._userData?.tipPoints || 0;
             area.innerHTML = `
             <div class="page-header">
                 <h2>${isAR ? 'رؤى GIS' : 'GIS Insights'}</h2>
-                <p>${isAR ? '١٥ نصيحة ذهبية لتطوير مسيرتك في نظم المعلومات الجغرافية' : '15 expert tips to advance your GIS career and skills'}</p>
+                <p>${isAR ? 'نصيحة جديدة كل يوم — اقرأ، اعمل لايك، واكسب نقاط' : 'A new tip every day — read, like, and earn points'}</p>
             </div>
-            <div class="tips-grid">
-                ${tips.map((t,i) => `
-                <div class="tip-card">
-                    <div class="tip-header">
-                        <div class="tip-icon" style="background:${t.color}22;color:${t.color};border:1px solid ${t.color}44;">
-                            <i class="fa-solid ${t.icon}"></i>
-                        </div>
-                        <div style="flex:1;min-width:0;">
-                            <div class="tip-num">${isAR?'نصيحة':'Tip'} ${i+1}</div>
-                            <h3 class="tip-title">${isAR?t.titleAR:t.titleEN}</h3>
-                        </div>
+
+            <div class="ins-toplinks">
+                <button class="ins-toplink-btn saved-btn" onclick="insOpenSavedModal()"><i class="fa-solid fa-bookmark"></i> ${isAR?'النصائح المحفوظة':'Saved Tips'}</button>
+                <button class="ins-toplink-btn hist-btn" onclick="insOpenHistModal()"><i class="fa-solid fa-book-open"></i> ${isAR?'جميع النصائح السابقة':'All Previous Tips'}</button>
+            </div>
+
+            <div class="ins-today-card">
+                <div class="ins-eyebrow"><i class="fa-solid fa-lightbulb"></i> ${isAR?'نصيحة اليوم':"Today's Tip"} &nbsp;•&nbsp; <span class="ins-points-pill"><i class="fa-solid fa-star"></i> ${points} ${isAR?'نقطة':'pts'}</span></div>
+                <span class="ins-cat">${isAR?tip.categoryAR:tip.categoryEN}</span>
+                <h3 class="tip-title" style="font-size:19px;">${isAR?tip.titleAR:tip.titleEN}</h3>
+                <div class="tip-body" style="font-size:14.5px;margin-top:8px;">${isAR?tip.bodyAR:tip.bodyEN}</div>
+                <div class="ins-date">${new Date().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'long',year:'numeric'})}</div>
+                <div class="ins-countdown">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                    <span class="lbl">${isAR?'النصيحة القادمة بعد:':'Next tip in:'}</span>
+                    <span class="val" id="insCountdownVal">--:--:--</span>
+                </div>
+                <div class="ins-actions" id="insTodayActions">${insActionsHTML(tip, isAR)}</div>
+            </div>
+
+            <div class="ins-random-wrap">
+                <button class="ins-random-btn" id="insRandomBtn" onclick="insOpenRandom()"><i class="fa-solid fa-gift"></i> ${isAR?'افتح نصيحة عشوائية':'Open a Random Tip'}</button>
+                <div class="ins-random-hint" id="insRandomHint"></div>
+            </div>
+
+            <!-- saved tips modal -->
+            <div class="ins-list-modal-overlay" id="insSavedOverlay" onclick="if(event.target===this) insCloseSavedModal()">
+                <div class="ins-list-modal-card">
+                    <div class="ins-list-modal-head">
+                        <h3><i class="fa-solid fa-bookmark" style="color:var(--gold4);"></i> ${isAR?'النصائح المحفوظة':'Saved Tips'}</h3>
+                        <i class="fa-solid fa-xmark close-x" onclick="insCloseSavedModal()"></i>
                     </div>
-                    <div class="tip-body">${isAR?t.bodyAR:t.bodyEN}</div>
-                </div>`).join('')}
+                    <div class="ins-list-modal-body" id="insSavedList"></div>
+                </div>
+            </div>
+
+            <!-- previous tips modal -->
+            <div class="ins-list-modal-overlay" id="insHistOverlay" onclick="if(event.target===this) insCloseHistModal()">
+                <div class="ins-list-modal-card">
+                    <div class="ins-list-modal-head">
+                        <h3><i class="fa-solid fa-book-open" style="color:var(--g4);"></i> ${isAR?'جميع النصائح السابقة':'All Previous Tips'}</h3>
+                        <i class="fa-solid fa-xmark close-x" onclick="insCloseHistModal()"></i>
+                    </div>
+                    <div class="ins-list-modal-body" id="insHistList"></div>
+                </div>
+            </div>
+
+            <!-- share sheet -->
+            <div class="ins-sheet-overlay" id="insSheetOverlay" onclick="insCloseShare()"></div>
+            <div class="ins-share-sheet" id="insShareSheet">
+                <h4>${isAR?'مشاركة النصيحة عبر':'Share this tip via'}</h4>
+                <div class="ins-share-grid">
+                    <div class="ins-share-opt wa" onclick="insDoShare('whatsapp')"><i class="fa-brands fa-whatsapp"></i> ${isAR?'واتساب':'WhatsApp'}</div>
+                    <div class="ins-share-opt tg" onclick="insDoShare('telegram')"><i class="fa-brands fa-telegram"></i> ${isAR?'تيليجرام':'Telegram'}</div>
+                    <div class="ins-share-opt fb" onclick="insDoShare('facebook')"><i class="fa-brands fa-facebook"></i> ${isAR?'فيسبوك':'Facebook'}</div>
+                    <div class="ins-share-opt cp" onclick="insDoShare('copy')"><i class="fa-solid fa-copy"></i> ${isAR?'نسخ النص':'Copy text'}</div>
+                </div>
+                <button class="ins-sheet-close" onclick="insCloseShare()">${isAR?'إغلاق':'Close'}</button>
+            </div>
+
+            <!-- random tip modal -->
+            <div class="ins-modal-overlay" id="insRandomOverlay">
+                <div class="ins-modal-card" id="insRandomModalContent"></div>
             </div>`;
+
+            _insViewedToday = true;
+            insRenderHistory();
+            insRenderSaved();
+            insUpdateRandomBtn();
+            insTickCountdown();
+            if (_insCountdownTimer) clearInterval(_insCountdownTimer);
+            _insCountdownTimer = setInterval(insTickCountdown, 1000);
+
+            // maybe award points if tip was already liked earlier today (revisit case)
+            if (insIsLiked(tip.id)) insMaybeAwardPoints();
         }
+
+        function insRenderHistory() {
+            const isAR = lang === 'AR';
+            const el = document.getElementById('insHistList');
+            if (!el) return;
+            const list = insPastTips();
+            if (!list.length) { el.innerHTML = `<div class="ins-empty">${isAR?'لسه معندناش نصائح سابقة 🌱':'No previous tips yet 🌱'}</div>`; return; }
+            el.innerHTML = list.map(tip => `
+            <div class="ins-hist-card">
+                <span class="ins-cat">${isAR?tip.categoryAR:tip.categoryEN}</span>
+                <h3 class="tip-title" style="font-size:15.5px;">${isAR?tip.titleAR:tip.titleEN}</h3>
+                <div class="tip-body" style="margin-top:6px;">${isAR?tip.bodyAR:tip.bodyEN}</div>
+                <div class="ins-date">${tip._dateObj.toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'long',year:'numeric'})}</div>
+                <div class="ins-actions" style="margin-top:12px;">${insActionsHTML(tip, isAR)}</div>
+            </div>`).join('');
+        }
+
+        function insRenderSaved() {
+            const isAR = lang === 'AR';
+            const el = document.getElementById('insSavedList');
+            if (!el) return;
+            const all = [insTodayTip(), ...insPastTips()];
+            const list = all.filter(t => insIsSaved(t.id));
+            if (!list.length) { el.innerHTML = `<div class="ins-empty">${isAR?'هتلاقي هنا النصائح اللي تحفظها 🔖':'Tips you save will show up here 🔖'}</div>`; return; }
+            el.innerHTML = list.map(tip => `
+            <div class="ins-hist-card">
+                <span class="ins-cat">${isAR?tip.categoryAR:tip.categoryEN}</span>
+                <h3 class="tip-title" style="font-size:15.5px;">${isAR?tip.titleAR:tip.titleEN}</h3>
+                <div class="tip-body" style="margin-top:6px;">${isAR?tip.bodyAR:tip.bodyEN}</div>
+                <div class="ins-actions" style="margin-top:12px;">${insActionsHTML(tip, isAR)}</div>
+            </div>`).join('');
+        }
+
+        window.insOpenHistModal = function() {
+            insRenderHistory();
+            document.getElementById('insHistOverlay')?.classList.add('open');
+        };
+        window.insCloseHistModal = function() {
+            document.getElementById('insHistOverlay')?.classList.remove('open');
+        };
+        window.insOpenSavedModal = function() {
+            insRenderSaved();
+            document.getElementById('insSavedOverlay')?.classList.add('open');
+        };
+        window.insCloseSavedModal = function() {
+            document.getElementById('insSavedOverlay')?.classList.remove('open');
+        };
+
+        window.insToggleLike = async function(tipId) {
+            if (!window._currentUid) { showToast(lang==='AR'?'سجّل الدخول الأول':'Please log in first', true); return; }
+            const wasLiked = insIsLiked(tipId);
+            const t = _insTips.find(x => x.id === tipId);
+            try {
+                await window._toggleTipLike(tipId, !wasLiked);
+                if (t) t.likes = (t.likes || 0) + (wasLiked ? -1 : 1);
+                if (!wasLiked && tipId === insTodayTip().id) await insMaybeAwardPoints();
+                insRefreshLists();
+            } catch(e) { console.error(e); showToast(lang==='AR'?'حدث خطأ':'An error occurred', true); }
+        };
+        window.insToggleSave = async function(tipId) {
+            if (!window._currentUid) { showToast(lang==='AR'?'سجّل الدخول الأول':'Please log in first', true); return; }
+            const wasSaved = insIsSaved(tipId);
+            try {
+                await window._toggleTipSave(tipId, !wasSaved);
+                showToast(wasSaved ? (lang==='AR'?'🗑️ اتشالت من المحفوظات':'🗑️ Removed from saved') : (lang==='AR'?'🔖 اتحفظت في نصائحك':'🔖 Saved to your tips'));
+                insRefreshLists();
+            } catch(e) { console.error(e); showToast(lang==='AR'?'حدث خطأ':'An error occurred', true); }
+        };
+
+        async function insMaybeAwardPoints() {
+            if (!insQualifiedToday()) return;
+            try {
+                const awarded = await window._awardTipPoints();
+                if (awarded) showToast(lang==='AR' ? '🎉 حصلت على 10 نقاط لقراءتك نصيحة اليوم!' : '🎉 You earned 10 points for reading today\'s tip!');
+                insUpdateRandomBtn();
+                const pill = document.querySelector('.ins-points-pill');
+                if (pill) pill.innerHTML = `<i class="fa-solid fa-star"></i> ${window._userData?.tipPoints||0} ${lang==='AR'?'نقطة':'pts'}`;
+            } catch(e) { console.error(e); }
+        }
+
+        function insUpdateRandomBtn() {
+            const isAR = lang === 'AR';
+            const btn = document.getElementById('insRandomBtn');
+            const hint = document.getElementById('insRandomHint');
+            if (!btn) return;
+            const ok = insQualifiedToday();
+            btn.disabled = !ok;
+            if (hint) hint.textContent = ok
+                ? (isAR?'اضغط واكتشف نصيحة قديمة بالصدفة ✨':'Tap to discover an older tip ✨')
+                : (isAR?'اقرأ نصيحة اليوم واعمل لايك عشان تفتح الزر ده 🔒':'Read and like today\'s tip to unlock this 🔒');
+        }
+
+        function insRefreshLists() {
+            const todayActionsEl = document.getElementById('insTodayActions');
+            if (todayActionsEl) todayActionsEl.innerHTML = insActionsHTML(insTodayTip(), lang === 'AR');
+            insRenderHistory();
+            insRenderSaved();
+            insUpdateRandomBtn();
+        }
+
+        window.insOpenRandom = function() {
+            const isAR = lang === 'AR';
+            if (!insQualifiedToday()) return;
+            const pool = insPastTips();
+            if (!pool.length) { showToast(isAR?'لسه مفيش نصائح سابقة تانية':'No older tips available yet'); return; }
+            const tip = pool[Math.floor(Math.random() * pool.length)];
+            document.getElementById('insRandomModalContent').innerHTML = `
+                <span class="ins-cat">${isAR?tip.categoryAR:tip.categoryEN}</span>
+                <h3 class="tip-title" style="font-size:17px;">🎁 ${isAR?tip.titleAR:tip.titleEN}</h3>
+                <div class="tip-body" style="margin-top:8px;">${isAR?tip.bodyAR:tip.bodyEN}</div>
+                <div class="ins-date">${tip._dateObj.toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'long',year:'numeric'})}</div>
+                <div class="ins-actions" style="margin-top:14px;">${insActionsHTML(tip, isAR)}</div>
+                <button class="ins-modal-close" onclick="document.getElementById('insRandomOverlay').classList.remove('open')">${isAR?'تمام':'Got it'}</button>`;
+            document.getElementById('insRandomOverlay').classList.add('open');
+        };
+
+        window.insOpenShare = function(tipId) {
+            _insShareTipId = tipId;
+            document.getElementById('insSheetOverlay')?.classList.add('open');
+            document.getElementById('insShareSheet')?.classList.add('open');
+        };
+        window.insCloseShare = function() {
+            document.getElementById('insSheetOverlay')?.classList.remove('open');
+            document.getElementById('insShareSheet')?.classList.remove('open');
+        };
+        function insShareText(tip) {
+            const isAR = lang === 'AR';
+            const cat = isAR ? tip.categoryAR : tip.categoryEN;
+            const title = isAR ? tip.titleAR : tip.titleEN;
+            const body = (isAR ? tip.bodyAR : tip.bodyEN).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            return `💡 ${isAR?'نصيحة':'A'} ${cat} ${isAR?'من منصة':'tip from'} ATLASYA\n\n${title}\n${body}\n\n📚 ${isAR?'المزيد من النصائح والكتب والكورسات وبيانات GIS:':'More tips, books, courses, and GIS data:'}\n${INS_SHARE_LINK}\n\n${INS_HASHTAGS}`;
+        }
+        window.insDoShare = function(channel) {
+            const all = [insTodayTip(), ...insPastTips()];
+            const tip = all.find(t => t.id === _insShareTipId) || insTodayTip();
+            const text = insShareText(tip);
+            const enc = encodeURIComponent(text);
+            if (channel === 'whatsapp') window.open(`https://wa.me/?text=${enc}`, '_blank');
+            else if (channel === 'telegram') window.open(`https://t.me/share/url?url=${encodeURIComponent(INS_SHARE_LINK)}&text=${enc}`, '_blank');
+            else if (channel === 'facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(INS_SHARE_LINK)}&quote=${enc}`, '_blank');
+            else if (channel === 'copy') { navigator.clipboard?.writeText(text).then(() => showToast(lang==='AR'?'✅ اتنسخ النص':'✅ Copied')); }
+            insCloseShare();
+        };
+
+        function insTickCountdown() {
+            const el = document.getElementById('insCountdownVal');
+            if (!el) { if (_insCountdownTimer) { clearInterval(_insCountdownTimer); _insCountdownTimer = null; } return; }
+            const now = new Date();
+            const next = new Date(now); next.setHours(24, 0, 0, 0);
+            const diff = next - now;
+            const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+            const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+            const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+            el.textContent = `${h}:${m}:${s}`;
+            if (diff <= 1000) {
+                // new day started — reload today's tip in place
+                const area = document.getElementById('contentArea');
+                if (area && window._currentPage === 'insights') insRenderPage(area);
+            }
+        }
+
 
         /* ─── SPATIAL DATA LIBRARY ─── */
         const SPATIAL_CATEGORIES = [
