@@ -2624,6 +2624,35 @@
             .pl-action-btn.saved i { color: var(--gold3); }
             @media (max-width: 640px) { .pl-actions-row { gap: 8px; } .pl-action-btn { flex: 1 1 auto; justify-content: center; font-size:12px; padding: 10px 8px; } }
 
+            /* ─── PLAYLIST DETAIL: PLAYER + VIDEO LIST ─── */
+            .pl-count-badge {
+                display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800;
+                padding: 3px 10px; border-radius: 99px; background: var(--bg3); color: var(--muted); border: 1px solid var(--border);
+            }
+            .pl-detail-layout { display: grid; grid-template-columns: 1fr 340px; gap: 22px; align-items: start; }
+            @media (max-width: 900px) { .pl-detail-layout { grid-template-columns: 1fr; } }
+            .pl-detail-main { min-width: 0; }
+            .pl-video-list-wrap {
+                background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+                padding: 10px; max-height: 640px; overflow-y: auto;
+            }
+            .pl-video-list-title { font-size: 13px; font-weight: 800; color: var(--muted); padding: 8px 8px 10px; display:flex; align-items:center; justify-content:space-between; }
+            .pl-video-item {
+                display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px;
+                cursor: pointer; transition: background .15s; border: 1px solid transparent;
+            }
+            .pl-video-item:hover { background: var(--bg3); }
+            .pl-video-item.active { background: rgba(46,163,110,0.12); border-color: var(--g3); }
+            .pl-video-num {
+                width: 26px; height: 26px; flex-shrink: 0; border-radius: 8px; background: var(--bg3);
+                display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: var(--muted);
+            }
+            .pl-video-item.active .pl-video-num { background: var(--g3); color: #fff; }
+            .pl-video-thumb { width: 80px; height: 45px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--bg3); }
+            .pl-video-item-title { font-size: 12.5px; font-weight: 700; line-height: 1.4; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+            .pl-video-item.active .pl-video-item-title { color: var(--g4); }
+            .pl-video-playing-icon { color: var(--g3); font-size: 13px; flex-shrink: 0; }
+
             /* ─── SUPPORT TICKETS ─── */
             .tk-tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
             .tk-tab {
@@ -4160,6 +4189,11 @@
                 savedPlaylists: isSaved ? arrayUnion(id) : arrayRemove(id)
             });
         };
+        window._loadPlaylistVideos = async (playlistId) => {
+            const snap = await getDocs(collection(db, 'playlists', playlistId, 'videos'));
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        };
 
         window._bookMentorshipSlot = async (slotData) => {
             if (!currentUid) throw new Error('Not logged in');
@@ -5660,7 +5694,7 @@
             </div>
 
             ${window._isAdmin ? '' : `<div class="sections-grid">
-                ${sectionCard('playlists','fa-clapperboard',isAR?'قوائم التشغيل':'Playlists',isAR?'فيديوهات تعليمية مختارة في نظم المعلومات الجغرافية':'Curated GIS tutorial videos', true)}
+                ${sectionCard('playlists','fa-clapperboard',isAR?'قوائم التشغيل':'Playlists',isAR?'قوائم فيديوهات تعليمية في نظم المعلومات الجغرافية':'Educational video playlists in GIS', true)}
                 ${sectionCard('library','fa-book-bookmark',isAR?'المكتبة الرقمية':'Digital Library',isAR?'كتب ومراجع تقنية في علوم GIS':'Technical books and GIS references', true)}
                 ${sectionCard('datasets','fa-database',isAR?'البيانات المكانية':'Spatial Datasets',isAR?'تحميل مجموعات البيانات المكانية':'Download spatial data collections', true)}
                 ${sectionCard('tools','fa-laptop-code',isAR?'أدوات البرامج':'GIS Software Tools',isAR?'أفضل برامج وأدوات GIS للمبتدئين والمحترفين':'Top GIS tools for all levels', true)}
@@ -8122,67 +8156,66 @@
         window.renderCVBuilder = renderCVBuilder;
 
         /* ─── PLAYLISTS ─── */
-        const PLAYLIST_CATEGORIES = [
-            { key:'gis',      ar:'GIS',                        en:'GIS',                icon:'fa-earth-americas',   color:'#1e7a34' },
-            { key:'remote',   ar:'الاستشعار عن بعد',           en:'Remote Sensing',     icon:'fa-satellite',        color:'#2980b9' },
-            { key:'python',   ar:'بايثون لـ GIS',              en:'Python for GIS',     icon:'fa-brands fa-python', color:'#d4a017' },
-            { key:'survey',   ar:'المساحة',                    en:'Surveying',          icon:'fa-ruler-combined',   color:'#8e44ad' },
-            { key:'gee',      ar:'Google Earth Engine',        en:'Google Earth Engine',icon:'fa-globe',            color:'#16a085' },
-            { key:'cartography', ar:'رسم الخرائط',             en:'Cartography',        icon:'fa-map',               color:'#c0392b' },
-        ];
-        window.PLAYLIST_CATEGORIES = PLAYLIST_CATEGORIES;
-
-        function plCatInfo(key) {
-            return PLAYLIST_CATEGORIES.find(c => c.key === key) || { ar:'أخرى', en:'Other', icon:'fa-clapperboard', color:'#6b7280' };
-        }
-        function plIconFull(icon) {
-            return icon.includes('fa-brands') ? icon : ('fa-solid ' + icon);
-        }
-
-        /* Extract the YouTube playlist ID (?list=...) from any playlist URL format */
-        function extractYTPlaylistId(url) {
+        /* Extract a YouTube VIDEO id from watch/short/embed/youtu.be URL formats */
+        function extractYTVideoId(url) {
             if (!url) return '';
-            const m = String(url).match(/[?&]list=([a-zA-Z0-9_-]+)/);
-            return m ? m[1] : '';
+            const s = String(url).trim();
+            let m = s.match(/[?&]v=([a-zA-Z0-9_-]{6,})/); if (m) return m[1];
+            m = s.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/); if (m) return m[1];
+            m = s.match(/\/embed\/([a-zA-Z0-9_-]{6,})/); if (m) return m[1];
+            m = s.match(/\/shorts\/([a-zA-Z0-9_-]{6,})/); if (m) return m[1];
+            return '';
         }
-        window.extractYTPlaylistId = extractYTPlaylistId;
+        window.extractYTVideoId = extractYTVideoId;
 
         let _plAll = [];
         let _plStage = { view: 'list', payload: null };
         let _plSearch = '';
-        let _plCatFilter = '';
+        let _plCurrentPlaylist = null;
+        let _plCurrentVideos = [];
+        let _plCurrentIndex = 0;
 
         async function renderPlaylists(area) {
             const isAR = lang === 'AR';
             area.innerHTML = `
             <div class="page-header">
                 <h2>${isAR ? 'قوائم التشغيل' : 'Playlists'}</h2>
-                <p>${isAR ? 'مجموعة فيديوهات تعليمية مختارة في نظم المعلومات الجغرافية والمساحة' : 'Curated GIS and surveying educational video playlists'}</p>
+                <p>${isAR ? 'قوائم فيديوهات تعليمية منظمة في نظم المعلومات الجغرافية والمساحة' : 'Organized educational video playlists in GIS and surveying'}</p>
             </div>
             <div id="plStage"><div style="text-align:center;padding:60px;"><i class="fa-solid fa-spinner fa-spin" style="font-size:20px;color:var(--muted);"></i></div></div>`;
 
             try { _plAll = await window._loadPlaylists(); } catch(e) { console.error(e); _plAll = []; }
-            _plSearch = ''; _plCatFilter = '';
-            window.plGo('list');
+            _plSearch = '';
+            window.plGoList();
         }
         window.renderPlaylists = renderPlaylists;
 
-        window.plGo = function(view, payload) {
-            _plStage = { view, payload };
+        window.plGoList = function() {
+            _plStage = { view: 'list', payload: null };
+            const stage = document.getElementById('plStage');
+            _plRenderList(stage);
+            stage?.scrollIntoView({ behavior:'smooth', block:'start' });
+        };
+
+        window.plGoDetail = async function(id) {
+            _plStage = { view: 'detail', payload: id };
             const stage = document.getElementById('plStage');
             if (!stage) return;
-            if (view === 'detail') _plRenderDetail(stage, payload);
-            else _plRenderList(stage);
+            const isAR = lang === 'AR';
+            stage.innerHTML = `<div style="text-align:center;padding:60px;"><i class="fa-solid fa-spinner fa-spin" style="font-size:20px;color:var(--muted);"></i></div>`;
             stage.scrollIntoView({ behavior:'smooth', block:'start' });
+            const p = _plAll.find(x => x.id === id);
+            if (!p) { stage.innerHTML = `<div class="pl-empty">${isAR?'القائمة غير موجودة':'Playlist not found'}</div>`; return; }
+            let videos = [];
+            try { videos = await window._loadPlaylistVideos(id); } catch(e) { console.error(e); videos = []; }
+            _plCurrentPlaylist = p;
+            _plCurrentVideos = videos;
+            _plCurrentIndex = 0;
+            _plRenderDetail(stage);
         };
-        window.plGoDetail = function(id) { window.plGo('detail', id); };
-        window.plGoList = function() { window.plGo('list'); };
+
         window.plDoSearch = function() {
             _plSearch = document.getElementById('plSearchInput')?.value.trim().toLowerCase() || '';
-            _plRenderList(document.getElementById('plStage'));
-        };
-        window.plFilterCategory = function(key) {
-            _plCatFilter = (_plCatFilter === key) ? '' : key;
             _plRenderList(document.getElementById('plStage'));
         };
 
@@ -8190,19 +8223,12 @@
             if (!stage) return;
             const isAR = lang === 'AR';
             let items = [..._plAll];
-            if (_plCatFilter) items = items.filter(p => p.category === _plCatFilter);
             if (_plSearch) items = items.filter(p => (p.title||'').toLowerCase().includes(_plSearch));
 
             stage.innerHTML = `
             <div class="pl-search-bar">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="plSearchInput" placeholder="${isAR?'ابحث باسم القائمة... (مثال: ArcGIS, Python, ENVI)':'Search by playlist name... (e.g. ArcGIS, Python, ENVI)'}" value="${_plSearch}" oninput="plDoSearch()">
-            </div>
-            <div class="pl-cats-row">
-                ${PLAYLIST_CATEGORIES.map(c => `
-                    <div class="pl-cat-chip ${_plCatFilter===c.key?'active':''}" onclick="plFilterCategory('${c.key}')">
-                        <i class="${plIconFull(c.icon)}"></i> ${isAR?c.ar:c.en}
-                    </div>`).join('')}
+                <input type="text" id="plSearchInput" placeholder="${isAR?'ابحث باسم القائمة... (مثال: ArcGIS, QGIS, Python)':'Search by playlist name... (e.g. ArcGIS, QGIS, Python)'}" value="${_plSearch}" oninput="plDoSearch()">
             </div>
             <div class="playlists-grid" id="plGrid"></div>`;
 
@@ -8215,37 +8241,55 @@
         }
 
         function _plCardHTML(p, isAR) {
-            const cat = plCatInfo(p.category);
+            const count = p.videoCount || 0;
             return `
-            <div class="playlist-card" style="--pl-color:${cat.color};" onclick="plGoDetail('${p.id}')">
+            <div class="playlist-card" onclick="plGoDetail('${p.id}')">
                 <div class="pl-thumb-wrap">
-                    ${p.thumbData ? `<img src="${p.thumbData}" alt="">` : `<i class="${plIconFull(cat.icon)}" style="color:${cat.color};font-size:36px;"></i>`}
+                    ${p.thumbData ? `<img src="${p.thumbData}" alt="">` : `<i class="fa-solid fa-clapperboard" style="color:var(--g3);font-size:36px;"></i>`}
                     <div class="pl-play-badge"><i class="fa-solid fa-circle-play"></i></div>
                 </div>
                 <div class="pl-body">
-                    <div class="pl-tag" style="background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}44;">${isAR?cat.ar:cat.en}</div>
                     <h3 class="pl-title">${escapeHtmlAC(p.title||'')}</h3>
                     ${p.description ? `<p class="pl-desc">${escapeHtmlAC((p.description||'').slice(0,90))}${p.description.length>90?'…':''}</p>` : ''}
                 </div>
                 <div class="pl-footer">
                     <div class="pl-yt">
-                        <i class="fa-brands fa-youtube" style="color:#ff0000;font-size:16px;"></i>
-                        <span>YouTube Playlist</span>
+                        <i class="fa-solid fa-video" style="color:var(--g3);font-size:14px;"></i>
+                        <span>${count} ${isAR?'فيديو':(count===1?'video':'videos')}</span>
                     </div>
-                    <div class="pl-arrow" style="background:${cat.color}22;border:1px solid ${cat.color}44;">
-                        <i class="fa-solid fa-play" style="color:${cat.color};font-size:12px;"></i>
+                    <div class="pl-arrow">
+                        <i class="fa-solid fa-play" style="color:var(--g3);font-size:12px;"></i>
                     </div>
                 </div>
             </div>`;
         }
 
-        function _plRenderDetail(stage, id) {
+        function _plPlayerHTML(isAR) {
+            const v = _plCurrentVideos[_plCurrentIndex];
+            if (!v) return `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:16px;"><span><i class="fa-solid fa-video-slash"></i>&nbsp; ${isAR?'لا توجد فيديوهات في هذه القائمة بعد':'No videos in this playlist yet'}</span></div>`;
+            const vid = extractYTVideoId(v.youtubeUrl || v.url);
+            if (!vid) return `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);"><i class="fa-solid fa-triangle-exclamation"></i>&nbsp; ${isAR?'رابط الفيديو غير صالح':'Invalid video link'}</div>`;
+            return `<iframe id="plYtIframe" src="https://www.youtube.com/embed/${vid}?rel=0" title="${escapeHtmlAC(v.title||'')}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+        }
+
+        function _plVideoItemHTML(v, i, isAR) {
+            const active = i === _plCurrentIndex;
+            const vid = extractYTVideoId(v.youtubeUrl || v.url);
+            const thumb = vid ? `https://i.ytimg.com/vi/${vid}/mqdefault.jpg` : '';
+            return `
+            <div class="pl-video-item ${active?'active':''}" onclick="plPlayVideo(${i})">
+                <div class="pl-video-num">${active ? '<i class="fa-solid fa-play"></i>' : (i+1)}</div>
+                ${thumb ? `<img class="pl-video-thumb" src="${thumb}" alt="">` : `<div class="pl-video-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-video" style="color:var(--muted);"></i></div>`}
+                <div class="pl-video-item-title">${escapeHtmlAC(v.title||'')}</div>
+            </div>`;
+        }
+
+        function _plRenderDetail(stage) {
             if (!stage) return;
             const isAR = lang === 'AR';
-            const p = _plAll.find(x => x.id === id);
+            const p = _plCurrentPlaylist;
+            const videos = _plCurrentVideos;
             if (!p) { stage.innerHTML = `<div class="pl-empty">${isAR?'القائمة غير موجودة':'Playlist not found'}</div>`; return; }
-            const cat = plCatInfo(p.category);
-            const pid = extractYTPlaylistId(p.playlistUrl || p.url);
             const favIds = window._userData?.favoritePlaylists || [];
             const savedIds = window._userData?.savedPlaylists || [];
             const isFav = favIds.includes(p.id);
@@ -8253,22 +8297,35 @@
 
             stage.innerHTML = `
             <button class="pl-back-btn" onclick="plGoList()"><i class="fa-solid fa-arrow-${isAR?'right':'left'}"></i> ${isAR?'رجوع لقوائم التشغيل':'Back to Playlists'}</button>
-            <div class="pl-player-wrap">
-                ${pid
-                    ? `<iframe src="https://www.youtube.com/embed/videoseries?list=${pid}&rel=0" title="${escapeHtmlAC(p.title||'')}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`
-                    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);"><i class="fa-solid fa-triangle-exclamation"></i>&nbsp; ${isAR?'رابط القائمة غير صالح':'Invalid playlist link'}</div>`}
-            </div>
-            <div class="pl-detail-tag" style="background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}44;">${isAR?cat.ar:cat.en}</div>
-            <h2 class="pl-detail-title">${escapeHtmlAC(p.title||'')}</h2>
-            ${p.description ? `<p class="pl-detail-desc">${escapeHtmlAC(p.description)}</p>` : ''}
-            ${p.channelUrl ? `<a class="pl-channel-link" href="${p.channelUrl}" target="_blank"><i class="fa-brands fa-youtube"></i> ${p.channelName ? escapeHtmlAC(p.channelName) : (isAR?'زيارة القناة':'Visit Channel')}</a><br>` : ''}
-            <div class="pl-actions-row">
-                <button class="pl-action-btn ${isFav?'active':''}" onclick="plToggleFavorite('${p.id}')"><i class="fa-${isFav?'solid':'regular'} fa-heart"></i> ${isAR?'المفضلة':'Favorite'}</button>
-                <button class="pl-action-btn ${isSaved?'saved':''}" onclick="plToggleSaved('${p.id}')"><i class="fa-${isSaved?'solid':'regular'} fa-bookmark"></i> ${isAR?'حفظ':'Save'}</button>
-                <button class="pl-action-btn" onclick="plShare('${p.id}')"><i class="fa-solid fa-share-nodes"></i> ${isAR?'مشاركة':'Share'}</button>
-                <a class="pl-action-btn" href="${p.playlistUrl || p.url}" target="_blank" style="text-decoration:none;"><i class="fa-brands fa-youtube"></i> YouTube</a>
+            <div class="pl-detail-layout">
+                <div class="pl-detail-main">
+                    <div class="pl-player-wrap" id="plPlayerWrap">${_plPlayerHTML(isAR)}</div>
+                    <span class="pl-count-badge" style="margin-top:12px;"><i class="fa-solid fa-video"></i> ${videos.length} ${isAR?'فيديو':(videos.length===1?'video':'videos')}</span>
+                    <h2 class="pl-detail-title">${escapeHtmlAC(p.title||'')}</h2>
+                    ${p.description ? `<p class="pl-detail-desc">${escapeHtmlAC(p.description)}</p>` : ''}
+                    <div class="pl-actions-row">
+                        <button class="pl-action-btn ${isFav?'active':''}" onclick="plToggleFavorite('${p.id}')"><i class="fa-${isFav?'solid':'regular'} fa-heart"></i> ${isAR?'المفضلة':'Favorite'}</button>
+                        <button class="pl-action-btn ${isSaved?'saved':''}" onclick="plToggleSaved('${p.id}')"><i class="fa-${isSaved?'solid':'regular'} fa-bookmark"></i> ${isAR?'حفظ':'Save'}</button>
+                        <button class="pl-action-btn" onclick="plShare('${p.id}')"><i class="fa-solid fa-share-nodes"></i> ${isAR?'مشاركة':'Share'}</button>
+                    </div>
+                </div>
+                <div class="pl-video-list-wrap">
+                    <div class="pl-video-list-title"><span>${isAR?'فيديوهات القائمة':'Playlist Videos'}</span><span>${videos.length}</span></div>
+                    <div id="plVideoList">${videos.length ? videos.map((v,i) => _plVideoItemHTML(v,i,isAR)).join('') : `<div class="pl-empty">${isAR?'لا توجد فيديوهات بعد':'No videos yet'}</div>`}</div>
+                </div>
             </div>`;
         }
+
+        window.plPlayVideo = function(i) {
+            if (i < 0 || i >= _plCurrentVideos.length) return;
+            _plCurrentIndex = i;
+            const isAR = lang === 'AR';
+            const wrap = document.getElementById('plPlayerWrap');
+            if (wrap) wrap.innerHTML = _plPlayerHTML(isAR);
+            const list = document.getElementById('plVideoList');
+            if (list) list.innerHTML = _plCurrentVideos.map((v,idx) => _plVideoItemHTML(v,idx,isAR)).join('');
+            wrap?.scrollIntoView({ behavior:'smooth', block:'start' });
+        };
 
         window.plToggleFavorite = async function(id) {
             const isAR = lang === 'AR';
@@ -8278,7 +8335,7 @@
             try {
                 await window._togglePlaylistFavorite(id, !isFav);
                 window._userData.favoritePlaylists = isFav ? favIds.filter(x => x !== id) : [...favIds, id];
-                _plRenderDetail(document.getElementById('plStage'), id);
+                _plRenderDetail(document.getElementById('plStage'));
                 showToast(isFav ? (isAR?'تمت الإزالة من المفضلة':'Removed from favorites') : (isAR?'أُضيف إلى المفضلة ❤️':'Added to favorites ❤️'));
             } catch(e) { showToast(isAR?'حدث خطأ':'An error occurred', true); }
         };
@@ -8291,15 +8348,15 @@
             try {
                 await window._togglePlaylistSaved(id, !isSaved);
                 window._userData.savedPlaylists = isSaved ? savedIds.filter(x => x !== id) : [...savedIds, id];
-                _plRenderDetail(document.getElementById('plStage'), id);
+                _plRenderDetail(document.getElementById('plStage'));
                 showToast(isSaved ? (isAR?'تم إلغاء الحفظ':'Removed from saved') : (isAR?'تم حفظ القائمة 📌':'Playlist saved 📌'));
             } catch(e) { showToast(isAR?'حدث خطأ':'An error occurred', true); }
         };
 
         window.plShare = function(id) {
             const isAR = lang === 'AR';
-            const p = _plAll.find(x => x.id === id);
-            const shareUrl = p ? (p.playlistUrl || p.url) : window.location.href;
+            const p = (_plCurrentPlaylist && _plCurrentPlaylist.id === id) ? _plCurrentPlaylist : _plAll.find(x => x.id === id);
+            const shareUrl = window.location.href;
             if (navigator.share) {
                 navigator.share({ title: p?.title || 'ATLASYA Playlist', url: shareUrl }).catch(()=>{});
             } else {
@@ -8308,6 +8365,7 @@
                 }).catch(() => showToast(isAR?'تعذّر النسخ':'Could not copy', true));
             }
         };
+
 
         /* ─── COMING SOON ─── */
         const soonProgress = { playlists:75, library:60, insights:30, datasets:50, tools:85, jobs:40, courses:55 };
