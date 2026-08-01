@@ -5589,15 +5589,23 @@
                 ${sectionCard('courses','fa-building-shield',isAR?'الكورسات والشركات':'Courses & Companies',isAR?'دورات تدريبية وشركات GIS الرائدة':'Training courses and leading GIS firms', true)}
             </div>`}`;
 
-            // Load live job count from Firestore and update stat_jobs card
-            if (window._loadJobs) {
-                try {
-                    const jobs = await window._loadJobs();
-                    const approvedJobs = jobs.filter(j => (j.status || 'approved') === 'approved');
-                    const statJobs = document.getElementById('stat_jobs');
-                    if (statJobs) statJobs.textContent = approvedJobs.length;
-                } catch(e) { /* silent fail — keep default 0 */ }
-            }
+            // Load live counts from Firestore and update all dashboard stat cards
+            try {
+                const [playlists, books, jobs, datasets] = await Promise.all([
+                    window._loadPlaylists ? window._loadPlaylists() : Promise.resolve([]),
+                    window._loadLibraryBooks ? window._loadLibraryBooks() : Promise.resolve([]),
+                    window._loadJobs ? window._loadJobs() : Promise.resolve([]),
+                    window._loadSpatialDatasets ? window._loadSpatialDatasets() : Promise.resolve([]),
+                ]);
+                const statVideos = document.getElementById('stat_videos');
+                const statLibrary = document.getElementById('stat_library');
+                const statJobs = document.getElementById('stat_jobs');
+                const statDatasets = document.getElementById('stat_datasets');
+                if (statVideos) statVideos.textContent = playlists.filter(p => !p.hidden).length;
+                if (statLibrary) statLibrary.textContent = books.filter(b => !b.hidden).length;
+                if (statJobs) statJobs.textContent = jobs.filter(j => (j.status || 'approved') === 'approved').length;
+                if (statDatasets) statDatasets.textContent = datasets.filter(d => !d.hidden).length;
+            } catch(e) { /* silent fail — keep defaults */ }
         }
 
         function sectionCard(page, icon, title, desc, hideMobile=false) {
