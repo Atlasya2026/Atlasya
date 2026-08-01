@@ -750,13 +750,17 @@
                 -webkit-text-fill-color: transparent;
                 background-clip: text;
             }
-            /* Mobile hamburger — sits exactly centered between the account/logout group and the tools group */
+            /* Mobile hamburger — normal flex-flow spacing so it never overlaps the Edit Mode button */
             .mob-hamburger-btn {
                 display: flex !important;
-                position: absolute !important;
-                left: 50% !important;
-                top: 50% !important;
-                transform: translate(-50%, -50%) !important;
+                flex-shrink: 0 !important;
+                margin-inline-start: 10px !important;
+                margin-inline-end: 10px !important;
+            }
+            #adminEditBtn {
+                flex-shrink: 0 !important;
+                margin-inline-start: 10px !important;
+                margin-inline-end: 4px !important;
             }
         }
 
@@ -2911,6 +2915,9 @@
                     <button class="nav-item" id="menuAdminDatasets" onclick="navigate('admindatasets', this)" style="display:none;">
                         <i class="fa-solid fa-database"></i> <span id="menuAdminDatasetsTxt">مكتبة البيانات المكانية</span>
                     </button>
+                    <button class="nav-item" id="menuAdminTools" onclick="navigate('admintools', this)" style="display:none;">
+                        <i class="fa-solid fa-toolbox"></i> <span id="menuAdminToolsTxt">أدوات البرامج</span>
+                    </button>
                     <button class="nav-item" id="menuProjects" onclick="navigate('projects', this)">
                         <i class="fa-solid fa-folder-open"></i> <span id="menuProjectsTxt">مشروعات الطلبة</span>
                     </button>
@@ -3398,6 +3405,30 @@
     };
     window._deleteSpatialProject = async (id) => {
         await deleteDoc(doc(db, 'spatial_projects', id));
+    };
+
+    /* ─── ADMIN: SOFTWARE TOOLS ─── */
+    window._loadSoftwareTools = async () => {
+        const snap = await getDocs(collection(db, 'software_tools'));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    };
+    window._addSoftwareTool = async (data) => {
+        await addDoc(collection(db, 'software_tools'), {
+            ...data,
+            downloads: 0,
+            hidden: !!data.hidden,
+            createdAt: serverTimestamp(),
+        });
+    };
+    window._updateSoftwareTool = async (id, data) => {
+        await updateDoc(doc(db, 'software_tools', id), data);
+    };
+    window._deleteSoftwareTool = async (id) => {
+        await deleteDoc(doc(db, 'software_tools', id));
+    };
+    window._incrementToolDownload = async (id, current) => {
+        await updateDoc(doc(db, 'software_tools', id), { downloads: (current || 0) + 1 });
     };
 
     window._bookMentorshipSlot = async (slotData) => {
@@ -4303,6 +4334,7 @@
             menuAdminCoursesTxt: 'إدارة الكورسات',
             menuAdminLibraryTxt: 'المكتبة الرقمية',
             menuAdminDatasetsTxt: 'مكتبة البيانات المكانية',
+            menuAdminToolsTxt: 'أدوات البرامج',
             menuAdminMentorshipTxt: 'حجوزات الاستشارات',
             txtTopbarLogout: 'خروج',
             txtTopbarLogoutDesk: 'خروج',
@@ -4339,6 +4371,7 @@
             menuAdminCoursesTxt: 'Manage Courses',
             menuAdminLibraryTxt: 'Digital Library',
             menuAdminDatasetsTxt: 'Spatial Data Library',
+            menuAdminToolsTxt: 'Software Tools',
             txtLogout: 'Log Out',
             txtTopbarLogout: 'Logout',
             txtTopbarLogoutDesk: 'Logout',
@@ -4653,6 +4686,7 @@
             admincourses: lang==='AR'?'إدارة الكورسات':'Manage Courses',
             adminlibrary: lang==='AR'?'إدارة المكتبة الرقمية':'Manage Digital Library',
             admindatasets: lang==='AR'?'إدارة مكتبة البيانات المكانية':'Manage Spatial Data Library',
+            admintools: lang==='AR'?'إدارة أدوات البرامج':'Manage Software Tools',
             adminmentorship: lang==='AR'?'حجوزات الاستشارات':'Consultation Bookings',
             portfolio:     lang==='AR'?'خرائط الطلبة':'Student Maps',
             monthlyreport: lang==='AR'?'تقريري الشهري':'My Monthly Report',
@@ -4692,6 +4726,7 @@
         else if (page === 'admincourses') renderAdminCourses(area);
         else if (page === 'adminlibrary') renderAdminLibrary(area);
         else if (page === 'admindatasets') renderAdminDatasets(area);
+        else if (page === 'admintools') renderAdminTools(area);
         else if (page === 'adminmentorship') renderAdminMentorship(area);
         else if (page === 'portfolio') renderPortfolio(area);
         else if (page === 'monthlyreport') renderMonthlyReport(area);
@@ -5333,37 +5368,135 @@
     };
 
     /* ─── GIS SOFTWARE TOOLS ─── */
-    function dsCardWrap(icon, title, badge, url) {
+    /* ─── GIS SOFTWARE TOOLS (dynamic) ─── */
+    const SOFTWARE_CATEGORIES = [
+        { key:'gis',             icon:'fa-map',                ar:'برامج GIS',            en:'GIS Software' },
+        { key:'cad',             icon:'fa-drafting-compass',   ar:'برامج CAD',            en:'CAD Software' },
+        { key:'remote_sensing',  icon:'fa-satellite',          ar:'الاستشعار عن بعد',      en:'Remote Sensing' },
+        { key:'office',          icon:'fa-file-word',          ar:'برامج مكتبية',          en:'Office Software' },
+        { key:'programming',     icon:'fa-code',                ar:'برمجة',                en:'Programming' },
+        { key:'other',           icon:'fa-toolbox',            ar:'أخرى',                 en:'Other' },
+    ];
+    function scFindToolCat(key) { return SOFTWARE_CATEGORIES.find(c => c.key === key); }
+
+    let _toolsAll = [];
+    let _toolsLoaded = false;
+    let _toolsSearchQ = '';
+
+    function toolCardHTML(t, isAR) {
+        const cat = scFindToolCat(t.category);
         return `
-        <a href="javascript:void(0)" onclick="handleFileDownload('${url.replace(/'/g,"&#39;")}')" oncontextmenu="return false;" class="dataset-card">
+        <a href="javascript:void(0)" onclick="handleToolDownload('${t.id}')" oncontextmenu="return false;" class="dataset-card">
             <div class="ds-top">
-                <div class="ds-icon"><i class="fa-solid ${icon}"></i></div>
-                <span class="ds-badge">${badge}</span>
+                <div class="ds-icon"><i class="fa-solid ${t.icon || (cat?cat.icon:'fa-download')}"></i></div>
+                <span class="ds-badge">${escapeHtmlAC(t.version||'')}</span>
             </div>
-            <div class="ds-info"><h4>${title}</h4></div>
-            <div class="ds-dl"><i class="fa-solid fa-download"></i><span>${lang==='AR'?'تحميل':'Download'}</span></div>
+            <div class="ds-info">
+                <h4>${escapeHtmlAC(isAR?(t.name||''):(t.nameEn||t.name||''))}</h4>
+                ${t.notes ? `<div style="font-size:10.5px;color:var(--gold3);margin-top:4px;"><i class="fa-solid fa-circle-info"></i> ${escapeHtmlAC(t.notes)}</div>` : ''}
+            </div>
+            <div class="ds-dl"><i class="fa-solid fa-download"></i><span>${isAR?'تحميل':'Download'}</span></div>
         </a>`;
     }
 
-    /* Split card: two separate files, two separate buttons, but together they
-       only ever consume ONE slot from the daily download quota */
-    function dsCardSplit(icon, title, badge, note, comboId, item1, item2) {
+    function toolCardSplitHTML(t, isAR) {
         return `
         <div class="dataset-card split" oncontextmenu="return false;">
             <div class="ds-top">
-                <div class="ds-icon"><i class="fa-solid ${icon}"></i></div>
-                <span class="ds-badge">${badge}</span>
+                <div class="ds-icon"><i class="fa-solid ${t.icon || 'fa-circle-down'}"></i></div>
+                <span class="ds-badge">${escapeHtmlAC(t.version||'')}</span>
             </div>
-            <div class="ds-info"><h4>${title}</h4>${note ? `<div class="ds-combo-note">${note}</div>` : ''}</div>
+            <div class="ds-info">
+                <h4>${escapeHtmlAC(isAR?(t.name||''):(t.nameEn||t.name||''))}</h4>
+                <div class="ds-combo-note">${isAR?`⚠️ يجب تحميل "${escapeHtmlAC(t.prerequisiteLabel||'')}" أولاً قبل التثبيت`:`⚠️ You must download "${escapeHtmlAC(t.prerequisiteLabel||'')}" first before installing`}</div>
+                ${t.notes ? `<div style="font-size:10.5px;color:var(--gold3);margin-top:4px;"><i class="fa-solid fa-circle-info"></i> ${escapeHtmlAC(t.notes)}</div>` : ''}
+            </div>
             <div class="ds-dl-group">
-                <button type="button" class="ds-dl-mini" onclick="handleFileDownloadPair('${item1.url.replace(/'/g,"&#39;")}','${comboId}')" oncontextmenu="return false;"><i class="fa-solid fa-download"></i><span>${item1.label}</span></button>
-                <button type="button" class="ds-dl-mini" onclick="handleFileDownloadPair('${item2.url.replace(/'/g,"&#39;")}','${comboId}')" oncontextmenu="return false;"><i class="fa-solid fa-download"></i><span>${item2.label}</span></button>
+                <button type="button" class="ds-dl-mini" onclick="handleToolDownloadPair('${t.id}','main')" oncontextmenu="return false;"><i class="fa-solid fa-download"></i><span>${escapeHtmlAC(isAR?(t.name||''):(t.nameEn||t.name||''))}</span></button>
+                <button type="button" class="ds-dl-mini" onclick="handleToolDownloadPair('${t.id}','prereq')" oncontextmenu="return false;"><i class="fa-solid fa-download"></i><span>${escapeHtmlAC(t.prerequisiteLabel || (isAR?'المتطلب':'Requirement'))}</span></button>
             </div>
         </div>`;
     }
 
-    window.handleFileDownload = async function(url) {
+    async function renderTools(area) {
         const isAR = lang === 'AR';
+        const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
+        const isAdmin = window._isAdmin === true;
+        const uploadCount = window._getDailyDownloadCount ? window._getDailyDownloadCount() : (window._userData?.uploadCount || 0);
+        const quotaBannerTools = (!isAdmin && !isPro) ? `
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${uploadCount>=3?'rgba(220,50,50,0.07)':'rgba(30,122,52,0.07)'};border:1px solid ${uploadCount>=3?'rgba(220,50,50,0.25)':'var(--border2)'};border-radius:12px;margin-bottom:20px;flex-wrap:wrap;">
+            <i class="fa-solid fa-cloud-arrow-down" style="color:${uploadCount>=3?'#ff6b6b':'var(--g4)'};font-size:18px;flex-shrink:0;"></i>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:700;color:${uploadCount>=3?'#ff6b6b':'var(--text)'};">${isAR ? `تحميلات اليوم: ${uploadCount} / 3` : `Today's downloads: ${uploadCount} / 3`}</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px;">${uploadCount>=3 ? (isAR?'وصلت للحد اليومي — يتجدد غداً أو قم بالترقية إلى Pro':'Daily limit reached — resets tomorrow or upgrade to Pro') : (isAR?'Basic: حتى 3 تحميلات مجاناً يومياً':'Basic: up to 3 free downloads per day')}</div>
+            </div>
+            ${uploadCount>=3?`<button onclick="typeof goSettings==='function' ? goSettings('plan') : navigate('account',document.getElementById('menuAccount'))" style="padding:7px 14px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;flex-shrink:0;"><i class="fa-solid fa-crown"></i> ${isAR?'ترقية Pro':'Upgrade Pro'}</button>`:''}
+        </div>` : (isPro ? `
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.2);border-radius:10px;margin-bottom:16px;">
+            <i class="fa-solid fa-crown" style="color:var(--gold3);"></i>
+            <span style="font-size:12px;font-weight:700;color:var(--gold3);">${isAR?'Pro — تحميل غير محدود مفعّل':'Pro — Unlimited downloads active'}</span>
+        </div>` : '');
+
+        area.innerHTML = `
+        <div class="page-header">
+            <h2>${isAR ? '🧰 أدوات البرامج' : '🧰 Software Tools'}</h2>
+            <p>${isAR ? 'روابط تحميل أهم برامج GIS والـ CAD والاستشعار عن بعد والأدوات المساعدة' : 'Download links for essential GIS, CAD, remote sensing software and supporting tools'}</p>
+        </div>
+        ${quotaBannerTools}
+        <div class="ds-search-bar">
+            <input type="text" id="toolsSearchInput" placeholder="${isAR?'ابحث عن اسم البرنامج...':'Search for a software name...'}" onkeydown="if(event.key==='Enter') toolsSearchGo()">
+            <button onclick="toolsSearchGo()"><i class="fa-solid fa-magnifying-glass"></i> ${isAR?'بحث':'Search'}</button>
+        </div>
+        <div id="toolsStage"><div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="font-size:22px;color:var(--muted);"></i></div></div>`;
+
+        if (!_toolsLoaded) {
+            try {
+                const tools = window._loadSoftwareTools ? await window._loadSoftwareTools() : [];
+                _toolsAll = (tools || []).filter(t => !t.hidden);
+                _toolsLoaded = true;
+            } catch(e) { console.error('Software tools load error:', e); _toolsAll = []; }
+        }
+        renderToolsStage();
+    }
+
+    window.toolsSearchGo = function() {
+        _toolsSearchQ = (document.getElementById('toolsSearchInput')?.value || '').trim().toLowerCase();
+        renderToolsStage();
+    };
+
+    function renderToolsStage() {
+        const isAR = lang === 'AR';
+        const stage = document.getElementById('toolsStage');
+        if (!stage) return;
+        let items = _toolsAll;
+        if (_toolsSearchQ) items = items.filter(t => [(t.name||''),(t.nameEn||''),(t.version||'')].join(' ').toLowerCase().includes(_toolsSearchQ));
+        if (!items.length) {
+            stage.innerHTML = `<div class="ds-empty"><i class="fa-solid fa-toolbox" style="font-size:24px;margin-bottom:8px;display:block;"></i>${isAR?'لا توجد أدوات مضافة حتى الآن':'No software tools added yet'}</div>`;
+            return;
+        }
+        const grouped = {};
+        items.forEach(t => { (grouped[t.category] = grouped[t.category] || []).push(t); });
+        let html = '';
+        SOFTWARE_CATEGORIES.forEach(cat => {
+            const list = grouped[cat.key];
+            if (!list || !list.length) return;
+            html += `
+            <div class="connect-section-wrap">
+                <div class="connect-section-title">
+                    <span class="brand-pill gis"><i class="fa-solid ${cat.icon}"></i> ${isAR?cat.ar:cat.en}</span>
+                </div>
+                <div class="datasets-grid">
+                    ${list.map(t => t.requiresPrerequisite ? toolCardSplitHTML(t, isAR) : toolCardHTML(t, isAR)).join('')}
+                </div>
+            </div>`;
+        });
+        stage.innerHTML = html;
+    }
+
+    window.handleToolDownload = async function(id) {
+        const isAR = lang === 'AR';
+        const t = _toolsAll.find(x => x.id === id);
+        if (!t || !t.downloadUrl) { showToast(isAR?'لا يوجد رابط تحميل لهذا البرنامج':'No download link available for this software', true); return; }
         const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
         const isAdmin = window._isAdmin === true;
         if (!isAdmin && !isPro) {
@@ -5376,22 +5509,28 @@
             }
             try { await window._incrementDailyDownload(); } catch(e) {}
         }
-        // Open via temporary anchor to prevent URL exposure
         const a = document.createElement('a');
-        a.href = url;
+        a.href = t.downloadUrl;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
         setTimeout(() => a.remove(), 300);
+        try {
+            if (window._incrementToolDownload) await window._incrementToolDownload(id, t.downloads || 0);
+            t.downloads = (t.downloads || 0) + 1;
+        } catch(e) {}
     };
 
-    // Two files belong to the same required pair (e.g. ArcGIS Pro + .NET Framework).
-    // Whichever one the student downloads first consumes ONE slot from the daily quota;
-    // downloading the other file on the same day afterwards is free.
-    window.handleFileDownloadPair = async function(url, comboId) {
+    // Prerequisite pair: downloading either the main file or the prerequisite consumes
+    // ONE slot from the daily quota; the other stays free for the rest of the day.
+    window.handleToolDownloadPair = async function(id, which) {
         const isAR = lang === 'AR';
+        const t = _toolsAll.find(x => x.id === id);
+        if (!t) return;
+        const url = which === 'main' ? t.downloadUrl : t.prerequisiteUrl;
+        if (!url) { showToast(isAR?'لا يوجد رابط لهذا الملف':'No link available for this file', true); return; }
         const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
         const isAdmin = window._isAdmin === true;
         const openFile = (u) => {
@@ -5404,9 +5543,15 @@
             a.click();
             setTimeout(() => a.remove(), 300);
         };
-        if (isAdmin || isPro) { openFile(url); return; }
+        const trackDownload = async () => {
+            try {
+                if (window._incrementToolDownload) await window._incrementToolDownload(id, t.downloads || 0);
+                t.downloads = (t.downloads || 0) + 1;
+            } catch(e) {}
+        };
+        if (isAdmin || isPro) { openFile(url); trackDownload(); return; }
 
-        const comboKey = `atlasya_combo_${comboId}_${new Date().toDateString()}`;
+        const comboKey = `atlasya_combo_tool_${id}_${new Date().toDateString()}`;
         const alreadyUsedToday = localStorage.getItem(comboKey) === '1';
         if (alreadyUsedToday) { openFile(url); return; }
 
@@ -5420,98 +5565,9 @@
         openFile(url);
         try { await window._incrementDailyDownload(); } catch(e) {}
         localStorage.setItem(comboKey, '1');
+        trackDownload();
     };
 
-    // ── Prevent right-click on dataset/tool cards ──
-    document.addEventListener('contextmenu', function(e) {
-        const card = e.target.closest('.dataset-card');
-        if (card) {
-            e.preventDefault();
-            e.stopPropagation();
-            return false;
-        }
-    }, true);
-
-
-    function renderTools(area) {
-        const isAR = lang === 'AR';
-        const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
-        const isAdmin = window._isAdmin === true;
-        const uploadCount = window._getDailyDownloadCount ? window._getDailyDownloadCount() : (window._userData?.uploadCount || 0);
-        const quotaBannerTools = (!isAdmin && !isPro) ? `
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${uploadCount>=3?'rgba(220,50,50,0.07)':'rgba(30,122,52,0.07)'};border:1px solid ${uploadCount>=3?'rgba(220,50,50,0.25)':'var(--border2)'};border-radius:12px;margin-bottom:20px;flex-wrap:wrap;">
-            <i class="fa-solid fa-cloud-arrow-down" style="color:${uploadCount>=3?'#ff6b6b':'var(--g4)'};font-size:18px;flex-shrink:0;"></i>
-            <div style="flex:1;min-width:0;">
-                <div style="font-size:13px;font-weight:700;color:${uploadCount>=3?'#ff6b6b':'var(--text)'};">${isAR ? `تحميلات اليوم: ${uploadCount} / 3` : `Today's downloads: ${uploadCount} / 3`}</div>
-                <div style="font-size:12px;color:var(--muted);margin-top:2px;">${uploadCount>=3 ? (isAR?'وصلت للحد اليومي — يتجدد غداً أو قم بالترقية إلى Pro':'Daily limit reached — resets tomorrow or upgrade to Pro') : (isAR?'Basic: حتى 3 تحميلات مجاناً يومياً':'Basic: up to 3 free downloads per day')}</div>
-            </div>
-            ${uploadCount>=3?`<button onclick="navigate('account',document.getElementById('menuAccount'))" style="padding:7px 14px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;flex-shrink:0;"><i class="fa-solid fa-crown"></i> ${isAR?'ترقية Pro':'Upgrade Pro'}</button>`:''}
-        </div>` : (isPro ? `
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.2);border-radius:10px;margin-bottom:16px;">
-            <i class="fa-solid fa-crown" style="color:var(--gold3);"></i>
-            <span style="font-size:12px;font-weight:700;color:var(--gold3);">${isAR?'Pro — تحميل غير محدود مفعّل':'Pro — Unlimited downloads active'}</span>
-        </div>` : '');
-        area.innerHTML = `
-        <div class="page-header">
-            <h2>${isAR ? 'أدوات البرامج' : 'GIS Software Tools'}</h2>
-            <p>${isAR ? 'روابط تحميل أهم برامج GIS والأدوات المساعدة' : 'Download links for essential GIS software and supporting tools'}</p>
-        </div>
-        ${quotaBannerTools}
-
-        <!-- ArcGIS Pro -->
-        <div class="connect-section-wrap">
-            <div class="connect-section-title">
-                <span class="brand-pill gis"><i class="fa-solid fa-map"></i> ArcGIS Pro</span>
-            </div>
-
-            <!-- ArcGIS Pro 3.0 + .NET Framework معاً -->
-            <div style="margin-bottom:18px;">
-                <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-right:4px;">
-                    ${isAR ? 'نسخة 3.0' : 'Version 3.0'}
-                </div>
-                <div style="background:rgba(212,160,23,0.07);border:1px solid rgba(212,160,23,0.25);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--muted);line-height:1.7;">
-                    <i class="fa-solid fa-triangle-exclamation" style="color:var(--gold3);margin-left:6px;margin-right:4px;"></i>
-                    ${isAR
-                        ? '<strong style="color:var(--text);">تنبيه:</strong> قبل تثبيت ArcGIS Pro 3.0 يجب أولاً تثبيت <strong style="color:var(--text);">Microsoft .NET Framework</strong> من الرابط أدناه.'
-                        : '<strong style="color:var(--text);">Note:</strong> Before installing ArcGIS Pro 3.0, you must first install <strong style="color:var(--text);">Microsoft .NET Framework</strong> from the link below.'}
-                </div>
-                <div class="datasets-grid">
-                    ${dsCardSplit('fa-circle-down', isAR ? 'ArcGIS Pro 3.0 + Microsoft .NET Framework' : 'ArcGIS Pro 3.0 + Microsoft .NET Framework', isAR ? 'نسخة 3.0' : 'v3.0', isAR ? 'حمّل أي واحد منهم دلوقتي والتاني يفضل ببلاش النهاردة' : 'Download either one now — the other stays free today', 'arcgis-pro-3-net', {label: isAR?'ArcGIS Pro':'ArcGIS Pro', url:'https://drive.google.com/file/d/1FnF-RvQKMV8vcFYhwHHHyrAr3bgSehKe/view'}, {label: isAR?'.NET Framework':'.NET Framework', url:'https://download.visualstudio.microsoft.com/download/pr/23c7bf0d-e22d-4372-bcb2-292eb36a5238/11af494be409759f46b679ab22e65a58/dotnet-sdk-6.0.424-win-x64.exe'})}
-                </div>
-            </div>
-
-            <!-- ArcGIS Pro 3.5 لوحدها -->
-            <div>
-                <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-right:4px;">
-                    ${isAR ? 'نسخة 3.5' : 'Version 3.5'}
-                </div>
-                <div class="datasets-grid">
-                    ${dsCardWrap('fa-circle-down', isAR ? 'تحميل ArcGIS Pro 3.5 ' : 'Download ArcGIS Pro 3.5 ', isAR ? 'نسخة 3.5' : 'v3.5', 'https://drive.google.com/drive/folders/1P9cXKkvctVVNIB0-9OqBfUH8ChNAF2w9?usp=sharing')}
-                </div>
-            </div>
-        </div>
-
-        <!-- Global Mapper -->
-        <div class="connect-section-wrap">
-            <div class="connect-section-title">
-                <span class="brand-pill ts"><i class="fa-solid fa-earth-africa"></i> Global Mapper</span>
-            </div>
-            <div class="datasets-grid">
-                ${dsCardWrap('fa-circle-down', isAR ? 'تحميل برنامج Global Mapper' : 'Download Global Mapper', isAR ? 'تحميل مباشر' : 'Direct Download', 'https://bestfile.io/ar/jh5vCC0oNOaHfaN/file')}
-            </div>
-        </div>
-
-        <!-- Visual Studio -->
-        <div class="connect-section-wrap">
-            <div class="connect-section-title">
-                <span class="brand-pill gis"><i class="fa-solid fa-code"></i> Visual Studio</span>
-            </div>
-            <div class="datasets-grid">
-                ${dsCardWrap('fa-circle-down', isAR ? 'تحميل Visual Studio 2026 Community' : 'Download Visual Studio 2026 Community', isAR ? 'تحميل مباشر' : 'Direct Download', 'https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&channel=Stable&version=VS18&source=VSLandingPage&cid=2500&passive=false')}
-                ${dsCardWrap('fa-circle-down', isAR ? 'تحميل Visual Studio Code' : 'Download Visual Studio Code', isAR ? 'تحميل مباشر' : 'Direct Download', 'https://code.visualstudio.com/download')}
-            </div>
-        </div>`;
-    }
 
     /* ─── JOB BOARD ─── */
     let _jobsUnsubscribe = null; // real-time listener cleanup
@@ -8782,6 +8838,194 @@
     };
 
 
+    /* ─── ADMIN: SOFTWARE TOOLS ─── */
+    let _adminTools = [];
+    let _atSearch = '';
+    let _atCatFilter = '';
+
+    function renderAdminTools(area) {
+        area = area || document.getElementById('contentArea');
+        const isAR = lang === 'AR';
+        area.innerHTML = `
+        <div class="page-header">
+            <h2>${isAR?'إدارة أدوات البرامج':'Manage Software Tools'}</h2>
+            <p>${isAR?'أضف وعدّل وحذف روابط تحميل البرامج، وحدد لو فيه متطلب لازم يتحمّل الأول قبل التثبيت':'Add, edit, and remove software download links, and mark tools that require a prerequisite download before installing'}</p>
+        </div>
+        <button class="btn-post-job" style="margin-bottom:16px;" onclick="openToolForm()"><i class="fa-solid fa-plus"></i> ${isAR?'إضافة برنامج جديد':'Add New Software'}</button>
+        <div class="ac-toolbar">
+            <input type="text" id="atSearchInput" placeholder="${isAR?'ابحث بالاسم...':'Search by name...'}" oninput="atFilterChange()">
+            <select id="atCatSelect" onchange="atFilterChange()">
+                <option value="">${isAR?'كل التصنيفات':'All Categories'}</option>
+                ${SOFTWARE_CATEGORIES.map(c=>`<option value="${c.key}">${isAR?c.ar:c.en}</option>`).join('')}
+            </select>
+        </div>
+        <div id="atList"></div>`;
+        loadAdminTools();
+    }
+
+    async function loadAdminTools() {
+        const list = document.getElementById('atList');
+        if (list) list.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+        try { _adminTools = await window._loadSoftwareTools(); }
+        catch(e) { console.error(e); _adminTools = []; }
+        renderAtList();
+    }
+
+    window.atFilterChange = function() {
+        _atSearch = document.getElementById('atSearchInput')?.value.trim().toLowerCase() || '';
+        _atCatFilter = document.getElementById('atCatSelect')?.value || '';
+        renderAtList();
+    };
+
+    function renderAtList() {
+        const isAR = lang === 'AR';
+        const list = document.getElementById('atList');
+        if (!list) return;
+        let items = [..._adminTools];
+        if (_atCatFilter) items = items.filter(t => t.category === _atCatFilter);
+        if (_atSearch) items = items.filter(t =>
+            (t.name||'').toLowerCase().includes(_atSearch) ||
+            (t.nameEn||'').toLowerCase().includes(_atSearch));
+        if (!items.length) {
+            list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;">${isAR?'لا توجد أدوات مطابقة':'No matching tools'}</div>`;
+            return;
+        }
+        list.innerHTML = items.map(t => atRowHTML(t, isAR)).join('');
+    }
+
+    function atRowHTML(t, isAR) {
+        const cat = scFindToolCat(t.category);
+        return `
+        <div class="ac-row">
+            <div style="width:48px;height:48px;border-radius:10px;flex-shrink:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px solid var(--border);font-size:18px;"><i class="fa-solid ${t.icon || (cat?cat.icon:'fa-download')}"></i></div>
+            <div class="ac-main" style="margin-inline-start:12px;">
+                <div class="ac-title">${escapeHtmlAC(t.name||'')} ${t.version?`<span style="color:var(--muted);font-weight:600;">(${escapeHtmlAC(t.version)})</span>`:''} ${t.hidden ? `<span class="job-status-badge rejected" style="margin-inline-start:6px;"><i class="fa-solid fa-eye-slash"></i> ${isAR?'مخفي':'Hidden'}</span>` : ''}</div>
+                <div class="ac-meta">
+                    <span class="job-status-badge approved">${cat ? (isAR?cat.ar:cat.en) : ''}</span>
+                    ${t.requiresPrerequisite ? `<span style="color:var(--gold3);"><i class="fa-solid fa-link"></i> ${isAR?'له متطلب: ':'Has prerequisite: '}${escapeHtmlAC(t.prerequisiteLabel||'')}</span>` : ''}
+                    <span><i class="fa-solid fa-download"></i> ${t.downloads||0}</span>
+                    ${t.downloadUrl ? `<span style="color:var(--green4);"><i class="fa-solid fa-link"></i> ${isAR?'رابط موجود':'Link set'}</span>` : `<span style="color:#e33;"><i class="fa-solid fa-triangle-exclamation"></i> ${isAR?'بدون رابط':'No link'}</span>`}
+                </div>
+            </div>
+            <div class="ac-actions">
+                <button class="ac-btn hide" onclick="atToggleHidden('${t.id}', ${!t.hidden})"><i class="fa-solid fa-eye${t.hidden?'':'-slash'}"></i> ${t.hidden ? (isAR?'إظهار':'Unhide') : (isAR?'إخفاء':'Hide')}</button>
+                <button class="ac-btn" onclick="openToolForm('${t.id}')"><i class="fa-solid fa-pen"></i> ${isAR?'تعديل':'Edit'}</button>
+                <button class="ac-btn danger" onclick="atDeleteTool('${t.id}')"><i class="fa-solid fa-trash"></i> ${isAR?'حذف':'Delete'}</button>
+            </div>
+        </div>`;
+    }
+
+    window.atToggleHidden = async function(id, hidden) {
+        try {
+            await window._updateSoftwareTool(id, { hidden });
+            const idx = _adminTools.findIndex(t => t.id === id);
+            if (idx > -1) _adminTools[idx].hidden = hidden;
+            renderAtList();
+            showToast(lang==='AR' ? (hidden?'تم الإخفاء':'تم الإظهار') : (hidden?'Hidden':'Visible'));
+        } catch(e) { showToast(lang==='AR'?'حدث خطأ':'An error occurred', true); }
+    };
+
+    window.atDeleteTool = async function(id) {
+        const isAR = lang === 'AR';
+        if (!confirm(isAR?'حذف هذا البرنامج نهائياً؟':'Delete this software permanently?')) return;
+        try {
+            await window._deleteSoftwareTool(id);
+            _adminTools = _adminTools.filter(t => t.id !== id);
+            renderAtList();
+            showToast(isAR?'🗑️ تم الحذف':'🗑️ Deleted');
+        } catch(e) { showToast(isAR?'خطأ في الحذف':'Delete failed', true); }
+    };
+
+    window.openToolForm = function(editId) {
+        const isAR = lang === 'AR';
+        const editing = editId ? _adminTools.find(t => t.id === editId) : null;
+        const v = (f) => (editing && editing[f] != null) ? editing[f] : '';
+        const requiresPre = !!v('requiresPrerequisite');
+        const modal = document.createElement('div');
+        modal.id = 'toolFormModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+        modal.innerHTML = `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;" onclick="event.stopPropagation()">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <h3 style="font-size:15px;font-weight:800;">${editing ? (isAR?'تعديل برنامج':'Edit Software') : (isAR?'إضافة برنامج جديد':'Add New Software')}</h3>
+                <i class="fa-solid fa-xmark" style="cursor:pointer;color:var(--muted);" onclick="document.getElementById('toolFormModal').remove()"></i>
+            </div>
+            <div class="proj-form-grid">
+                <div class="job-field"><label>${isAR?'اسم البرنامج (عربي) *':'Software Name (Arabic) *'}</label><input type="text" id="at_name" value="${escapeHtmlAC(v('name'))}" placeholder="ArcGIS Pro"></div>
+                <div class="job-field"><label>${isAR?'اسم البرنامج (إنجليزي)':'Software Name (English)'}</label><input type="text" id="at_nameEn" value="${escapeHtmlAC(v('nameEn'))}"></div>
+                <div class="job-field"><label>${isAR?'الإصدار / النسخة':'Version'}</label><input type="text" id="at_version" value="${escapeHtmlAC(v('version'))}" placeholder="2024 / 3.7 / v18"></div>
+                <div class="job-field"><label>${isAR?'التصنيف *':'Category *'}</label>
+                    <select id="at_category">${SOFTWARE_CATEGORIES.map(c=>`<option value="${c.key}" ${v('category')===c.key?'selected':''}>${isAR?c.ar:c.en}</option>`).join('')}</select>
+                </div>
+                <div class="job-field full"><label>${isAR?'رابط التحميل الأساسي *':'Main Download Link *'}</label><input type="url" id="at_url" value="${escapeHtmlAC(v('downloadUrl'))}" placeholder="https://..."></div>
+                <div class="job-field full"><label>${isAR?'ملاحظات (اختياري — مثال: Password: 123)':'Notes (optional — e.g. Password: 123)'}</label><input type="text" id="at_notes" value="${escapeHtmlAC(v('notes'))}"></div>
+            </div>
+
+            <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="at_requiresPre" ${requiresPre?'checked':''} onchange="atTogglePreFields()"> ${isAR?'هذا البرنامج له متطلب — لازم يتحمّل ملف/رابط تاني الأول قبل التثبيت':'This software has a prerequisite — a separate file/link must be downloaded first before installing'}
+            </label>
+            <div id="atPreFields" class="proj-form-grid" style="margin-top:10px;display:${requiresPre?'grid':'none'};">
+                <div class="job-field"><label>${isAR?'اسم المتطلب':'Prerequisite Name'}</label><input type="text" id="at_preLabel" value="${escapeHtmlAC(v('prerequisiteLabel'))}" placeholder=".NET Framework"></div>
+                <div class="job-field"><label>${isAR?'رابط تحميل المتطلب':'Prerequisite Download Link'}</label><input type="url" id="at_preUrl" value="${escapeHtmlAC(v('prerequisiteUrl'))}" placeholder="https://..."></div>
+            </div>
+
+            <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="at_hidden" ${v('hidden') ? 'checked' : ''}> ${isAR?'إخفاء عن الطلاب':'Hide from students'}
+            </label>
+
+            <button class="btn-post-job" style="width:100%;margin-top:14px;" id="atSaveBtn" onclick="atSaveTool('${editId||''}')"><i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}</button>
+        </div>`;
+        document.body.appendChild(modal);
+    };
+
+    window.atTogglePreFields = function() {
+        const box = document.getElementById('atPreFields');
+        const checked = document.getElementById('at_requiresPre')?.checked;
+        if (box) box.style.display = checked ? 'grid' : 'none';
+    };
+
+    window.atSaveTool = async function(editId) {
+        const isAR = lang === 'AR';
+        const name = document.getElementById('at_name')?.value.trim();
+        const category = document.getElementById('at_category')?.value;
+        const downloadUrl = document.getElementById('at_url')?.value.trim();
+        const requiresPrerequisite = !!document.getElementById('at_requiresPre')?.checked;
+        const prerequisiteUrl = document.getElementById('at_preUrl')?.value.trim() || '';
+        if (!name) { showToast(isAR?'من فضلك أدخل اسم البرنامج':'Please enter the software name', true); return; }
+        if (!category) { showToast(isAR?'من فضلك اختر تصنيف':'Please select a category', true); return; }
+        if (!downloadUrl) { showToast(isAR?'من فضلك أدخل رابط التحميل':'Please enter the download link', true); return; }
+        if (requiresPrerequisite && !prerequisiteUrl) { showToast(isAR?'من فضلك أدخل رابط المتطلب':'Please enter the prerequisite link', true); return; }
+
+        const data = {
+            name,
+            nameEn: document.getElementById('at_nameEn')?.value.trim() || '',
+            version: document.getElementById('at_version')?.value.trim() || '',
+            category,
+            downloadUrl,
+            notes: document.getElementById('at_notes')?.value.trim() || '',
+            requiresPrerequisite,
+            prerequisiteLabel: document.getElementById('at_preLabel')?.value.trim() || '',
+            prerequisiteUrl,
+            hidden: !!document.getElementById('at_hidden')?.checked,
+        };
+
+        const btn = document.getElementById('atSaveBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
+        try {
+            if (editId) await window._updateSoftwareTool(editId, data);
+            else await window._addSoftwareTool(data);
+            showToast(isAR?'تم الحفظ':'Saved');
+            document.getElementById('toolFormModal')?.remove();
+            loadAdminTools();
+        } catch(e) {
+            console.error('Tool save error:', e);
+            showToast(isAR?'حدث خطأ أثناء الحفظ':'An error occurred while saving', true);
+            if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}`; }
+        }
+    };
+
+
     /* ─── ADMIN: MENTORSHIP REQUESTS ─── */
     async function renderAdminMentorship(area) {
         area = area || document.getElementById('contentArea');
@@ -11179,6 +11423,7 @@
         { key:'courses',    labelAR:'إدارة الكورسات',     labelEN:'Manage Courses',        icon:'fa-building-shield' },
         { key:'library',    labelAR:'المكتبة الرقمية',    labelEN:'Digital Library',       icon:'fa-book-bookmark' },
         { key:'spatialdata',labelAR:'مكتبة البيانات المكانية', labelEN:'Spatial Data Library', icon:'fa-database' },
+        { key:'softwaretools',labelAR:'أدوات البرامج', labelEN:'Software Tools', icon:'fa-toolbox' },
         { key:'mentorship', labelAR:'حجوزات استشارات',    labelEN:'Consultation Bookings', icon:'fa-user-tie' },
     ];
 
@@ -11191,6 +11436,7 @@
         courses:    ['menuAdminCourses'],
         library:    ['menuAdminLibrary'],
         spatialdata:['menuAdminDatasets'],
+        softwaretools:['menuAdminTools'],
         mentorship: ['menuAdminMentorship'],
         jobs:       ['menuJob'],
         projects:   ['menuProjects'],
@@ -11203,6 +11449,7 @@
         adminmembers: 'members', adminpro: 'pro', cvbuilder: 'cv',
         adminportfolio: 'portfolio', admincourses: 'courses', adminlibrary: 'library', adminmentorship: 'mentorship',
         admindatasets: 'spatialdata',
+        admintools: 'softwaretools',
         jobs: 'jobs', projects: 'projects', expert: 'support',
         community: 'community',
     };
@@ -11279,7 +11526,7 @@
             if (menuExpertBtn) menuExpertBtn.style.display = '';
 
             // Show admin-only sidebar items (desktop/laptop)
-            ['menuAdminMembers','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminDatasets','menuAdminMentorship'].forEach(id => {
+            ['menuAdminMembers','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminDatasets','menuAdminTools','menuAdminMentorship'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = '';
             });
