@@ -2973,6 +2973,9 @@
                     <button class="nav-item" id="menuAdminTools" onclick="navigate('admintools', this)" style="display:none;">
                         <i class="fa-solid fa-toolbox"></i> <span id="menuAdminToolsTxt">أدوات البرامج</span>
                     </button>
+                    <button class="nav-item" id="menuAdminTips" onclick="navigate('admintips', this)" style="display:none;">
+                        <i class="fa-solid fa-lightbulb"></i> <span id="menuAdminTipsTxt">نصيحة اليوم</span>
+                    </button>
                     <button class="nav-item" id="menuJob" onclick="navigate('jobs', this)">
                         <i class="fa-solid fa-briefcase"></i> <span id="menuJobTxt">الوظائف</span>
                     </button>
@@ -3539,6 +3542,22 @@
     };
     window._incrementToolDownload = async (id, current) => {
         await updateDoc(doc(db, 'software_tools', id), { downloads: (current || 0) + 1 });
+    };
+
+    /* ─── ADMIN: DAILY TIPS ─── */
+    window._loadDailyTips = async () => {
+        const q = query(collection(db, 'daily_tips'), orderBy('createdAt', 'asc'));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    };
+    window._addDailyTip = async (data) => {
+        await addDoc(collection(db, 'daily_tips'), { ...data, likes: 0, createdAt: serverTimestamp() });
+    };
+    window._updateDailyTip = async (id, data) => {
+        await updateDoc(doc(db, 'daily_tips', id), data);
+    };
+    window._deleteDailyTip = async (id) => {
+        await deleteDoc(doc(db, 'daily_tips', id));
     };
 
     window._bookMentorshipSlot = async (slotData) => {
@@ -4446,6 +4465,7 @@
             menuAdminPlaylistsTxt: 'قوائم التشغيل',
             menuAdminDatasetsTxt: 'مكتبة البيانات المكانية',
             menuAdminToolsTxt: 'أدوات البرامج',
+            menuAdminTipsTxt: 'نصيحة اليوم',
             menuAdminMentorshipTxt: 'حجوزات الاستشارات',
             txtTopbarLogout: 'خروج',
             txtTopbarLogoutDesk: 'خروج',
@@ -4484,6 +4504,7 @@
             menuAdminPlaylistsTxt: 'Playlists',
             menuAdminDatasetsTxt: 'Spatial Data Library',
             menuAdminToolsTxt: 'Software Tools',
+            menuAdminTipsTxt: 'Daily Tip',
             txtLogout: 'Log Out',
             txtTopbarLogout: 'Logout',
             txtTopbarLogoutDesk: 'Logout',
@@ -4800,6 +4821,7 @@
             adminplaylists: lang==='AR'?'إدارة قوائم التشغيل':'Manage Playlists',
             admindatasets: lang==='AR'?'إدارة مكتبة البيانات المكانية':'Manage Spatial Data Library',
             admintools: lang==='AR'?'إدارة أدوات البرامج':'Manage Software Tools',
+            admintips: lang==='AR'?'إدارة نصيحة اليوم':'Manage Daily Tips',
             adminmentorship: lang==='AR'?'حجوزات الاستشارات':'Consultation Bookings',
             portfolio:     lang==='AR'?'خرائط الطلبة':'Student Maps',
             monthlyreport: lang==='AR'?'تقريري الشهري':'My Monthly Report',
@@ -4841,6 +4863,7 @@
         else if (page === 'adminplaylists') renderAdminPlaylists(area);
         else if (page === 'admindatasets') renderAdminDatasets(area);
         else if (page === 'admintools') renderAdminTools(area);
+        else if (page === 'admintips') renderAdminTips(area);
         else if (page === 'adminmentorship') renderAdminMentorship(area);
         else if (page === 'portfolio') renderPortfolio(area);
         else if (page === 'monthlyreport') renderMonthlyReport(area);
@@ -9284,6 +9307,148 @@
     };
 
 
+    /* ─── ADMIN: DAILY TIPS ─── */
+    let _adminTips = [];
+
+    function renderAdminTips(area) {
+        area = area || document.getElementById('contentArea');
+        const isAR = lang === 'AR';
+        area.innerHTML = `
+        <div class="page-header">
+            <h2>${isAR?'إدارة نصيحة اليوم':'Manage Daily Tips'}</h2>
+            <p>${isAR?'كل النصايح موجودة هنا بالترتيب. حدد تاريخ معين لأي نصيحة عشان تظهر للطلاب في اليوم ده بالظبط، أو سيبها من غير تاريخ عشان تدخل في الترتيب التلقائي. الطالب دايمًا بيشوف نصيحة واحدة بس (نصيحة اليوم)، وبعد ٢٤ ساعة تتغير للنصيحة التالية.':'All tips are listed here in order. Set a specific date for a tip to have it shown to students on exactly that day, or leave it undated to join the automatic rotation. Students only ever see one tip (today\'s), switching to the next after 24 hours.'}</p>
+        </div>
+        <button class="btn-post-job" style="margin-bottom:16px;" onclick="openTipForm()"><i class="fa-solid fa-plus"></i> ${isAR?'إضافة نصيحة جديدة':'Add New Tip'}</button>
+        <div id="dtList"></div>`;
+        loadAdminTips();
+    }
+
+    async function loadAdminTips() {
+        const list = document.getElementById('dtList');
+        if (list) list.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+        try { _adminTips = await window._loadDailyTips(); }
+        catch(e) { console.error(e); _adminTips = []; }
+        renderDtList();
+    }
+
+    function renderDtList() {
+        const isAR = lang === 'AR';
+        const list = document.getElementById('dtList');
+        if (!list) return;
+        if (!_adminTips.length) {
+            list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;">${isAR?'لا توجد نصايح مضافة بعد':'No tips added yet'}</div>`;
+            return;
+        }
+        // list every tip in order — tips with a scheduled date are ordered by that date first, undated tips (auto-rotation) follow in creation order
+        const sorted = [..._adminTips].sort((a, b) => {
+            if (a.scheduledDate && b.scheduledDate) return a.scheduledDate.localeCompare(b.scheduledDate);
+            if (a.scheduledDate && !b.scheduledDate) return -1;
+            if (!a.scheduledDate && b.scheduledDate) return 1;
+            return 0;
+        });
+        list.innerHTML = sorted.map((t, i) => `
+        <div class="ac-row">
+            <div style="width:48px;height:48px;border-radius:10px;flex-shrink:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:${t.color||'var(--g4)'};border:1px solid var(--border);font-size:18px;"><i class="fa-solid ${t.icon || 'fa-lightbulb'}"></i></div>
+            <div class="ac-main" style="margin-inline-start:12px;">
+                <div class="ac-title">${isAR?'نصيحة':'Tip'} ${i+1} — ${escapeHtmlAC(t.titleAR||'')}</div>
+                <div class="ac-meta">
+                    <span class="job-status-badge approved">${escapeHtmlAC(t.categoryAR||t.categoryEN||'')}</span>
+                    ${t.scheduledDate ? `<span class="job-status-badge pending"><i class="fa-solid fa-calendar-day"></i> ${escapeHtmlAC(t.scheduledDate)}</span>` : `<span style="font-size:11.5px;color:var(--muted);">${isAR?'بالترتيب التلقائي':'Auto rotation'}</span>`}
+                    <span><i class="fa-solid fa-heart"></i> ${t.likes||0}</span>
+                </div>
+            </div>
+            <div class="ac-actions">
+                <button class="ac-btn" onclick="openTipForm('${t.id}')"><i class="fa-solid fa-pen"></i> ${isAR?'تعديل':'Edit'}</button>
+                <button class="ac-btn danger" onclick="dtDeleteTip('${t.id}')"><i class="fa-solid fa-trash"></i> ${isAR?'حذف':'Delete'}</button>
+            </div>
+        </div>`).join('');
+    }
+
+    window.dtDeleteTip = async function(id) {
+        const isAR = lang === 'AR';
+        if (!confirm(isAR?'حذف هذه النصيحة نهائياً؟':'Delete this tip permanently?')) return;
+        try {
+            await window._deleteDailyTip(id);
+            _adminTips = _adminTips.filter(t => t.id !== id);
+            renderDtList();
+            showToast(isAR?'🗑️ تم الحذف':'🗑️ Deleted');
+        } catch(e) { showToast(isAR?'خطأ في الحذف':'Delete failed', true); }
+    };
+
+    window.openTipForm = function(editId) {
+        const isAR = lang === 'AR';
+        const editing = editId ? _adminTips.find(t => t.id === editId) : null;
+        const v = (f) => (editing && editing[f] != null) ? editing[f] : '';
+        const modal = document.createElement('div');
+        modal.id = 'tipFormModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+        modal.innerHTML = `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;" onclick="event.stopPropagation()">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <h3 style="font-size:15px;font-weight:800;">${editing ? (isAR?'تعديل نصيحة':'Edit Tip') : (isAR?'إضافة نصيحة جديدة':'Add New Tip')}</h3>
+                <i class="fa-solid fa-xmark" style="cursor:pointer;color:var(--muted);" onclick="document.getElementById('tipFormModal').remove()"></i>
+            </div>
+            <div class="proj-form-grid">
+                <div class="job-field full">
+                    <label>${isAR?'تاريخ ظهور النصيحة للطلاب':'Date this tip shows to students'}</label>
+                    <input type="date" id="dt_date" value="${escapeHtmlAC(v('scheduledDate'))}">
+                    <p style="font-size:11px;color:var(--muted);margin-top:4px;">${isAR?'سيب الحقل فاضي لو عايز النصيحة تدخل في الترتيب التلقائي (نصيحة جديدة كل يوم) بدل ما تكون في تاريخ محدد.':'Leave empty to let the tip join the automatic daily rotation instead of a fixed date.'}</p>
+                </div>
+                <div class="job-field"><label>${isAR?'التصنيف (عربي) *':'Category (Arabic) *'}</label><input type="text" id="dt_catAR" value="${escapeHtmlAC(v('categoryAR'))}" placeholder="GIS"></div>
+                <div class="job-field"><label>${isAR?'التصنيف (إنجليزي)':'Category (English)'}</label><input type="text" id="dt_catEN" value="${escapeHtmlAC(v('categoryEN'))}" placeholder="GIS"></div>
+                <div class="job-field full"><label>${isAR?'عنوان النصيحة (عربي) *':'Tip Title (Arabic) *'}</label><input type="text" id="dt_titleAR" value="${escapeHtmlAC(v('titleAR'))}"></div>
+                <div class="job-field full"><label>${isAR?'عنوان النصيحة (إنجليزي)':'Tip Title (English)'}</label><input type="text" id="dt_titleEN" value="${escapeHtmlAC(v('titleEN'))}"></div>
+                <div class="job-field full"><label>${isAR?'نص النصيحة (عربي) * — تقدر تستخدم <strong> و<br>':'Tip Body (Arabic) * — you can use <strong> and <br>'}</label><textarea id="dt_bodyAR" rows="4" style="width:100%;padding:10px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:13px;">${(v('bodyAR')||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
+                <div class="job-field full"><label>${isAR?'نص النصيحة (إنجليزي)':'Tip Body (English)'}</label><textarea id="dt_bodyEN" rows="4" style="width:100%;padding:10px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:13px;">${(v('bodyEN')||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
+                <div class="job-field"><label>${isAR?'أيقونة (Font Awesome class)':'Icon (Font Awesome class)'}</label><input type="text" id="dt_icon" value="${escapeHtmlAC(v('icon'))}" placeholder="fa-lightbulb"></div>
+                <div class="job-field"><label>${isAR?'لون':'Color'}</label><input type="text" id="dt_color" value="${escapeHtmlAC(v('color'))}" placeholder="#1e7a34"></div>
+            </div>
+            <p style="font-size:11.5px;color:var(--muted);margin-top:8px;">${isAR?'ملاحظة: بيتم كتابة الـ HTML اللي بتحطه في النص زي (<strong>، <br>، <ul><li>) زي ما هو من غير تعديل، فخليك حذر وتأكد إن الوسوم متقفلة صح.':'Note: any HTML you type in the body (like <strong>, <br>, <ul><li>) is stored as-is, so make sure tags are properly closed.'}</p>
+            <button class="btn-post-job" style="width:100%;margin-top:14px;" id="dtSaveBtn" onclick="dtSaveTip('${editId||''}')"><i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}</button>
+        </div>`;
+        document.body.appendChild(modal);
+        // unescape the textareas back to real HTML tags for editing (they were entity-escaped only for safe injection into value/innerHTML above)
+        const taAR = document.getElementById('dt_bodyAR'); if (taAR) taAR.value = v('bodyAR') || '';
+        const taEN = document.getElementById('dt_bodyEN'); if (taEN) taEN.value = v('bodyEN') || '';
+    };
+
+    window.dtSaveTip = async function(editId) {
+        const isAR = lang === 'AR';
+        const categoryAR = document.getElementById('dt_catAR')?.value.trim();
+        const titleAR = document.getElementById('dt_titleAR')?.value.trim();
+        const bodyAR = document.getElementById('dt_bodyAR')?.value.trim();
+        if (!categoryAR) { showToast(isAR?'من فضلك أدخل التصنيف':'Please enter the category', true); return; }
+        if (!titleAR) { showToast(isAR?'من فضلك أدخل عنوان النصيحة':'Please enter the tip title', true); return; }
+        if (!bodyAR) { showToast(isAR?'من فضلك أدخل نص النصيحة':'Please enter the tip body', true); return; }
+
+        const data = {
+            categoryAR,
+            categoryEN: document.getElementById('dt_catEN')?.value.trim() || categoryAR,
+            titleAR,
+            titleEN: document.getElementById('dt_titleEN')?.value.trim() || titleAR,
+            bodyAR,
+            bodyEN: document.getElementById('dt_bodyEN')?.value.trim() || bodyAR,
+            icon: document.getElementById('dt_icon')?.value.trim() || 'fa-lightbulb',
+            color: document.getElementById('dt_color')?.value.trim() || '#1e7a34',
+            scheduledDate: document.getElementById('dt_date')?.value.trim() || null,
+        };
+
+        const btn = document.getElementById('dtSaveBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
+        try {
+            if (editId) await window._updateDailyTip(editId, data);
+            else await window._addDailyTip(data);
+            showToast(isAR?'تم الحفظ':'Saved');
+            document.getElementById('tipFormModal')?.remove();
+            loadAdminTips();
+        } catch(e) {
+            console.error('Tip save error:', e);
+            showToast(isAR?'حدث خطأ أثناء الحفظ':'An error occurred while saving', true);
+            if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}`; }
+        }
+    };
+
     /* ─── ADMIN: MENTORSHIP REQUESTS ─── */
     async function renderAdminMentorship(area) {
         area = area || document.getElementById('contentArea');
@@ -11683,6 +11848,7 @@
         { key:'playlists',  labelAR:'قوائم التشغيل',      labelEN:'Playlists',             icon:'fa-clapperboard' },
         { key:'spatialdata',labelAR:'مكتبة البيانات المكانية', labelEN:'Spatial Data Library', icon:'fa-database' },
         { key:'softwaretools',labelAR:'أدوات البرامج', labelEN:'Software Tools', icon:'fa-toolbox' },
+        { key:'dailytips',  labelAR:'نصيحة اليوم',        labelEN:'Daily Tip',             icon:'fa-lightbulb' },
         { key:'mentorship', labelAR:'حجوزات استشارات',    labelEN:'Consultation Bookings', icon:'fa-user-tie' },
     ];
 
@@ -11697,6 +11863,7 @@
         playlists:  ['menuAdminPlaylists'],
         spatialdata:['menuAdminDatasets'],
         softwaretools:['menuAdminTools'],
+        dailytips:  ['menuAdminTips'],
         mentorship: ['menuAdminMentorship'],
         jobs:       ['menuJob'],
         projects:   ['menuProjects'],
@@ -11710,6 +11877,7 @@
         adminportfolio: 'portfolio', admincourses: 'courses', adminlibrary: 'library', adminplaylists: 'playlists', adminmentorship: 'mentorship',
         admindatasets: 'spatialdata',
         admintools: 'softwaretools',
+        admintips: 'dailytips',
         jobs: 'jobs', projects: 'projects', expert: 'support',
         community: 'community',
     };
@@ -11786,7 +11954,7 @@
             if (menuExpertBtn) menuExpertBtn.style.display = '';
 
             // Show admin-only sidebar items (desktop/laptop)
-            ['menuAdminMembers','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminMentorship'].forEach(id => {
+            ['menuAdminMembers','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminMentorship'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = '';
             });
