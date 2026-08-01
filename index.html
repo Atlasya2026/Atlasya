@@ -1803,8 +1803,16 @@
             .lib-search-bar:not(.rtl) .lib-search-go { right:6px; left:auto; }
 
             .lib-quickstats { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; position:relative; z-index:1; }
+            .lib-quickstats-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:16px; position:relative; z-index:1; }
+            .lib-quickstats-row .lib-quickstats { margin-top:0; }
             .lib-stat-pill { display:flex; align-items:center; gap:6px; padding:6px 13px; border-radius:99px; background:rgba(255,255,255,0.05); border:1px solid var(--border); font-size:12px; font-weight:700; color:var(--muted); }
             .lib-stat-pill i { color:var(--g4); }
+            .lib-fav-quick-btn { display:flex; align-items:center; gap:6px; padding:6px 14px; border-radius:99px; background:rgba(255,85,119,0.1); border:1px solid rgba(255,85,119,0.35); font-size:12px; font-weight:800; color:#ff5577; font-family:'Tajawal',sans-serif; cursor:pointer; transition:.2s; }
+            .lib-fav-quick-btn:hover { background:rgba(255,85,119,0.2); transform:translateY(-1px); }
+            .lib-fav-quick-btn i { color:#ff5577; }
+            .ds-reset-btn { display:flex; align-items:center; gap:7px; padding:9px 16px; border-radius:10px; border:1px solid var(--border2); background:linear-gradient(135deg, rgba(212,160,23,0.14), rgba(212,160,23,0.05)); color:var(--gold3); font-size:12.5px; font-weight:800; font-family:'Tajawal',sans-serif; cursor:pointer; transition:.2s; white-space:nowrap; }
+            .ds-reset-btn:hover { background:linear-gradient(135deg, rgba(212,160,23,0.22), rgba(212,160,23,0.08)); border-color:var(--gold3); }
+            .ds-reset-btn i { font-size:11px; }
 
             .lib-section { margin-bottom:28px; }
             .lib-section-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:10px; flex-wrap:wrap; }
@@ -5784,7 +5792,7 @@
                 <input type="text" id="dsFilterCoord" placeholder="${isAR?'نظام الإحداثيات':'Coordinate System'}" value="${_dsFilters.coordSystem}" onchange="dsFilterChange()">
                 <input type="text" id="dsFilterSource" placeholder="${isAR?'مصدر البيانات':'Data Source'}" value="${_dsFilters.source}" onchange="dsFilterChange()">
                 <input type="number" id="dsFilterYear" placeholder="${isAR?'السنة':'Year'}" value="${_dsFilters.year}" onchange="dsFilterChange()" style="width:90px;">
-                <button class="ac-btn" onclick="dsFilterReset()"><i class="fa-solid fa-rotate-left"></i> ${isAR?'إعادة تعيين':'Reset'}</button>
+                <button class="ds-reset-btn" onclick="dsFilterReset()"><i class="fa-solid fa-rotate-left"></i> ${isAR?'إعادة تعيين':'Reset'}</button>
             </div>`;
         }
 
@@ -8212,7 +8220,10 @@
                     <input type="text" id="libHeroSearch" placeholder="${isAR?'ابحث باسم الكتاب أو المؤلف أو الكلمات المفتاحية...':'Search by title, author, or keywords...'}" onkeydown="if(event.key==='Enter') libDoSearch()">
                     <button class="lib-search-go" onclick="libDoSearch()">${isAR?'بحث':'Search'}</button>
                 </div>
-                <div class="lib-quickstats" id="libQuickStats"></div>
+                <div class="lib-quickstats-row">
+                    <button class="lib-fav-quick-btn" onclick="libGo('list',{type:'favorites'})"><i class="fa-solid fa-heart"></i> ${isAR?'المفضلة لديّ':'My Favorites'}</button>
+                    <div class="lib-quickstats" id="libQuickStats"></div>
+                </div>
             </div>
             <div id="libraryStage"><div style="text-align:center;padding:60px;"><div class="spinner" style="margin:0 auto;"></div></div></div>`;
 
@@ -8279,21 +8290,8 @@
             }
             const visible = _libAllBooks;
             const latest = [...visible].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)).slice(0,8);
-            const popular = [...visible].sort((a,b)=>(b.downloads||0)-(a.downloads||0)).slice(0,8);
             const favIds = window._userData?.favoriteBooks || [];
             const favBooks = visible.filter(b => favIds.includes(b.id));
-
-            let suggested;
-            if (favBooks.length) {
-                const favCats = new Set(favBooks.map(b=>b.category));
-                suggested = visible.filter(b => favCats.has(b.category) && !favIds.includes(b.id)).slice(0,8);
-                if (suggested.length < 4) {
-                    const fill = visible.filter(b => !suggested.includes(b) && !favIds.includes(b.id)).slice(0, 8-suggested.length);
-                    suggested = suggested.concat(fill);
-                }
-            } else {
-                suggested = [...visible].sort(() => 0.5-Math.random()).slice(0,8);
-            }
 
             const catCounts = {};
             visible.forEach(b => { catCounts[b.category] = (catCounts[b.category]||0)+1; });
@@ -8330,19 +8328,6 @@
                         <button class="lib-see-all" onclick="libGo('list',{type:'latest'})">${isAR?'عرض الكل':'View All'} <i class="fa-solid fa-arrow-${isAR?'left':'right'}"></i></button>
                     </div>
                     <div class="lib-row">${latest.map(b=>_libBookCard(b,isAR)).join('')}</div>
-                </div>
-
-                <div class="lib-section">
-                    <div class="lib-section-head">
-                        <h3><i class="fa-solid fa-fire"></i> ${isAR?'الأكثر تحميلاً':'Most Downloaded'}</h3>
-                        <button class="lib-see-all" onclick="libGo('list',{type:'popular'})">${isAR?'عرض الكل':'View All'} <i class="fa-solid fa-arrow-${isAR?'left':'right'}"></i></button>
-                    </div>
-                    <div class="lib-row">${popular.map(b=>_libBookCard(b,isAR)).join('')}</div>
-                </div>
-
-                <div class="lib-section">
-                    <div class="lib-section-head"><h3><i class="fa-solid fa-wand-magic-sparkles"></i> ${isAR?'كتب مقترحة لك':'Suggested For You'}</h3></div>
-                    <div class="lib-row">${suggested.map(b=>_libBookCard(b,isAR)).join('')}</div>
                 </div>
 
                 ${favBooks.length ? `
@@ -8412,7 +8397,10 @@
             const universities = [...new Set(_libAllBooks.filter(b=>b.university).map(b=>b.university.trim()))].sort();
 
             stage.innerHTML = `
-                <button class="lib-back-btn" onclick="libGoHome()"><i class="fa-solid fa-arrow-${isAR?'right':'left'}"></i> ${isAR?'رجوع للمكتبة':'Back to Library'}</button>
+                ${dsBreadcrumbHTML([
+                    { label: isAR?'الرئيسية':'Home', onclick:'libGoHome()' },
+                    { label: escapeHtml(title) },
+                ])}
                 <div class="lib-section-head"><h3>${escapeHtml(title)}</h3></div>
                 <div class="lib-filters-bar">
                     <input type="text" id="libListSearch" placeholder="${isAR?'بحث ضمن النتائج...':'Search within results...'}" oninput="_libApplyFilters()" style="min-width:180px;flex:1;">
@@ -8476,7 +8464,10 @@
             });
             const unis = Object.keys(map).sort((a,b) => map[b]-map[a]);
             stage.innerHTML = `
-                <button class="lib-back-btn" onclick="libGoHome()"><i class="fa-solid fa-arrow-${isAR?'right':'left'}"></i> ${isAR?'رجوع للمكتبة':'Back to Library'}</button>
+                ${dsBreadcrumbHTML([
+                    { label: isAR?'الرئيسية':'Home', onclick:'libGoHome()' },
+                    { label: isAR?'مكتبات الجامعات':'University Libraries' },
+                ])}
                 <div class="lib-section-head"><h3><i class="fa-solid fa-building-columns"></i> ${isAR?'مكتبات الجامعات':'University Libraries'}</h3></div>
                 <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">${isAR?'اختر جامعتك للوصول المباشر لكل الكتب والمراجع الخاصة بيها':'Pick your university for direct access to all its books & references'}</p>
                 ${unis.length ? `<div class="lib-uni-grid">${unis.map(u => `
@@ -8525,7 +8516,11 @@
             const similar = _libAllBooks.filter(x => x.id !== b.id && x.category === b.category).slice(0,8);
 
             stage.innerHTML = `
-                <button class="lib-back-btn" onclick="libGoHome()"><i class="fa-solid fa-arrow-${isAR?'right':'left'}"></i> ${isAR?'رجوع للمكتبة':'Back to Library'}</button>
+                ${dsBreadcrumbHTML([
+                    { label: isAR?'الرئيسية':'Home', onclick:'libGoHome()' },
+                    { label: libCatLabel(b.category, isAR), onclick:`libGoCategory('${b.category}')` },
+                    { label: escapeHtml(b.title||'') },
+                ])}
                 <div class="lib-detail-top">
                     <div class="lib-detail-cover-wrap"><div class="lib-detail-cover">${cover}</div></div>
                     <div class="lib-detail-info">
