@@ -3598,7 +3598,7 @@
                         </button>
 
                         <button class="nav-item" id="menuConnect" onclick="navigate('connect', this)">
-                            <i class="fa-solid fa-share-nodes"></i> <span id="menuConnectTxt">تواصل معنا</span>
+                            <i class="fa-solid fa-share-nodes"></i> <span id="menuConnectTxt">سوشيال ميديا</span>
                         </button>
                         <button class="nav-item" id="menuAccount" onclick="goSettings('hub')">
                             <i class="fa-solid fa-gear"></i> <span id="menuAccountTxt">الإعدادات</span>
@@ -4997,7 +4997,7 @@
                 menuJobTxt: 'لوحة الوظائف',
                 menuCourseTxt: 'الكورسات',
                 menuProjectsTxt: 'مشروعات الطلبة',
-                menuConnectTxt: 'تواصل معنا',
+                menuConnectTxt: 'سوشيال ميديا',
                 menuCommunityTxt: 'مجتمع الطلاب',
                 menuExpertTxt: 'الدعم الفني',
                 menuCVTxt: 'عمل CV',
@@ -5028,7 +5028,7 @@
                 menuJobTxt: 'Job Board',
                 menuCourseTxt: 'Courses',
                 menuProjectsTxt: 'Student Projects',
-                menuConnectTxt: 'Connect',
+                menuConnectTxt: 'Social Media',
                 menuCommunityTxt: 'Community',
                 menuExpertTxt: 'Technical Support',
                 menuCVTxt: 'Build CV',
@@ -5378,7 +5378,7 @@
                 expert:    lang==='AR'?'الدعم الفني':'Technical Support',
                 community: lang==='AR'?'مجتمع الطلاب':'Student Community',
                 cvbuilder: lang==='AR'?'عمل CV':'Build CV',
-                connect:   lang==='AR'?'تواصل معنا':'Connect With Us',
+                connect:   lang==='AR'?'سوشيال ميديا':'Social Media',
                 account:   lang==='AR'?'الإعدادات':'Settings',
                 adminmembers:  lang==='AR'?'قائمة الأعضاء':'Members List',
                 adminpro:      lang==='AR'?'طلبات Pro':'Pro Requests',
@@ -8849,8 +8849,8 @@
             const isAR = lang === 'AR';
             area.innerHTML = `
             <div class="page-header">
-                <h2>${isAR?'تواصل معنا':'Connect With Us'}</h2>
-                <p>${isAR?'انضم إلى قنواتنا الرسمية وتابع آخر المستجدات':'Join our official channels and stay updated'}</p>
+                <h2>${isAR?'سوشيال ميديا':'Social Media'}</h2>
+                <p>${isAR?'تابعنا على قنواتنا الرسمية وابقَ على اطلاع بآخر المستجدات':'Follow us on our official social channels and stay updated'}</p>
             </div>
 
             <!-- Interactive Connect Hub -->
@@ -11098,8 +11098,8 @@
         function showForgotEmailHint() {
             const isAR = lang === 'AR';
             showToast(isAR
-                ? 'لو نسيت بريدك الإلكتروني، تواصل مع الدعم الفني عن طريق صفحة "تواصل معنا" لمساعدتك في استرجاعه'
-                : "If you forgot your email, please contact our support team via the 'Connect' page to help you recover it", true);
+                ? 'لو نسيت بريدك الإلكتروني، تواصل مع الدعم الفني عن طريق صفحة "سوشيال ميديا" لمساعدتك في استرجاعه'
+                : "If you forgot your email, please contact our support team via the 'Social Media' page to help you recover it", true);
         }
         window.showForgotEmailHint = showForgotEmailHint;
 
