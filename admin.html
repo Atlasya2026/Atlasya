@@ -4961,6 +4961,39 @@
             {key:'osm_landuse', ar:'Landuse', en:'Landuse'},
             {key:'osm_poi', ar:'Points of Interest', en:'Points of Interest'},
         ]},
+        { key:'topo_maps', icon:'🧭', ar:'خرائط طبوغرافية', en:'Topographic Maps', sub:[
+            {key:'scale_25k', ar:'مقياس 1:25,000', en:'Scale 1:25,000'},
+            {key:'scale_50k', ar:'مقياس 1:50,000', en:'Scale 1:50,000'},
+            {key:'scale_100k', ar:'مقياس 1:100,000', en:'Scale 1:100,000'},
+            {key:'scale_250k', ar:'مقياس 1:250,000', en:'Scale 1:250,000'},
+            {key:'historical_topo', ar:'خرائط تاريخية قديمة', en:'Historical Maps'},
+            {key:'scanned_topo', ar:'خرائط ممسوحة ضوئياً', en:'Scanned Maps'},
+            {key:'georeferenced_topo', ar:'خرائط مرجعة جغرافياً', en:'Georeferenced Maps'},
+        ]},
+        { key:'arab_shapefiles', icon:'🗂️', ar:'شيب فايلات دول عربية', en:'Arab Countries Shapefiles', sub:[
+            {key:'egypt', ar:'مصر', en:'Egypt'},
+            {key:'saudi', ar:'السعودية', en:'Saudi Arabia'},
+            {key:'uae', ar:'الإمارات', en:'UAE'},
+            {key:'kuwait', ar:'الكويت', en:'Kuwait'},
+            {key:'qatar', ar:'قطر', en:'Qatar'},
+            {key:'bahrain', ar:'البحرين', en:'Bahrain'},
+            {key:'oman', ar:'عُمان', en:'Oman'},
+            {key:'yemen', ar:'اليمن', en:'Yemen'},
+            {key:'iraq', ar:'العراق', en:'Iraq'},
+            {key:'jordan', ar:'الأردن', en:'Jordan'},
+            {key:'syria', ar:'سوريا', en:'Syria'},
+            {key:'lebanon', ar:'لبنان', en:'Lebanon'},
+            {key:'palestine', ar:'فلسطين', en:'Palestine'},
+            {key:'libya', ar:'ليبيا', en:'Libya'},
+            {key:'tunisia', ar:'تونس', en:'Tunisia'},
+            {key:'algeria', ar:'الجزائر', en:'Algeria'},
+            {key:'morocco', ar:'المغرب', en:'Morocco'},
+            {key:'sudan', ar:'السودان', en:'Sudan'},
+            {key:'mauritania', ar:'موريتانيا', en:'Mauritania'},
+            {key:'somalia', ar:'الصومال', en:'Somalia'},
+            {key:'djibouti', ar:'جيبوتي', en:'Djibouti'},
+            {key:'comoros', ar:'جزر القمر', en:'Comoros'},
+        ]},
     ];
     const SPATIAL_FILE_TYPES = ['Shapefile (.shp)','GeoPackage (.gpkg)','GeoJSON','KML / KMZ','CSV','Raster (.tif)','File Geodatabase (.gdb)'];
 
@@ -5056,7 +5089,7 @@
         return true;
     }
     function dsMatchesSearch(d, q) {
-        const hay = [d.name, d.nameEn, d.region, d.source, d.description, d.fileType].filter(Boolean).join(' ').toLowerCase();
+        const hay = [d.name, d.nameEn, d.region, d.source, d.description, d.fileType, Array.isArray(d.layers)?d.layers.join(' '):''].filter(Boolean).join(' ').toLowerCase();
         return hay.includes(q);
     }
 
@@ -5224,6 +5257,7 @@
             <div class="ds-info">
                 <h4>${escapeHtmlAC(isAR ? (d.name||'') : (d.nameEn||d.name||''))}</h4>
                 <div style="font-size:11px;color:var(--muted);margin-top:4px;">${escapeHtmlAC(d.region||'')}${sub?` · ${escapeHtmlAC(isAR?sub.ar:sub.en)}`:''}</div>
+                ${Array.isArray(d.layers) && d.layers.length > 1 ? `<div style="font-size:10.5px;color:var(--gold3);margin-top:5px;font-weight:700;"><i class="fa-solid fa-layer-group"></i> ${d.layers.length} ${isAR?'طبقات':'layers'}</div>` : ''}
             </div>
             <div class="ds-dl"><i class="fa-solid fa-circle-info"></i><span>${isAR?'التفاصيل':'View Details'}</span></div>
         </a>`;
@@ -5253,6 +5287,13 @@
             <div class="dd-body">
                 <div class="dd-title">${escapeHtmlAC(isAR ? (d.name||'') : (d.nameEn||d.name||''))}</div>
                 ${d.description ? `<div class="dd-desc">${escapeHtmlAC(d.description)}</div>` : ''}
+                ${Array.isArray(d.layers) && d.layers.length ? `
+                <div style="margin:14px 0;">
+                    <div style="font-size:12px;font-weight:800;color:var(--gold3);margin-bottom:8px;"><i class="fa-solid fa-layer-group"></i> ${isAR?`الطبقات المُضمّنة (${d.layers.length})`:`Included Layers (${d.layers.length})`}</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        ${d.layers.map(l => `<span style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;">${escapeHtmlAC(l)}</span>`).join('')}
+                    </div>
+                </div>` : ''}
                 <div class="dd-meta-grid">
                     ${meta.map(m => `<div class="dd-meta-item"><div class="lbl">${m.lbl}</div><div class="val">${escapeHtmlAC(String(m.val))}</div></div>`).join('')}
                 </div>
@@ -8449,6 +8490,7 @@
                     <span class="job-status-badge approved">${cat ? scCatLabel(cat, isAR) : ''}${sub ? ` — ${isAR?sub.ar:sub.en}` : ''}</span>
                     ${d.region ? `<span><i class="fa-solid fa-earth-africa"></i> ${escapeHtmlAC(d.region)}</span>` : ''}
                     ${d.fileType ? `<span><i class="fa-solid fa-file"></i> ${escapeHtmlAC(d.fileType)}</span>` : ''}
+                    ${Array.isArray(d.layers) && d.layers.length ? `<span><i class="fa-solid fa-layer-group"></i> ${d.layers.length} ${isAR?'طبقة':'layers'}</span>` : ''}
                     <span><i class="fa-solid fa-download"></i> ${d.downloads||0}</span>
                     ${d.downloadUrl ? `<span style="color:var(--green4);"><i class="fa-solid fa-link"></i> ${isAR?'رابط موجود':'Link set'}</span>` : `<span style="color:#e33;"><i class="fa-solid fa-triangle-exclamation"></i> ${isAR?'بدون رابط':'No link'}</span>`}
                 </div>
@@ -8567,6 +8609,7 @@
                 <div class="job-field"><label>${isAR?'تاريخ التحديث':'Update Date'}</label><input type="date" id="ads_updateDate" value="${escapeHtmlAC(v('updateDate'))}"></div>
                 <div class="job-field"><label>${isAR?'مصدر البيانات':'Data Source'}</label><input type="text" id="ads_source" value="${escapeHtmlAC(v('source'))}" placeholder="USGS / OpenStreetMap / CAPMAS"></div>
                 <div class="job-field full"><label>${isAR?'وصف مختصر':'Short Description'}</label><textarea id="ads_desc">${escapeHtmlAC(v('description'))}</textarea></div>
+                <div class="job-field full"><label>${isAR?'الطبقات المُضمّنة (اختياري — طبقة في كل سطر، لو أكتر من layer في نفس الملف)':'Included Layers (optional — one per line, if the package has more than one layer)'}</label><textarea id="ads_layers" placeholder="${isAR?'مثال:\nحدود الدولة\nالمحافظات\nالطرق الرئيسية\nالمسطحات المائية':'e.g.\nCountry Boundary\nGovernorates\nMain Roads\nWater Bodies'}">${escapeHtmlAC(Array.isArray(v('layers')) ? v('layers').join('\n') : (v('layers')||''))}</textarea></div>
                 <div class="job-field full"><label>${isAR?'رابط التحميل (خارجي) *':'Download Link (external) *'}</label><input type="url" id="ads_url" value="${escapeHtmlAC(v('downloadUrl'))}" placeholder="https://drive.google.com/..."></div>
                 <div class="job-field full"><label>${isAR?'إضافة إلى مشاريع البيانات الجاهزة':'Add to Project Bundles'}</label>
                     <div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;">
@@ -8622,6 +8665,7 @@
             updateDate: document.getElementById('ads_updateDate')?.value || '',
             source: document.getElementById('ads_source')?.value.trim() || '',
             description: document.getElementById('ads_desc')?.value.trim() || '',
+            layers: (document.getElementById('ads_layers')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
             downloadUrl,
             projects: selectedProjects,
             hidden: !!document.getElementById('ads_hidden')?.checked,
