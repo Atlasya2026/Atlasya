@@ -4704,9 +4704,9 @@
             await updateDoc(doc(db, 'users', currentUid), {
                 tipLikes: liked ? arrayUnion(tipId) : arrayRemove(tipId)
             });
-            await updateDoc(doc(db, 'daily_tips', tipId), {
+            await setDoc(doc(db, 'daily_tips', tipId), {
                 likes: increment(liked ? 1 : -1)
-            });
+            }, { merge: true });
             if (window._userData) {
                 const arr = window._userData.tipLikes || [];
                 window._userData.tipLikes = liked ? [...new Set([...arr, tipId])] : arr.filter(x => x !== tipId);
@@ -5923,7 +5923,12 @@
             const el = document.getElementById('insSavedList');
             if (!el) return;
             const all = [insTodayTip(), ...insPastTips()];
-            const list = all.filter(t => insIsSaved(t.id));
+            const seen = new Set();
+            const list = all.filter(t => {
+                if (!insIsSaved(t.id) || seen.has(t.id)) return false;
+                seen.add(t.id);
+                return true;
+            });
             if (!list.length) { el.innerHTML = `<div class="ins-empty">${isAR?'هتلاقي هنا النصائح اللي تحفظها 🔖':'Tips you save will show up here 🔖'}</div>`; return; }
             el.innerHTML = list.map(tip => `
             <div class="ins-hist-card">
@@ -6031,7 +6036,7 @@
             const cat = isAR ? tip.categoryAR : tip.categoryEN;
             const title = isAR ? tip.titleAR : tip.titleEN;
             const body = (isAR ? tip.bodyAR : tip.bodyEN).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-            return `💡 ${isAR?'نصيحة':'A'} ${cat} ${isAR?'من منصة':'tip from'} ATLASYA\n\n${title}\n${body}\n\n📚 ${isAR?'المزيد من النصائح والكتب والكورسات وبيانات GIS:':'More tips, books, courses, and GIS data:'}\n${INS_SHARE_LINK}\n\n${INS_HASHTAGS}`;
+            return `💡 ${isAR?'نصيحة':'A'} ${cat} ${isAR?'من منصة':'tip from'} ATLASYA\n\n${title}\n${body}\n\n📚 ${isAR?'المزيد من النصائح والكتب والكورسات وبيانات GIS:':'More tips, books, courses, and GIS data:'}\n${INS_SHARE_LINK}`;
         }
         window.insDoShare = function(channel) {
             const all = [insTodayTip(), ...insPastTips()];
