@@ -16,6 +16,10 @@
         <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <!-- EmailJS: optional — powers automatic emails for subscription approval/rejection.
+             Create a free account at https://www.emailjs.com, then fill in EMAILJS_CONFIG below.
+             Until configured, email sending is silently skipped (in-app notifications still work). -->
+        <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
 
         <style>
@@ -4404,17 +4408,70 @@
         };
         window._isPro = () => window._getUserPlan() === 'pro';
 
-        window._sendUpgradeRequest = async () => {
+        /* ── EmailJS (optional) — fill these in from your EmailJS dashboard to enable
+           automatic emails when a subscription request is approved/rejected.
+           Leave PUBLIC_KEY empty to keep email sending disabled (no errors, just skipped). ── */
+        window.EMAILJS_CONFIG = { PUBLIC_KEY: '', SERVICE_ID: '', TEMPLATE_ID: '' };
+        if (window.EMAILJS_CONFIG.PUBLIC_KEY && typeof emailjs !== 'undefined') {
+            try { emailjs.init({ publicKey: window.EMAILJS_CONFIG.PUBLIC_KEY }); } catch (e) {}
+        }
+        /* Sends an email via EmailJS if configured; silently no-ops otherwise so the
+           approve/reject flow never breaks because of missing email setup. */
+        window._sendSubscriptionEmail = async (toEmail, toName, subject, message) => {
+            try {
+                if (!window.EMAILJS_CONFIG.PUBLIC_KEY || typeof emailjs === 'undefined' || !toEmail) return;
+                await emailjs.send(window.EMAILJS_CONFIG.SERVICE_ID, window.EMAILJS_CONFIG.TEMPLATE_ID, {
+                    to_email: toEmail, to_name: toName || '', subject, message
+                });
+            } catch (e) { /* email is best-effort only */ }
+        };
+
+        /* Fetches this student's most recent upgrade/subscription request (no
+           orderBy in the query to avoid needing a composite Firestore index —
+           results are sorted client-side, matching the pattern used elsewhere
+           in this app for admin_alerts / portfolio_items). */
+        window._getMyLatestUpgradeRequest = async () => {
+            if (!currentUid) return null;
+            const q = query(collection(db, 'upgrade_requests'), where('uid', '==', currentUid));
+            const snap = await getDocs(q);
+            const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            if (!all.length) return null;
+            all.sort((a, b) => {
+                const ta = a.requestedAt?.toMillis ? a.requestedAt.toMillis() : 0;
+                const tb = b.requestedAt?.toMillis ? b.requestedAt.toMillis() : 0;
+                return tb - ta;
+            });
+            return all[0];
+        };
+
+        window._sendUpgradeRequest = async (extra) => {
             if (!currentUid) throw new Error('Not logged in');
+            // Block a second request while one is still pending review
+            const existing = await window._getMyLatestUpgradeRequest();
+            if (existing && existing.status === 'pending') {
+                const err = new Error('duplicate-pending');
+                err.code = 'duplicate-pending';
+                throw err;
+            }
+            extra = extra || {};
             const d = window._userData || {};
             await addDoc(collection(db, 'upgrade_requests'), {
                 uid: currentUid,
-                firstName: d.firstName || '',
-                lastName: d.lastName || '',
-                email: d.email || '',
+                firstName: extra.firstNameOverride || d.firstName || '',
+                lastName: extra.lastNameOverride || d.lastName || '',
+                email: extra.email || d.email || '',
                 phone: d.phone || '',
+                username: extra.username || '',
+                paymentMethod: extra.paymentMethod || '',
+                months: extra.months || 1,
+                amount: extra.amount || 0,
+                paymentDate: extra.paymentDate || '',
+                screenshot: extra.screenshot || '',
                 requestedAt: serverTimestamp(),
-                status: 'pending'
+                status: 'pending',
+                rejectionReason: null,
+                reviewedAt: null,
+                approvedMonths: null
             });
         };
 
@@ -4426,6 +4483,19 @@
 
         window._deleteUpgradeRequest = async (reqId) => {
             await deleteDoc(doc(db, 'upgrade_requests', reqId));
+        };
+
+        /* Updates a subscription request's review status (approve/reject) while
+           keeping the document as a permanent history record — never deleted. */
+        window._reviewUpgradeRequest = async (reqId, status, extra) => {
+            extra = extra || {};
+            const payload = {
+                status,
+                reviewedAt: serverTimestamp(),
+                rejectionReason: status === 'rejected' ? (extra.reason || '') : null,
+                approvedMonths: status === 'approved' ? (extra.months || 12) : null
+            };
+            await updateDoc(doc(db, 'upgrade_requests', reqId), payload);
         };
 
         window._setUserPlan = async (uid, plan, months) => {
@@ -4441,6 +4511,30 @@
                 payload.proStartAt = null;
             }
             await updateDoc(doc(db, 'users', uid), payload);
+        };
+
+        /* One-time free trial: instantly grants 1 month of Pro, starting now, with
+           no payment/review step. Blocked after first use via the freeTrialUsed flag. */
+        window._claimFreeTrial = async () => {
+            if (!currentUid) throw new Error('Not logged in');
+            const d = window._userData || {};
+            if (d.freeTrialUsed) {
+                const err = new Error('trial-used');
+                err.code = 'trial-used';
+                throw err;
+            }
+            const expiry = new Date();
+            expiry.setMonth(expiry.getMonth() + 1);
+            const payload = {
+                plan: 'pro',
+                proStartAt: serverTimestamp(),
+                proExpiresAt: Timestamp.fromDate(expiry),
+                freeTrialUsed: true,
+                freeTrialClaimedAt: serverTimestamp()
+            };
+            await updateDoc(doc(db, 'users', currentUid), payload);
+            // keep local cache in sync so the UI reflects Pro immediately
+            window._userData = { ...(window._userData || {}), plan: 'pro', proExpiresAt: Timestamp.fromDate(expiry), freeTrialUsed: true };
         };
 
         /* Checks a user's Pro subscription and downgrades to Basic in Firestore + local
@@ -5385,7 +5479,35 @@
             navigate('account', document.getElementById('menuAccount'));
         }
 
-        function navigate(page, el, silent) {
+        /* Maps each page key to its sidebar nav-item id, used to highlight the
+           correct menu entry when routing directly from a URL hash (deep link
+           or browser back/forward), where no click event/element is available. */
+        const PAGE_NAV_ID_MAP = {
+            dashboard: 'menuDash', playlists: 'menuPlay', library: 'menuLib',
+            insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool',
+            jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
+            community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
+            account: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
+            adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro',
+            adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship'
+        };
+
+        /* Reflects the current page in the URL as #/page-name so every page has
+           its own shareable, bookmarkable, browser-back-friendly link. */
+        function updateUrlForPage(page) {
+            try {
+                const newHash = '#/' + page;
+                if (location.hash !== newHash) history.pushState({ page }, '', newHash);
+            } catch (e) { /* URL API not available — fail silently, app still works */ }
+        }
+
+        /* Reads the page name out of the current URL hash (#/page-name), if any. */
+        function getPageFromUrl() {
+            const raw = (location.hash || '').replace(/^#\/?/, '').trim();
+            return raw || null;
+        }
+
+        function navigate(page, el, silent, noHistory) {
             if (window._isAdmin && Array.isArray(window._adminPermissions)) {
                 const neededKey = ADMIN_PAGE_PERMISSION_MAP[page];
                 if (neededKey && !window._adminPermissions.includes(neededKey)) {
@@ -5406,6 +5528,7 @@
                     parentGroup.classList.add('open');
                 }
             }
+            if (!noHistory) updateUrlForPage(page);
             const titles = {
                 dashboard: lang==='AR'?'لوحة التحكم':'Dashboard',
                 playlists: lang==='AR'?'قوائم التشغيل':'Playlists',
@@ -5476,6 +5599,15 @@
             // Apply admin-saved content from Firebase after every render
             if (window._applyContent) window._applyContent();
         }
+
+        /* Handles the browser Back/Forward buttons: re-renders the page encoded
+           in the URL without pushing a new (duplicate) history entry. */
+        window.addEventListener('popstate', () => {
+            const page = getPageFromUrl();
+            if (!page) return;
+            const navEl = PAGE_NAV_ID_MAP[page] ? document.getElementById(PAGE_NAV_ID_MAP[page]) : null;
+            navigate(page, navEl, false, true);
+        });
 
         /* ─── DASHBOARD INSTALL BANNER ─── */
         function buildDashInstallBanner(isAR) {
@@ -5589,23 +5721,15 @@
                 ${sectionCard('courses','fa-building-shield',isAR?'الكورسات والشركات':'Courses & Companies',isAR?'دورات تدريبية وشركات GIS الرائدة':'Training courses and leading GIS firms', true)}
             </div>`}`;
 
-            // Load live counts from Firestore and update all dashboard stat cards
-            try {
-                const [playlists, books, jobs, datasets] = await Promise.all([
-                    window._loadPlaylists ? window._loadPlaylists() : Promise.resolve([]),
-                    window._loadLibraryBooks ? window._loadLibraryBooks() : Promise.resolve([]),
-                    window._loadJobs ? window._loadJobs() : Promise.resolve([]),
-                    window._loadSpatialDatasets ? window._loadSpatialDatasets() : Promise.resolve([]),
-                ]);
-                const statVideos = document.getElementById('stat_videos');
-                const statLibrary = document.getElementById('stat_library');
-                const statJobs = document.getElementById('stat_jobs');
-                const statDatasets = document.getElementById('stat_datasets');
-                if (statVideos) statVideos.textContent = playlists.filter(p => !p.hidden).length;
-                if (statLibrary) statLibrary.textContent = books.filter(b => !b.hidden).length;
-                if (statJobs) statJobs.textContent = jobs.filter(j => (j.status || 'approved') === 'approved').length;
-                if (statDatasets) statDatasets.textContent = datasets.filter(d => !d.hidden).length;
-            } catch(e) { /* silent fail — keep defaults */ }
+            // Load live job count from Firestore and update stat_jobs card
+            if (window._loadJobs) {
+                try {
+                    const jobs = await window._loadJobs();
+                    const approvedJobs = jobs.filter(j => (j.status || 'approved') === 'approved');
+                    const statJobs = document.getElementById('stat_jobs');
+                    if (statJobs) statJobs.textContent = approvedJobs.length;
+                } catch(e) { /* silent fail — keep default 0 */ }
+            }
         }
 
         function sectionCard(page, icon, title, desc, hideMobile=false) {
@@ -10427,29 +10551,11 @@
                 return;
             }
 
-            /* ── SUBSCRIPTION PLAN ── */
+            /* ── SUBSCRIPTION PLAN (ATLASYA PRO checkout flow) ── */
             if (tab === 'plan') {
-                // Pro remaining-time display (live ticking countdown)
-                let proRemainingHtml = '';
-                if (isPro && d.proExpiresAt) {
-                    const rem = window._formatProRemaining(d.proExpiresAt, isAR);
-                    const expMs = d.proExpiresAt.toDate ? d.proExpiresAt.toDate().getTime() : new Date(d.proExpiresAt).getTime();
-                    if (rem) {
-                        if (rem.expired) {
-                            proRemainingHtml = `<div style="margin-top:8px;font-size:12px;font-weight:700;color:#ff6b6b;display:flex;align-items:center;justify-content:center;gap:6px;">
-                                <i class="fa-solid fa-triangle-exclamation"></i>
-                                ${rem.text}
-                            </div>`;
-                        } else {
-                            proRemainingHtml = `<div style="margin-top:8px;font-size:12px;font-weight:700;color:var(--gold3);display:flex;align-items:center;justify-content:center;gap:6px;">
-                                <i class="fa-solid fa-hourglass-half"></i>
-                                <span>${isAR ? 'متبقي' : ''}</span>
-                                <span id="proCountdownLive" data-expires-ms="${expMs}" data-uid="${window._currentUid || currentUid || ''}" style="font-family:'Space Mono',monospace;color:var(--gold4);">${rem.text}</span>
-                                <span>${isAR ? 'على انتهاء الاشتراك' : 'left on your subscription'}</span>
-                            </div>`;
-                        }
-                    }
-                }
+                // Fresh entry into the Plan page always starts the flow state machine at 'entry'
+                window._subState = { step: 'entry', method: null };
+                window._subScreenshotData = '';
 
                 area.innerHTML = `
                 <div class="page-header">
@@ -10457,66 +10563,10 @@
                     <p>${isAR?'إدارة خطتك ومميزاتك':'Manage your plan and features'}</p>
                 </div>
                 ${backBtn}
-                <div class="form-card" style="margin-top:0;">
-                    <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:12px;">
-                        <i class="fa-solid fa-crown" style="color:${isPro?'var(--gold3)':'var(--muted)'};"></i>
-                        ${isAR?'خطة الاشتراك':'Subscription Plan'}
-                    </h3>
-
-                    <div class="plan-cards-row">
-
-                        <!-- ─── Basic ─── -->
-                        <div class="plan-card${!isPro?' is-basic':''}">
-                            ${!isPro?`<span class="plan-card-tag t-basic">${isAR?'خطتك':'Active'}</span>`:''}
-                            <div class="plan-card-head">
-                                <i class="fa-solid fa-bolt" style="color:${!isPro?'var(--green4)':'var(--muted)'};"></i>
-                                <span style="color:${!isPro?'var(--green4)':'var(--muted)'};">Basic</span>
-                            </div>
-                            <div class="plan-card-price">${isAR?'مجاني':'Free'}</div>
-                            <div class="plan-card-period">&nbsp;</div>
-                            <ul class="plan-card-feats">
-                                <li><i class="fa-solid fa-check" style="color:var(--green3);"></i>${isAR?'عرض الوظائف':'View jobs'}</li>
-                                <li><i class="fa-solid fa-check" style="color:var(--green3);"></i>${isAR?'تحميل 3 ملفات':'3 downloads'}</li>
-                                <li><i class="fa-solid fa-check" style="color:var(--green3);"></i>${isAR?'المحتوى التعليمي':'Educational content'}</li>
-                                <li><i class="fa-solid fa-xmark" style="color:var(--muted);"></i>${isAR?'رد أسرع':'Faster support'}</li>
-                            </ul>
-                            <div class="plan-card-foot">
-                                ${!isPro
-                                    ? `<div class="active-label al-basic"><i class="fa-solid fa-circle-check"></i> ${isAR?'خطتك الحالية':'Current plan'}</div>`
-                                    : ''}
-                            </div>
-                        </div>
-
-                        <!-- ─── Pro ─── -->
-                        <div class="plan-card${isPro?' is-pro':''}">
-                            ${!isPro
-                                ? `<span class="plan-card-tag t-pro">⭐ PRO</span>`
-                                : `<span class="plan-card-tag t-pro">${isAR?'خطتك':'Active'}</span>`}
-                            <div class="plan-card-head">
-                                <i class="fa-solid fa-crown" style="color:var(--gold3);"></i>
-                                <span style="color:var(--gold3);">Pro</span>
-                            </div>
-                            <div class="plan-card-price">200 ${isAR?'ج':'EGP'}</div>
-                            <div class="plan-card-period">${isAR?'/ سنة':'/ year'}</div>
-                            <ul class="plan-card-feats">
-                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'كل مميزات Basic':'All Basic features'}</li>
-                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'CV يتخطى ATS':'ATS-friendly CV'}</li>
-                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'تحميل غير محدود':'Unlimited downloads'}</li>
-                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'أولوية في الرد':'Priority support'}</li>
-                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'خرائط الطلبة المميزين':'Premium Student Maps'}</li>
-                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'جلسة Mentorship مع خبير':'Expert Mentorship Session'}</li>
-                            </ul>
-                            <div class="plan-card-foot">
-                                ${!isPro
-                                    ? `<button onclick="requestUpgrade()" id="upgradeBtn"><i class="fa-solid fa-arrow-up"></i> ${isAR?'ترقية إلى Pro':'Upgrade to Pro'}</button>`
-                                    : `<div class="active-label al-pro"><i class="fa-solid fa-crown"></i> ${isAR?'أنت عضو Pro!':'You are Pro!'}</div>
-                                    ${proRemainingHtml}`}
-                            </div>
-                        </div>
-
-                    </div>
+                <div id="planTabRoot" style="margin-top:0;">
+                    <div style="text-align:center;padding:50px 20px;color:var(--muted);"><div class="spinner" style="margin:0 auto;"></div></div>
                 </div>`;
-                if (typeof window._startProCountdown === 'function') window._startProCountdown();
+                if (typeof window._renderPlanTabRoot === 'function') window._renderPlanTabRoot();
                 return;
             }
         }
@@ -10624,17 +10674,453 @@
             }
         };
 
-        window.requestUpgrade = async function() {
+        /* ══════════════════════════════════════════════════════════════
+           ATLASYA PRO — SUBSCRIPTION CHECKOUT FLOW
+           Steps: entry (plan cards) → choose (payment method) →
+                  pay (instructions for chosen method) → form (proof of payment)
+           Also renders "pending review" / "rejected" states when the
+           student already has a request on file.
+           ══════════════════════════════════════════════════════════════ */
+
+        window._subState = window._subState || { step: 'entry', method: null };
+        window._subScreenshotData = window._subScreenshotData || '';
+
+        window._subGoStep = function(step, method, months, price) {
+            window._subState = window._subState || {};
+            window._subState.step = step;
+            if (method) window._subState.method = method;
+            if (months) window._subState.months = months;
+            if (price) window._subState.price = price;
+            if (step !== 'form') window._subScreenshotData = '';
+            window._renderPlanTabRoot();
+        };
+
+        window._subCopyText = function(text, btnEl) {
             const isAR = lang === 'AR';
-            const btn = document.getElementById('upgradeBtn');
+            if (!text) { showToast(isAR ? 'لا يوجد بريد إلكتروني مسجل' : 'No email on file', true); return; }
+            const done = () => {
+                showToast(isAR ? '✓ تم النسخ' : '✓ Copied');
+                if (btnEl) {
+                    const orig = btnEl.innerHTML;
+                    btnEl.innerHTML = `<i class="fa-solid fa-check"></i> ${isAR?'تم':'Copied'}`;
+                    setTimeout(() => { btnEl.innerHTML = orig; }, 1500);
+                }
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done).catch(() => showToast(isAR?'تعذر النسخ':'Copy failed', true));
+            } else {
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = text; document.body.appendChild(ta); ta.select();
+                    document.execCommand('copy'); document.body.removeChild(ta);
+                    done();
+                } catch (e) { showToast(isAR?'تعذر النسخ':'Copy failed', true); }
+            }
+        };
+
+        window._subHandleScreenshot = async function(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const isAR = lang === 'AR';
+            const prev = document.getElementById('subScreenshotPreview');
+            if (prev) prev.innerHTML = `<div class="spinner" style="margin:6px auto;"></div>`;
+            try {
+                const dataUrl = await compressImageForProfile(file);
+                window._subScreenshotData = dataUrl;
+                if (prev) prev.innerHTML = `<img src="${dataUrl}" style="max-width:150px;max-height:150px;border-radius:10px;border:1px solid var(--border);object-fit:cover;">`;
+            } catch (err) {
+                window._subScreenshotData = '';
+                if (prev) prev.innerHTML = '';
+                showToast(isAR ? 'تعذّر تحميل الصورة، جرّب صورة أخرى' : 'Could not load image, try another one', true);
+            }
+        };
+
+        window._startFreeTrial = async function() {
+            const isAR = lang === 'AR';
+            const btn = document.getElementById('freeTrialBtn');
             if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
             try {
-                await window._sendUpgradeRequest();
-                showToast(isAR ? '✓ تم إرسال طلب الترقية! سيتواصل معك الفريق عبر واتساب' : '✓ Upgrade request sent! Team will contact you via WhatsApp');
-                if (btn) { btn.innerHTML = `<i class="fa-solid fa-clock"></i> ${isAR?'في انتظار التفعيل':'Pending activation'}`; }
-            } catch(e) {
-                showToast(isAR ? 'خطأ في إرسال الطلب' : 'Failed to send request', true);
-                if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-arrow-up"></i> ${isAR?'ترقية إلى Pro':'Upgrade to Pro'}`; }
+                await window._claimFreeTrial();
+                showToast(isAR ? '🎉 تم تفعيل الفترة التجريبية المجانية لمدة شهر!' : '🎉 Free trial activated for 1 month!');
+                window._subState = { step: 'entry', method: null };
+                window._renderPlanTabRoot();
+            } catch (e) {
+                if (e && e.code === 'trial-used') {
+                    showToast(isAR ? 'لقد استخدمت الفترة التجريبية المجانية من قبل' : "You've already used your free trial", true);
+                    window._renderPlanTabRoot();
+                } else {
+                    showToast(isAR ? 'حدث خطأ أثناء التفعيل' : 'Error activating trial', true);
+                    if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> ${isAR?'ابدأ الفترة المجانية':'Start free trial'}`; }
+                }
+            }
+        };
+
+        window._subSubmitRequest = async function() {
+            const isAR = lang === 'AR';
+            const btn = document.getElementById('subSubmitBtn');
+            const nameEl = document.getElementById('subName');
+            const emailEl = document.getElementById('subEmail');
+            const usernameEl = document.getElementById('subUsername');
+            const amountEl = document.getElementById('subAmount');
+            const dateEl = document.getElementById('subDate');
+            const name = (nameEl?.value || '').trim();
+            const email = (emailEl?.value || '').trim();
+            const username = (usernameEl?.value || '').trim();
+            const amount = parseFloat(amountEl?.value) || 0;
+            const paymentDate = dateEl?.value || '';
+
+            if (!name || !email || !username) {
+                showToast(isAR ? 'من فضلك أكمل جميع الحقول المطلوبة' : 'Please fill in all required fields', true);
+                return;
+            }
+            if (!window._subScreenshotData) {
+                showToast(isAR ? 'من فضلك ارفع صورة إثبات الدفع' : 'Please upload a payment proof screenshot', true);
+                return;
+            }
+            if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
+            try {
+                const [firstName, ...rest] = name.split(' ');
+                await window._sendUpgradeRequest({
+                    firstNameOverride: firstName || name,
+                    lastNameOverride: rest.join(' ') || '',
+                    email, username,
+                    paymentMethod: window._subState.method,
+                    months: window._subState.months || 1,
+                    amount, paymentDate,
+                    screenshot: window._subScreenshotData
+                });
+                window._subState = { step: 'entry', method: null };
+                window._subScreenshotData = '';
+                showToast(isAR ? '✓ تم إرسال طلبك بنجاح، سنراجعه في أقرب وقت' : '✓ Request submitted — we will review it shortly');
+                window._renderPlanTabRoot();
+            } catch (e) {
+                if (e && e.code === 'duplicate-pending') {
+                    showToast(isAR ? 'لديك طلب اشتراك قيد المراجعة بالفعل' : 'You already have a pending subscription request', true);
+                    window._subState = { step: 'entry', method: null };
+                    window._renderPlanTabRoot();
+                } else {
+                    showToast(isAR ? 'حدث خطأ أثناء إرسال الطلب' : 'Error submitting your request', true);
+                    if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> ${isAR?'إرسال الطلب':'Submit Request'}`; }
+                }
+            }
+        };
+
+        window._renderPlanTabRoot = async function() {
+            const root = document.getElementById('planTabRoot');
+            if (!root) return;
+            const isAR = lang === 'AR';
+            const d = window._userData || {};
+            const isPro = (d.plan || 'basic') === 'pro';
+            const PRO_PLANS = [
+                { months: 1, price: 50 },
+                { months: 3, price: 150 },
+                { months: 6, price: 200 }
+            ];
+
+            /* helper: shared plan-cards-row markup used for both the ACTIVE PRO view
+               and the entry/upsell view */
+            function proRemainingBlock() {
+                if (!(isPro && d.proExpiresAt)) return '';
+                const rem = window._formatProRemaining(d.proExpiresAt, isAR);
+                const expMs = d.proExpiresAt.toDate ? d.proExpiresAt.toDate().getTime() : new Date(d.proExpiresAt).getTime();
+                if (!rem) return '';
+                if (rem.expired) {
+                    return `<div style="margin-top:8px;font-size:12px;font-weight:700;color:#ff6b6b;display:flex;align-items:center;justify-content:center;gap:6px;">
+                        <i class="fa-solid fa-triangle-exclamation"></i>${rem.text}
+                    </div>`;
+                }
+                return `<div style="margin-top:8px;font-size:12px;font-weight:700;color:var(--gold3);display:flex;align-items:center;justify-content:center;gap:6px;">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                    <span>${isAR ? 'متبقي' : ''}</span>
+                    <span id="proCountdownLive" data-expires-ms="${expMs}" data-uid="${window._currentUid || currentUid || ''}" style="font-family:'Space Mono',monospace;color:var(--gold4);">${rem.text}</span>
+                    <span>${isAR ? 'على انتهاء الاشتراك' : 'left on your subscription'}</span>
+                </div>`;
+            }
+
+            function entryCardsHtml(footerHtml) {
+                return `
+                <div class="form-card" style="margin-top:0;">
+                    <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:12px;">
+                        <i class="fa-solid fa-crown" style="color:${isPro?'var(--gold3)':'var(--muted)'};"></i>
+                        ${isAR?'خطة الاشتراك':'Subscription Plan'}
+                    </h3>
+                    <div class="plan-cards-row">
+                        <div class="plan-card${!isPro?' is-basic':''}">
+                            ${!isPro?`<span class="plan-card-tag t-basic">${isAR?'خطتك':'Active'}</span>`:''}
+                            <div class="plan-card-head">
+                                <i class="fa-solid fa-bolt" style="color:${!isPro?'var(--green4)':'var(--muted)'};"></i>
+                                <span style="color:${!isPro?'var(--green4)':'var(--muted)'};">Basic</span>
+                            </div>
+                            <div class="plan-card-price">${isAR?'مجاني':'Free'}</div>
+                            <div class="plan-card-period">&nbsp;</div>
+                            <ul class="plan-card-feats">
+                                <li><i class="fa-solid fa-check" style="color:var(--green3);"></i>${isAR?'عرض الوظائف':'View jobs'}</li>
+                                <li><i class="fa-solid fa-check" style="color:var(--green3);"></i>${isAR?'تحميل 3 ملفات':'3 downloads'}</li>
+                                <li><i class="fa-solid fa-check" style="color:var(--green3);"></i>${isAR?'المحتوى التعليمي':'Educational content'}</li>
+                                <li><i class="fa-solid fa-xmark" style="color:var(--muted);"></i>${isAR?'رد أسرع':'Faster support'}</li>
+                            </ul>
+                            <div class="plan-card-foot">
+                                ${!isPro ? `<div class="active-label al-basic"><i class="fa-solid fa-circle-check"></i> ${isAR?'خطتك الحالية':'Current plan'}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="plan-card${isPro?' is-pro':''}">
+                            ${!isPro ? `<span class="plan-card-tag t-pro">⭐ PRO</span>` : `<span class="plan-card-tag t-pro">${isAR?'خطتك':'Active'}</span>`}
+                            <div class="plan-card-head">
+                                <i class="fa-solid fa-crown" style="color:var(--gold3);"></i>
+                                <span style="color:var(--gold3);">ATLASYA PRO</span>
+                            </div>
+                            <div class="plan-card-price">${isAR?'يبدأ من 50':'From 50'} ${isAR?'ج':'EGP'}</div>
+                            <div class="plan-card-period">${isAR?'/ شهر':'/ month'}</div>
+                            <ul class="plan-card-feats">
+                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'كل مميزات Basic':'All Basic features'}</li>
+                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'CV يتخطى ATS':'ATS-friendly CV'}</li>
+                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'تحميل غير محدود':'Unlimited downloads'}</li>
+                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'أولوية في الرد':'Priority support'}</li>
+                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'خرائط الطلبة المميزين':'Premium Student Maps'}</li>
+                                <li><i class="fa-solid fa-check" style="color:var(--gold3);"></i>${isAR?'جلسة Mentorship مع خبير':'Expert Mentorship Session'}</li>
+                            </ul>
+                            <div class="plan-card-foot">${footerHtml}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            /* ── Already PRO: show the classic two-card summary, no checkout ── */
+            if (isPro) {
+                root.innerHTML = entryCardsHtml(`<div class="active-label al-pro"><i class="fa-solid fa-crown"></i> ${isAR?'أنت عضو Pro!':'You are Pro!'}</div>${proRemainingBlock()}`);
+                if (typeof window._startProCountdown === 'function') window._startProCountdown();
+                return;
+            }
+
+            /* ── Not pro: look up latest request to decide entry state ── */
+            let latestReq = null;
+            try { latestReq = await window._getMyLatestUpgradeRequest(); } catch (e) {}
+            const step = window._subState?.step || 'entry';
+
+            // Pending review — block new submissions, show status card
+            if (latestReq && latestReq.status === 'pending' && step === 'entry') {
+                const timeStr = latestReq.requestedAt?.toDate ? latestReq.requestedAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric'}) : '';
+                root.innerHTML = `
+                <div class="form-card" style="margin-top:0;text-align:center;padding:34px 20px;">
+                    <div style="font-size:42px;color:var(--gold3);margin-bottom:10px;"><i class="fa-solid fa-hourglass-half"></i></div>
+                    <h3 style="margin-bottom:6px;">${isAR?'طلبك قيد المراجعة':'Your request is under review'}</h3>
+                    <p style="color:var(--muted);font-size:13px;max-width:360px;margin:0 auto 4px;">${isAR
+                        ? 'استلمنا طلب اشتراكك في ATLASYA PRO وسيقوم فريقنا بمراجعته وتفعيله قريباً.'
+                        : "We've received your ATLASYA PRO subscription request. Our team will review and activate it shortly."}</p>
+                    ${timeStr ? `<p style="color:var(--muted);font-size:11px;margin-top:6px;"><i class="fa-regular fa-clock"></i> ${isAR?'تاريخ الإرسال:':'Sent on:'} ${timeStr}</p>` : ''}
+                </div>`;
+                return;
+            }
+
+            // Rejected — show reason + allow resubmission
+            if (latestReq && latestReq.status === 'rejected' && step === 'entry') {
+                root.innerHTML = `
+                <div class="form-card" style="margin-top:0;text-align:center;padding:34px 20px;">
+                    <div style="font-size:42px;color:#ff6b6b;margin-bottom:10px;"><i class="fa-solid fa-circle-xmark"></i></div>
+                    <h3 style="margin-bottom:6px;">${isAR?'تم رفض طلب الاشتراك':'Your subscription request was declined'}</h3>
+                    ${latestReq.rejectionReason ? `<p style="color:var(--muted);font-size:13px;max-width:380px;margin:0 auto 10px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.2);border-radius:10px;padding:10px 14px;">${latestReq.rejectionReason}</p>` : ''}
+                    <button class="pro-gate-btn" onclick="_subGoStep('duration')"><i class="fa-solid fa-rotate"></i> ${isAR?'إعادة التقديم':'Try again'}</button>
+                </div>`;
+                return;
+            }
+
+            // ── Step: entry (plan cards, click Upgrade to start checkout) ──
+            if (step === 'entry') {
+                const trialBanner = (!d.freeTrialUsed) ? `
+                <div style="margin-bottom:16px;background:linear-gradient(135deg,rgba(212,160,23,0.14),rgba(212,160,23,0.05));border:1px solid rgba(212,160,23,0.35);border-radius:16px;padding:18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                    <div style="width:46px;height:46px;border-radius:12px;background:rgba(212,160,23,0.18);display:flex;align-items:center;justify-content:center;color:var(--gold3);font-size:20px;flex-shrink:0;"><i class="fa-solid fa-gift"></i></div>
+                    <div style="flex:1;min-width:180px;">
+                        <div style="font-weight:800;font-size:14.5px;color:var(--gold3);">${isAR?'جرّب ATLASYA PRO مجانًا!':'Try ATLASYA PRO for free!'}</div>
+                        <div style="color:var(--muted);font-size:12px;margin-top:2px;">${isAR?'شهر كامل من كل مميزات Pro بدون أي دفع — يبدأ فور التفعيل':'A full month of every Pro feature, no payment — starts the moment you activate it'}</div>
+                    </div>
+                    <button onclick="_startFreeTrial()" id="freeTrialBtn" style="flex-shrink:0;padding:11px 18px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:10px;font-weight:700;font-size:13px;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> ${isAR?'ابدأ الفترة المجانية':'Start free trial'}
+                    </button>
+                </div>` : '';
+                root.innerHTML = trialBanner + entryCardsHtml(`<button onclick="_subGoStep('duration')" id="upgradeBtn"><i class="fa-solid fa-arrow-up"></i> ${isAR?'ترقية إلى Pro':'Upgrade to Pro'}</button>`);
+                return;
+            }
+
+            // ── Step: choose subscription duration / price tier ──
+            if (step === 'duration') {
+                root.innerHTML = `
+                <div class="form-card" style="margin-top:0;">
+                    <button onclick="_subGoStep('entry')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;gap:5px;margin-bottom:14px;">
+                        <i class="fa-solid fa-${isAR?'arrow-right':'arrow-left'}"></i> ${isAR?'رجوع':'Back'}
+                    </button>
+                    <h3 style="margin-bottom:4px;"><i class="fa-solid fa-crown" style="color:var(--gold3);"></i> ATLASYA PRO</h3>
+                    <p style="color:var(--muted);font-size:13px;margin-bottom:18px;">${isAR?'اختر مدة الاشتراك المناسبة لك':'Choose the subscription duration that suits you'}</p>
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        ${PRO_PLANS.map(p => {
+                            const perMonth = (p.price / p.months).toFixed(0);
+                            const durLabel = isAR ? (p.months === 1 ? 'شهر واحد' : (p.months === 3 ? '3 أشهر' : '6 أشهر')) : `${p.months} month${p.months > 1 ? 's' : ''}`;
+                            const bestValue = p.months === 6;
+                            return `<div onclick="_subGoStep('choose', null, ${p.months}, ${p.price})" style="cursor:pointer;position:relative;display:flex;align-items:center;gap:14px;padding:16px;border:1px solid ${bestValue?'var(--gold3)':'var(--border)'};border-radius:14px;transition:0.2s;background:${bestValue?'rgba(212,160,23,0.05)':'transparent'};" onmouseover="this.style.borderColor='var(--gold3)'" onmouseout="this.style.borderColor='${bestValue?'var(--gold3)':'var(--border)'}'">
+                                ${bestValue ? `<span style="position:absolute;top:-9px;${isAR?'right':'left'}:14px;background:var(--gold3);color:#000;font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;">${isAR?'أفضل قيمة':'Best value'}</span>` : ''}
+                                <div style="width:44px;height:44px;border-radius:12px;background:rgba(212,160,23,0.12);display:flex;align-items:center;justify-content:center;color:var(--gold3);font-size:18px;flex-shrink:0;"><i class="fa-solid fa-crown"></i></div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:700;font-size:14px;">${durLabel}</div>
+                                    <div style="color:var(--muted);font-size:11.5px;">${isAR?'بمعدل':'~'} ${perMonth} ${isAR?'ج/شهر':'EGP/mo'}</div>
+                                </div>
+                                <div style="text-align:${isAR?'left':'right'};flex-shrink:0;">
+                                    <div style="font-weight:700;font-size:16px;color:var(--gold3);">${p.price} ${isAR?'ج':'EGP'}</div>
+                                </div>
+                                <i class="fa-solid fa-chevron-${isAR?'left':'right'}" style="color:var(--muted);"></i>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+                return;
+            }
+
+            // ── Step: choose payment method ──
+            if (step === 'choose') {
+                const selMonths = window._subState.months || 1;
+                const selPrice = window._subState.price || 50;
+                const durLabel = isAR ? (selMonths === 1 ? 'شهر واحد' : (selMonths === 3 ? '3 أشهر' : '6 أشهر')) : `${selMonths} month${selMonths > 1 ? 's' : ''}`;
+                root.innerHTML = `
+                <div class="form-card" style="margin-top:0;">
+                    <button onclick="_subGoStep('duration')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;gap:5px;margin-bottom:14px;">
+                        <i class="fa-solid fa-${isAR?'arrow-right':'arrow-left'}"></i> ${isAR?'تغيير المدة':'Change duration'}
+                    </button>
+                    <h3 style="margin-bottom:4px;"><i class="fa-solid fa-crown" style="color:var(--gold3);"></i> ATLASYA PRO — ${durLabel} — ${selPrice} ${isAR?'ج':'EGP'}</h3>
+                    <p style="color:var(--muted);font-size:13px;margin-bottom:18px;">${isAR?'اختر طريقة الدفع المناسبة لك':'Choose your preferred payment method'}</p>
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        <div onclick="_subGoStep('pay','instapay')" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px;border:1px solid var(--border);border-radius:14px;transition:0.2s;" onmouseover="this.style.borderColor='var(--gold3)'" onmouseout="this.style.borderColor='var(--border)'">
+                            <div style="width:44px;height:44px;border-radius:12px;background:rgba(90,60,220,0.12);display:flex;align-items:center;justify-content:center;color:#7c5cff;font-size:18px;flex-shrink:0;"><i class="fa-solid fa-mobile-screen-button"></i></div>
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:14px;">InstaPay</div>
+                                <div style="color:var(--muted);font-size:11.5px;">${isAR?'تحويل فوري عبر تطبيق البنك':'Instant transfer via banking app'}</div>
+                            </div>
+                            <i class="fa-solid fa-chevron-${isAR?'left':'right'}" style="color:var(--muted);"></i>
+                        </div>
+                        <div onclick="_subGoStep('pay','vodafone')" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px;border:1px solid var(--border);border-radius:14px;transition:0.2s;" onmouseover="this.style.borderColor='var(--gold3)'" onmouseout="this.style.borderColor='var(--border)'">
+                            <div style="width:44px;height:44px;border-radius:12px;background:rgba(230,0,20,0.1);display:flex;align-items:center;justify-content:center;color:#e60014;font-size:18px;flex-shrink:0;"><i class="fa-solid fa-wallet"></i></div>
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:14px;">Vodafone Cash</div>
+                                <div style="color:var(--muted);font-size:11.5px;">${isAR?'تحويل مباشر لرقم فودافون كاش':'Direct transfer to Vodafone Cash number'}</div>
+                            </div>
+                            <i class="fa-solid fa-chevron-${isAR?'left':'right'}" style="color:var(--muted);"></i>
+                        </div>
+                    </div>
+                </div>`;
+                return;
+            }
+
+            // ── Step: payment instructions ──
+            if (step === 'pay') {
+                const method = window._subState.method;
+                const selMonths = window._subState.months || 1;
+                const selPrice = window._subState.price || 50;
+                const emailLocal = (d.email || '').split('@')[0] || '';
+                let box = '';
+                if (method === 'instapay') {
+                    box = `
+                    <div style="background:rgba(90,60,220,0.06);border:1px solid rgba(90,60,220,0.25);border-radius:14px;padding:18px;">
+                        <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:#7c5cff;"><i class="fa-solid fa-mobile-screen-button"></i> InstaPay</div>
+                        <a href="https://ipn.eg/S/zeyadahmedmarei/instapay/9Qp7wM" target="_blank" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-decoration:none;color:var(--text);font-family:'Space Mono',monospace;font-size:12.5px;word-break:break-all;margin-bottom:12px;">
+                            <span>ipn.eg/S/zeyadahmedmarei/instapay/9Qp7wM</span>
+                            <i class="fa-solid fa-up-right-from-square" style="color:#7c5cff;flex-shrink:0;"></i>
+                        </a>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+                            <div style="min-width:0;">
+                                <div style="color:var(--muted);font-size:11px;margin-bottom:2px;">${isAR?'انسخه وضعه في ملاحظات الدفع (Notes) بإنستاباي':'Copy this into the InstaPay payment Notes field'}</div>
+                                <span style="font-family:'Space Mono',monospace;font-weight:700;font-size:14px;word-break:break-all;">${emailLocal || (isAR?'—':'—')}</span>
+                            </div>
+                            <button onclick="_subCopyText('${emailLocal}', this)" style="flex-shrink:0;padding:8px 14px;background:rgba(124,92,255,0.15);border:1px solid rgba(124,92,255,0.35);border-radius:8px;color:#7c5cff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;">
+                                <i class="fa-regular fa-copy"></i> ${isAR?'نسخ':'Copy'}
+                            </button>
+                        </div>
+                    </div>`;
+                } else {
+                    box = `
+                    <div style="background:rgba(230,0,20,0.05);border:1px solid rgba(230,0,20,0.2);border-radius:14px;padding:18px;">
+                        <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:#e60014;"><i class="fa-solid fa-wallet"></i> Vodafone Cash</div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+                            <span style="color:var(--muted);font-size:12px;">${isAR?'رقم فودافون كاش':'Vodafone Cash number'}</span>
+                            <span style="font-family:'Space Mono',monospace;font-weight:700;font-size:14px;">01222402933</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+                            <span style="color:var(--muted);font-size:12px;">${isAR?'اسم صاحب الرقم':'Account holder'}</span>
+                            <span style="font-weight:700;font-size:13px;">زياد احمد مرعي</span>
+                        </div>
+                        <a href="http://vf.eg/vfcash?id=mt&qrId=Vpd1Tx" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#e60014;color:#fff;border-radius:10px;padding:11px;text-decoration:none;font-weight:700;font-size:13px;">
+                            <i class="fa-solid fa-bolt"></i> ${isAR?'الدفع المباشر عبر الرابط':'Pay directly via link'}
+                        </a>
+                    </div>`;
+                }
+                root.innerHTML = `
+                <div class="form-card" style="margin-top:0;">
+                    <button onclick="_subGoStep('choose')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;gap:5px;margin-bottom:14px;">
+                        <i class="fa-solid fa-${isAR?'arrow-right':'arrow-left'}"></i> ${isAR?'تغيير طريقة الدفع':'Change payment method'}
+                    </button>
+                    <h3 style="margin-bottom:14px;">${isAR?'أكمل عملية الدفع':'Complete your payment'} — ${selPrice} ${isAR?'ج':'EGP'}</h3>
+                    ${box}
+                    <div style="margin-top:16px;background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.2);border-radius:12px;padding:14px 16px;font-size:12.5px;color:var(--muted);line-height:1.8;">
+                        <div style="font-weight:700;color:var(--gold3);margin-bottom:6px;"><i class="fa-solid fa-circle-info"></i> ${isAR?'ملاحظات مهمة قبل الدفع':'Important notes before paying'}</div>
+                        <div>${isAR?'• احتفظ بإيصال التحويل / صورة الشاشة، ستحتاج لرفعها في الخطوة التالية.':"• Keep the transfer receipt / screenshot — you'll need to upload it in the next step."}</div>
+                    </div>
+                    <button onclick="_subGoStep('form')" style="width:100%;margin-top:18px;padding:12px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:10px;font-weight:700;font-size:13.5px;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                        <i class="fa-solid fa-check"></i> ${isAR?'لقد أتممت الدفع':"I've completed the payment"}
+                    </button>
+                </div>`;
+                return;
+            }
+
+            // ── Step: proof-of-payment form ──
+            if (step === 'form') {
+                const method = window._subState.method;
+                const selMonths = window._subState.months || 1;
+                const selPrice = window._subState.price || 50;
+                const methodLabel = method === 'instapay' ? 'InstaPay' : 'Vodafone Cash';
+                const emailLocal = (d.email || '').split('@')[0] || '';
+                root.innerHTML = `
+                <div class="form-card" style="margin-top:0;">
+                    <button onclick="_subGoStep('pay', '${method}')" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;gap:5px;margin-bottom:14px;">
+                        <i class="fa-solid fa-${isAR?'arrow-right':'arrow-left'}"></i> ${isAR?'رجوع':'Back'}
+                    </button>
+                    <h3 style="margin-bottom:4px;"><i class="fa-solid fa-file-invoice" style="color:var(--gold3);"></i> ${isAR?'تأكيد الاشتراك':'Confirm subscription'}</h3>
+                    <p style="color:var(--muted);font-size:12.5px;margin-bottom:16px;">${isAR?'أكمل البيانات التالية لإرسال طلبك للمراجعة':'Fill in the details below to submit your request for review'}</p>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>${isAR?'الاسم بالكامل *':'Full name *'}</label>
+                            <input type="text" id="subName" value="${((d.firstName||'')+' '+(d.lastName||'')).trim()}" placeholder="${isAR?'اسمك بالكامل':'Your full name'}">
+                        </div>
+                        <div class="form-group">
+                            <label>${isAR?'البريد الإلكتروني *':'Email *'}</label>
+                            <input type="email" id="subEmail" value="${d.email||''}" placeholder="email@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>${isAR?'اسم المستخدم داخل المنصة *':'Platform username *'}</label>
+                            <input type="text" id="subUsername" value="${emailLocal}" placeholder="${isAR?'اسم المستخدم':'username'}">
+                        </div>
+                        <div class="form-group">
+                            <label>${isAR?'طريقة الدفع':'Payment method'}</label>
+                            <input type="text" value="${methodLabel}" disabled style="opacity:0.7;">
+                        </div>
+                        <div class="form-group">
+                            <label>${isAR?'مدة الاشتراك':'Subscription duration'}</label>
+                            <input type="text" value="${isAR ? (selMonths===1?'شهر واحد':(selMonths===3?'3 أشهر':'6 أشهر')) : selMonths+' month(s)'}" disabled style="opacity:0.7;">
+                        </div>
+                        <div class="form-group">
+                            <label>${isAR?'مبلغ الدفع (ج.م) *':'Amount paid (EGP) *'}</label>
+                            <input type="number" id="subAmount" value="${selPrice}" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>${isAR?'تاريخ الدفع (اختياري)':'Payment date (optional)'}</label>
+                            <input type="date" id="subDate">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top:6px;">
+                        <label>${isAR?'صورة إثبات الدفع (Screenshot) *':'Payment proof screenshot *'}</label>
+                        <input type="file" accept="image/*" onchange="_subHandleScreenshot(event)" style="font-size:12.5px;">
+                        <div id="subScreenshotPreview" style="margin-top:8px;"></div>
+                    </div>
+                    <button onclick="_subSubmitRequest()" id="subSubmitBtn" style="width:100%;margin-top:16px;padding:12px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:10px;font-weight:700;font-size:13.5px;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                        <i class="fa-solid fa-paper-plane"></i> ${isAR?'إرسال الطلب':'Submit Request'}
+                    </button>
+                </div>`;
+                return;
             }
         };
 
@@ -12491,7 +12977,13 @@
             const icon = document.getElementById('themeToggleIcon');
             if (icon) icon.className = 'fa-solid fa-moon'; // moon = switch to dark
             applyLang();
-            navigate('dashboard', document.getElementById('menuDash'));
+            const deepLinkPage = getPageFromUrl();
+            if (deepLinkPage && deepLinkPage !== 'dashboard') {
+                const navEl = PAGE_NAV_ID_MAP[deepLinkPage] ? document.getElementById(PAGE_NAV_ID_MAP[deepLinkPage]) : null;
+                navigate(deepLinkPage, navEl, false, true);
+            } else {
+                navigate('dashboard', document.getElementById('menuDash'));
+            }
             // Apply any admin-saved content from Firebase
             if (window._applyContent) window._applyContent();
             // Auto-fill remembered login credentials
