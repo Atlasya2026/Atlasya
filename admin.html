@@ -8522,6 +8522,9 @@
         if (!title) { showToast(isAR?'من فضلك أدخل اسم الكتاب':'Please enter the book title', true); return; }
         if (!category) { showToast(isAR?'من فضلك اختر تصنيف':'Please select a category', true); return; }
 
+        const dupBook = (_libBooks||[]).find(b => b.id !== editId && (b.title||'').trim().toLowerCase() === title.toLowerCase());
+        if (dupBook) { showToast(isAR?'يوجد كتاب بنفس هذا الاسم بالفعل':'A book with this exact title already exists', true); return; }
+
         const data = {
             title,
             author: document.getElementById('lib_author')?.value.trim() || '',
