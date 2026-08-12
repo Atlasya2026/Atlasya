@@ -4816,6 +4816,7 @@
             redemptionEnabled: true,
             autoApprove: true
         };
+        window.DEFAULT_COIN_SETTINGS = DEFAULT_COIN_SETTINGS; // exposed for the classic <script> block below, which can't see module-scoped consts
 
         window._loadCoinSettings = async () => {
             try {
@@ -11088,7 +11089,7 @@
             if (!root) return;
             const isAR = lang === 'AR';
             const d = window._userData || {};
-            let settings = DEFAULT_COIN_SETTINGS;
+            let settings = window.DEFAULT_COIN_SETTINGS;
             let txs = [];
             try { settings = await window._loadCoinSettings(); } catch(e) {}
             try { txs = await window._loadCoinTransactions(window._currentUid || null); } catch(e) {}
@@ -11160,7 +11161,7 @@
 
         window.openRedeemConfirm = function(tierIndex) {
             const isAR = lang === 'AR';
-            const settings = window._walletSettings || DEFAULT_COIN_SETTINGS;
+            const settings = window._walletSettings || window.DEFAULT_COIN_SETTINGS;
             const tier = (settings.tiers || [])[tierIndex];
             if (!tier) return;
             const sym = settings.coinSymbol || '🪙';
