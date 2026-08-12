@@ -3537,6 +3537,7 @@
         redemptionEnabled: true,
         autoApprove: true
     };
+    window.DEFAULT_COIN_SETTINGS = DEFAULT_COIN_SETTINGS; // exposed for the classic <script> block below, which can't see module-scoped consts
 
     window._loadCoinSettings = async () => {
         try {
@@ -8119,7 +8120,7 @@
             </div>
         </div>`;
         try { window._coinSettingsDraft = await window._loadCoinSettings(); }
-        catch(e) { window._coinSettingsDraft = { ...DEFAULT_COIN_SETTINGS }; }
+        catch(e) { window._coinSettingsDraft = { ...window.DEFAULT_COIN_SETTINGS }; }
         renderCoinSettingsForm();
         adminLoadCoinRequests();
     }
@@ -8128,7 +8129,7 @@
         const root = document.getElementById('coinSettingsRoot');
         if (!root) return;
         const isAR = lang === 'AR';
-        const s = window._coinSettingsDraft || { ...DEFAULT_COIN_SETTINGS };
+        const s = window._coinSettingsDraft || { ...window.DEFAULT_COIN_SETTINGS };
         const tiers = s.tiers || [];
         root.innerHTML = `
         <div class="form-card">
