@@ -3836,6 +3836,17 @@
         window._auth = auth; // expose for password change
         window._signOutAuth = () => signOut(auth);
 
+        /* ─── REFERRAL LINK CAPTURE ───
+        If someone lands on the app via a friend's invite link (?ref=UID),
+        remember that UID in localStorage so it survives the login/signup
+        flow, then attach it to the new account when they sign up. */
+        (function captureReferral() {
+            try {
+                const refUid = new URLSearchParams(window.location.search).get('ref');
+                if (refUid) localStorage.setItem('pendingReferralUid', refUid);
+            } catch(e) {}
+        })();
+
         /* ─── SECONDARY APP FOR COMPANY SESSIONS ───
         Companies get their own isolated Firebase Auth session so logging in/out
         as a company never touches the student/admin session on this device. */
@@ -3930,7 +3941,7 @@
         window._doLogin = async (email, pass) => {
             await signInWithEmailAndPassword(auth, email, pass);
         };
-        window._doSignUp = async (fName, lName, phone, email, pass, affiliate) => {
+        window._doSignUp = async (fName, lName, phone, email, pass, affiliate, referredBy) => {
             const cred = await createUserWithEmailAndPassword(auth, email, pass);
             await setDoc(doc(db, "users", cred.user.uid), {
                 firstName: fName, lastName: lName,
@@ -3938,8 +3949,19 @@
                 affiliate: affiliate || '',
                 plan: 'basic',
                 uploadCount: 0,
+                coins: 0,
+                referralCount: 0,
+                referredBy: referredBy || '',
                 joinedAt: serverTimestamp()
             });
+            if (referredBy && referredBy !== cred.user.uid) {
+                try {
+                    await updateDoc(doc(db, "users", referredBy), {
+                        coins: increment(30),
+                        referralCount: increment(1)
+                    });
+                } catch(e) { console.error('referral reward error:', e); }
+            }
             try { await sendEmailVerification(cred.user); } catch(e) { console.error('sendEmailVerification error:', e); }
         };
         window._sendVerificationEmail = async () => {
@@ -3956,13 +3978,27 @@
                 const parts = displayName.trim().split(/\s+/);
                 const firstName = parts.shift() || '';
                 const lastName = parts.join(' ');
+                let referredBy = '';
+                try { referredBy = localStorage.getItem('pendingReferralUid') || ''; } catch(e) {}
                 await setDoc(doc(db, "users", user.uid), {
                     firstName, lastName,
                     email: user.email || '',
                     academicLevel: "Level 1",
                     affiliate: '',
-                    profileImg: user.photoURL || ''
+                    profileImg: user.photoURL || '',
+                    coins: 0,
+                    referralCount: 0,
+                    referredBy
                 });
+                if (referredBy && referredBy !== user.uid) {
+                    try {
+                        await updateDoc(doc(db, "users", referredBy), {
+                            coins: increment(30),
+                            referralCount: increment(1)
+                        });
+                        localStorage.removeItem('pendingReferralUid');
+                    } catch(e) { console.error('referral reward error:', e); }
+                }
             }
             return user;
         };
@@ -5121,6 +5157,10 @@
     <script>
         /* ─── LANGUAGE ─── */
         let lang = 'AR';
+        /* Real, public URL of the deployed platform — used to build the
+           student invite/referral link so it always points at the live
+           site regardless of where this page happens to be loaded from. */
+        const PLATFORM_BASE_URL = 'https://atlasya2026.github.io/Atlasya/';
         const T = {
             AR: {
                 navLbl1: 'الرئيسية', navLbl2: 'المحتوى',
@@ -5407,7 +5447,10 @@
             btn.innerHTML = '<div class="spinner"></div>';
             btn.disabled = true;
             try {
-                await window._doSignUp(fName, lName, phone, email, pass, affiliate);
+                let pendingReferral = '';
+                try { pendingReferral = localStorage.getItem('pendingReferralUid') || ''; } catch(e) {}
+                await window._doSignUp(fName, lName, phone, email, pass, affiliate, pendingReferral);
+                try { localStorage.removeItem('pendingReferralUid'); } catch(e) {}
                 showToast('✓ تم إنشاء الحساب! تم إرسال رابط تأكيد لبريدك');
                 showEmailVerifyScreen(email);
             } catch(e) {
@@ -5685,6 +5728,12 @@
                 <p>${isAR
                     ? 'منصتك الشاملة لتعلم نظم المعلومات الجغرافية — اختر قسماً من القائمة للبدء.'
                     : 'Your comprehensive GIS learning hub. Select a section from the sidebar to get started.'}</p>
+                ${window._isAdmin ? '' : `
+                <div onclick="goSettings('invite')" style="position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:7px 14px;background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:99px;cursor:pointer;">
+                    <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--gold3),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:11px;color:#0a0a0e;flex-shrink:0;"><i class="fa-solid fa-coins"></i></div>
+                    <span style="font-size:13px;font-weight:800;color:var(--gold3);">${_d.coins||0}</span>
+                    <span style="font-size:12px;color:var(--muted);">${isAR?'عملة':'coins'}</span>
+                </div>`}
             </div>
 
             ${''/* dashboard install box removed per request */}
@@ -10407,6 +10456,14 @@
                         </div>
                         <i class="fa-solid fa-${isAR?'angle-left':'angle-right'} settings-hub-arrow"></i>
                     </div>
+                    <div class="settings-hub-item" onclick="goSettings('invite')">
+                        <div class="settings-hub-icon"><i class="fa-solid fa-user-plus"></i></div>
+                        <div class="settings-hub-text">
+                            <div class="settings-hub-title">${isAR?'دعوة الأصدقاء':'Invite Friends'}</div>
+                            <div class="settings-hub-desc">${isAR?`اكسب عملات مقابل كل صديق ينضم (${d.coins||0} عملة حتى الآن)`:`Earn coins for every friend who joins (${d.coins||0} so far)`}</div>
+                        </div>
+                        <i class="fa-solid fa-${isAR?'angle-left':'angle-right'} settings-hub-arrow"></i>
+                    </div>
                 </div>`;
                 return;
             }
@@ -10569,11 +10626,83 @@
                 if (typeof window._renderPlanTabRoot === 'function') window._renderPlanTabRoot();
                 return;
             }
+
+            /* ── INVITE FRIENDS (referral link) ── */
+            if (tab === 'invite') {
+                const refLink = PLATFORM_BASE_URL + '?ref=' + (window._currentUid || '') + '#/dashboard';
+                area.innerHTML = `
+                <div class="page-header">
+                    <h2>${isAR?'دعوة الأصدقاء':'Invite Friends'}</h2>
+                    <p>${isAR?'شارك رابطك واكسب عملات مع كل صديق ينضم':'Share your link and earn coins for every friend who joins'}</p>
+                </div>
+                ${backBtn}
+                <div class="form-card" style="margin-top:16px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                        <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--gold3),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:19px;color:#0a0a0e;flex-shrink:0;">
+                            <i class="fa-solid fa-coins"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:14px;font-weight:700;">${isAR?`اكسب 30 عملة عن كل صديق`:`Earn 30 coins per friend`}</div>
+                            <div style="font-size:12px;color:var(--muted);">${isAR?'يشترك صديقك عن طريق رابطك وتحصل أنت على المكافأة فوراً':'Your friend joins through your link and you get the reward instantly'}</div>
+                        </div>
+                    </div>
+
+                    <label style="display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">${isAR?'رابط الدعوة الخاص بك':'Your invite link'}</label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <input type="text" readonly id="referralLinkInput" value="${refLink}" style="flex:1;min-width:200px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:12.5px;direction:ltr;text-align:left;">
+                        <button onclick="copyReferralLink()" style="display:flex;align-items:center;gap:6px;padding:10px 16px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                            <i class="fa-solid fa-copy"></i> ${isAR?'نسخ':'Copy'}
+                        </button>
+                        <button onclick="shareReferralLink()" style="display:flex;align-items:center;gap:6px;padding:10px 18px;background:linear-gradient(135deg,var(--gold3),var(--gold2));border:none;border-radius:10px;color:#0a0a0e;font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                            <i class="fa-solid fa-share-nodes"></i> ${isAR?'مشاركة':'Share'}
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
+                    <div class="report-stat-card">
+                        <div class="rs-icon"><i class="fa-solid fa-user-group"></i></div>
+                        <div class="rs-val">${d.referralCount||0}</div>
+                        <div class="rs-label">${isAR?'عدد الدعوات الناجحة':'Friends invited'}</div>
+                    </div>
+                    <div class="report-stat-card">
+                        <div class="rs-icon"><i class="fa-solid fa-coins"></i></div>
+                        <div class="rs-val">${d.coins||0}</div>
+                        <div class="rs-label">${isAR?'إجمالي العملات':'Total coins'}</div>
+                    </div>
+                </div>`;
+                return;
+            }
         }
 
         function selectSettingsLang(code) {
             if (lang !== code) toggleLang();
         }
+
+        window.copyReferralLink = function() {
+            const isAR = lang === 'AR';
+            const input = document.getElementById('referralLinkInput');
+            const link = input ? input.value : (PLATFORM_BASE_URL + '?ref=' + (window._currentUid || '') + '#/dashboard');
+            navigator.clipboard?.writeText(link).then(() => {
+                showToast(isAR?'✅ تم نسخ رابط الدعوة':'✅ Invite link copied');
+            }).catch(() => showToast(isAR?'تعذّر النسخ':'Could not copy', true));
+        };
+
+        window.shareReferralLink = function() {
+            const isAR = lang === 'AR';
+            const link = PLATFORM_BASE_URL + '?ref=' + (window._currentUid || '') + '#/dashboard';
+            const firstName = window._userData?.firstName || '';
+            const text = isAR
+                ? `${firstName ? `دعوة من ${firstName} 🎓 ` : ''}انضم لي على منصة ATLASYA لتعلم نظم المعلومات الجغرافية 🌍`
+                : `${firstName ? `${firstName}'s invite 🎓 ` : ''}Join me on ATLASYA to learn GIS 🌍`;
+            if (navigator.share) {
+                navigator.share({ title: 'ATLASYA', text, url: link }).catch(()=>{});
+            } else {
+                navigator.clipboard?.writeText(`${text}\n${link}`).then(() => {
+                    showToast(isAR?'✅ تم نسخ رابط الدعوة':'✅ Invite link copied');
+                }).catch(() => showToast(isAR?'تعذّر النسخ':'Could not copy', true));
+            }
+        };
 
         /* ─── ADMIN: TEAM MANAGEMENT (sub-admin accounts + permissions) ─── */
         window.submitNewTeamMember = async function() {
