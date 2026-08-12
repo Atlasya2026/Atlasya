@@ -2906,6 +2906,9 @@
                     <button class="nav-item" id="menuAdminTips" onclick="navigate('admintips', this)" style="display:none;">
                         <i class="fa-solid fa-lightbulb"></i> <span id="menuAdminTipsTxt">نصيحة اليوم</span>
                     </button>
+                    <button class="nav-item" id="menuAdminChallenges" onclick="navigate('adminchallenges', this)" style="display:none;">
+                        <i class="fa-solid fa-trophy"></i> <span id="menuAdminChallengesTxt">التحديات</span>
+                    </button>
                     <button class="nav-item" id="menuJob" onclick="navigate('jobs', this)">
                         <i class="fa-solid fa-briefcase"></i> <span id="menuJobTxt">الوظائف</span>
                     </button>
@@ -2952,6 +2955,9 @@
                     </button>
                     <button class="nav-item" id="menuAdminPro" onclick="navigate('adminpro', this)" style="display:none;">
                         <i class="fa-solid fa-crown"></i> <span id="menuAdminProTxt">طلبات البرو</span>
+                    </button>
+                    <button class="nav-item" id="menuAdminCoins" onclick="navigate('admincoins', this)" style="display:none;">
+                        <i class="fa-solid fa-coins"></i> <span id="menuAdminCoinsTxt">إعدادات نظام العملات</span>
                     </button>
                     <button class="nav-item" id="menuAdminMentorship" onclick="navigate('adminmentorship', this)" style="display:none;">
                         <i class="fa-solid fa-user-tie"></i> <span id="menuAdminMentorshipTxt">حجوزات الاستشارات</span>
@@ -3495,6 +3501,104 @@
     };
     window._deleteDailyTip = async (id) => {
         await deleteDoc(doc(db, 'daily_tips', id));
+    };
+
+    /* ─── ADMIN: CHALLENGES (Millionaire-style quiz game) ─── */
+    window._loadChallenges = async () => {
+        const q = query(collection(db, 'challenges'), orderBy('order', 'asc'));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    };
+    window._addChallenge = async (data) => {
+        await addDoc(collection(db, 'challenges'), { ...data, createdAt: serverTimestamp() });
+    };
+    window._updateChallenge = async (id, data) => {
+        await updateDoc(doc(db, 'challenges', id), data);
+    };
+    window._deleteChallenge = async (id) => {
+        await deleteDoc(doc(db, 'challenges', id));
+    };
+    window._reorderChallenges = async (idsInOrder) => {
+        await Promise.all(idsInOrder.map((id, i) => updateDoc(doc(db, 'challenges', id), { order: i })));
+    };
+
+    /* ─── COIN WALLET SYSTEM (ATLAS Coins) — admin config + redemption review ─── */
+    const DEFAULT_COIN_SETTINGS = {
+        coinName: 'ATLAS Coins',
+        coinSymbol: '🪙',
+        tiers: [
+            { months: 1, coins: 1000 },
+            { months: 2, coins: 2000 },
+            { months: 3, coins: 3000 },
+            { months: 6, coins: 5000 },
+            { months: 12, coins: 8000 }
+        ],
+        dailyMax: 0, // 0 = no cap
+        redemptionEnabled: true,
+        autoApprove: true
+    };
+
+    window._loadCoinSettings = async () => {
+        try {
+            const snap = await getDoc(doc(db, 'settings', 'coins'));
+            if (snap.exists()) {
+                const data = snap.data();
+                return { ...DEFAULT_COIN_SETTINGS, ...data, tiers: (Array.isArray(data.tiers) && data.tiers.length) ? data.tiers : DEFAULT_COIN_SETTINGS.tiers };
+            }
+        } catch(e) { console.error('loadCoinSettings error:', e); }
+        return DEFAULT_COIN_SETTINGS;
+    };
+
+    window._saveCoinSettings = async (data) => {
+        await setDoc(doc(db, 'settings', 'coins'), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+    };
+
+    window._loadCoinRedemptionRequests = async () => {
+        const q = query(collection(db, 'coin_redemption_requests'), orderBy('requestedAt', 'desc'));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    };
+
+    // Extends (or starts) a user's ATLASYA PRO subscription by N months, stacking on
+    // top of a still-active subscription instead of resetting it (mirrors student.html logic).
+    window._grantProMonths = async (uid, months) => {
+        const snap = await getDoc(doc(db, 'users', uid));
+        const data = snap.exists() ? snap.data() : {};
+        let base = new Date();
+        if (data.plan === 'pro' && data.proExpiresAt) {
+            const cur = data.proExpiresAt.toDate ? data.proExpiresAt.toDate() : new Date(data.proExpiresAt);
+            if (cur > base) base = cur;
+        }
+        const newExpiry = new Date(base);
+        newExpiry.setMonth(newExpiry.getMonth() + months);
+        const payload = { plan: 'pro', proExpiresAt: Timestamp.fromDate(newExpiry) };
+        if (data.plan !== 'pro') payload.proStartAt = serverTimestamp();
+        await updateDoc(doc(db, 'users', uid), payload);
+    };
+
+    // Approves a pending redemption request: grants the PRO months and marks the
+    // matching coin transaction (and request) as approved.
+    window._approveCoinRedemption = async (reqId, uid, months, coins) => {
+        await window._grantProMonths(uid, months);
+        await updateDoc(doc(db, 'coin_redemption_requests', reqId), {
+            status: 'approved', reviewedAt: serverTimestamp()
+        });
+    };
+
+    // Rejects a pending redemption request and refunds the deducted coins to the student.
+    window._rejectCoinRedemption = async (reqId, uid, coins, reason) => {
+        await updateDoc(doc(db, 'users', uid), {
+            coins: increment(coins),
+            coinsSpentTotal: increment(-coins)
+        });
+        await updateDoc(doc(db, 'coin_redemption_requests', reqId), {
+            status: 'rejected', reviewedAt: serverTimestamp(), rejectionReason: reason || ''
+        });
+        await addDoc(collection(db, 'coin_transactions'), {
+            userId: uid, type: 'earn', amount: coins,
+            reasonAR: 'رد عملات — تم رفض طلب الاستبدال', reasonEN: 'Coins refunded — redemption request rejected',
+            createdAt: serverTimestamp()
+        });
     };
 
     window._bookMentorshipSlot = async (slotData) => {
@@ -4755,12 +4859,12 @@
         jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
         community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
         account: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
-        adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro',
+        adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro', admincoins: 'menuAdminCoins',
         adminreferrals: 'menuAdminReferrals',
         adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
         admincourses: 'menuAdminCourses', adminlibrary: 'menuAdminLibrary',
         adminplaylists: 'menuAdminPlaylists', admindatasets: 'menuAdminDatasets',
-        admintools: 'menuAdminTools', admintips: 'menuAdminTips'
+        admintools: 'menuAdminTools', admintips: 'menuAdminTips', adminchallenges: 'menuAdminChallenges'
     };
 
     /* Reflects the current page in the URL as #/page-name so every page has
@@ -4817,6 +4921,7 @@
             adminmembers:  lang==='AR'?'قائمة الأعضاء':'Members List',
             adminreferrals: lang==='AR'?'دعوة الأصدقاء':'Invite Friends',
             adminpro:      lang==='AR'?'طلبات Pro':'Pro Requests',
+            admincoins:    lang==='AR'?'إعدادات نظام العملات':'Coin System Settings',
             adminportfolio: lang==='AR'?'خرائط الطلبة':'Student Maps',
             admincourses: lang==='AR'?'إدارة الكورسات':'Manage Courses',
             adminlibrary: lang==='AR'?'إدارة المكتبة الرقمية':'Manage Digital Library',
@@ -4824,6 +4929,7 @@
             admindatasets: lang==='AR'?'إدارة مكتبة البيانات المكانية':'Manage Spatial Data Library',
             admintools: lang==='AR'?'إدارة أدوات البرامج':'Manage Software Tools',
             admintips: lang==='AR'?'إدارة نصيحة اليوم':'Manage Daily Tips',
+            adminchallenges: lang==='AR'?'إدارة التحديات':'Manage Challenges',
             adminmentorship: lang==='AR'?'حجوزات الاستشارات':'Consultation Bookings',
             portfolio:     lang==='AR'?'خرائط الطلبة':'Student Maps',
             monthlyreport: lang==='AR'?'تقريري الشهري':'My Monthly Report',
@@ -4859,6 +4965,7 @@
         else if (page === 'adminmembers') renderAdminMembers(area);
         else if (page === 'adminreferrals') renderAdminReferrals(area);
         else if (page === 'adminpro') renderAdminProRequests(area);
+        else if (page === 'admincoins') renderAdminCoinSettings(area);
         else if (page === 'adminportfolio') renderAdminPortfolio(area);
         else if (page === 'admincourses') renderAdminCourses(area);
         else if (page === 'adminlibrary') renderAdminLibrary(area);
@@ -4866,6 +4973,7 @@
         else if (page === 'admindatasets') renderAdminDatasets(area);
         else if (page === 'admintools') renderAdminTools(area);
         else if (page === 'admintips') renderAdminTips(area);
+        else if (page === 'adminchallenges') renderAdminChallenges(area);
         else if (page === 'adminmentorship') renderAdminMentorship(area);
         else if (page === 'portfolio') renderPortfolio(area);
         else if (page === 'monthlyreport') renderMonthlyReport(area);
@@ -7984,6 +8092,226 @@
         adminLoadMembers();
     };
 
+    /* ─── ADMIN: COIN SYSTEM SETTINGS ─── */
+    window._coinSettingsDraft = null; // { coinName, coinSymbol, tiers:[{months,coins}], dailyMax, redemptionEnabled, autoApprove }
+
+    async function renderAdminCoinSettings(area) {
+        area = area || document.getElementById('contentArea');
+        const isAR = lang === 'AR';
+        area.innerHTML = `
+        <div class="page-header">
+            <h2>${isAR?'⚙️ إعدادات نظام العملات':'⚙️ Coin System Settings'}</h2>
+            <p>${isAR?'تحكم كامل في اسم العملة، قيمة كل باقة PRO، سقف الكسب اليومي، وهل يحتاج الاستبدال موافقة الإدارة':'Full control over the coin name, what each PRO tier costs, the daily earning cap, and whether redemptions need admin approval'}</p>
+        </div>
+        <div id="coinSettingsRoot">
+            <div style="text-align:center;padding:40px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
+        </div>
+        <div class="form-card" style="margin-top:16px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                <h3 style="margin:0;"><i class="fa-solid fa-clock-rotate-left" style="color:var(--gold3);margin-left:8px;"></i>${isAR?'طلبات الاستبدال قيد المراجعة':'Pending Redemption Requests'}</h3>
+                <span id="coinReqCountBadge" style="background:var(--gold3);color:#0a0a0e;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;"></span>
+                <button onclick="adminLoadCoinRequests()" style="margin-right:auto;display:flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:10px;color:var(--gold3);font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                    <i class="fa-solid fa-rotate"></i> ${isAR?'تحديث':'Refresh'}
+                </button>
+            </div>
+            <div id="coinReqList" style="display:flex;flex-direction:column;gap:10px;">
+                <div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
+            </div>
+        </div>`;
+        try { window._coinSettingsDraft = await window._loadCoinSettings(); }
+        catch(e) { window._coinSettingsDraft = { ...DEFAULT_COIN_SETTINGS }; }
+        renderCoinSettingsForm();
+        adminLoadCoinRequests();
+    }
+
+    function renderCoinSettingsForm() {
+        const root = document.getElementById('coinSettingsRoot');
+        if (!root) return;
+        const isAR = lang === 'AR';
+        const s = window._coinSettingsDraft || { ...DEFAULT_COIN_SETTINGS };
+        const tiers = s.tiers || [];
+        root.innerHTML = `
+        <div class="form-card">
+            <h3><i class="fa-solid fa-sliders" style="color:var(--g3);margin-left:8px;"></i>${isAR?'الإعدادات العامة':'General Settings'}</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>${isAR?'اسم العملة':'Coin Name'}</label>
+                    <input type="text" id="cs_coinName" value="${escapeHtmlAC(s.coinName)}" placeholder="ATLAS Coins">
+                </div>
+                <div class="form-group">
+                    <label>${isAR?'رمز العملة (إيموجي)':'Coin Symbol (emoji)'}</label>
+                    <input type="text" id="cs_coinSymbol" value="${escapeHtmlAC(s.coinSymbol)}" placeholder="🪙" maxlength="4">
+                </div>
+                <div class="form-group">
+                    <label>${isAR?'الحد الأقصى للعملات يومياً (0 = بدون حد)':'Max coins earnable per day (0 = no limit)'}</label>
+                    <input type="number" min="0" id="cs_dailyMax" value="${s.dailyMax||0}">
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="cs_redemptionEnabled" ${s.redemptionEnabled?'checked':''}> ${isAR?'السماح للطلاب باستبدال العملات مقابل PRO':'Allow students to redeem coins for PRO'}
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="cs_autoApprove" ${s.autoApprove?'checked':''}> ${isAR?'إضافة PRO تلقائياً بعد الاستبدال (بدون الحاجة لموافقة الإدارة)':'Auto-activate PRO right after redemption (no admin approval needed)'}
+                </label>
+            </div>
+        </div>
+
+        <div class="form-card" style="margin-top:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;">
+                <h3 style="margin:0;"><i class="fa-solid fa-table-list" style="color:var(--gold3);margin-left:8px;"></i>${isAR?'باقات الاستبدال (عملات ↔ شهور PRO)':'Redemption Tiers (coins ↔ PRO months)'}</h3>
+                <button onclick="coinAddTierRow()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(30,122,52,0.1);border:1px solid rgba(30,122,52,0.3);border-radius:8px;color:var(--g4);font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                    <i class="fa-solid fa-plus"></i> ${isAR?'إضافة باقة':'Add Tier'}
+                </button>
+            </div>
+            <div id="cs_tiersList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;">
+                ${tiers.map((t,i) => coinTierRowHTML(t,i,isAR)).join('') || `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12.5px;">${isAR?'لا توجد باقات بعد':'No tiers yet'}</div>`}
+            </div>
+        </div>
+
+        <button class="btn-save" style="margin-top:16px;width:auto;padding:11px 26px;" id="coinSettingsSaveBtn" onclick="saveCoinSettings()">
+            <i class="fa-solid fa-floppy-disk"></i> <span>${isAR?'حفظ إعدادات العملات':'Save Coin Settings'}</span>
+        </button>`;
+    }
+
+    function coinTierRowHTML(t, i, isAR) {
+        return `<div class="cs-tier-row" data-idx="${i}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:120px;">
+                <label style="font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">${isAR?'عدد الشهور':'Months'}</label>
+                <input type="number" min="1" class="cs_tier_months" value="${t.months}" style="width:100%;">
+            </div>
+            <div style="flex:1;min-width:140px;">
+                <label style="font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">${isAR?'عدد العملات المطلوبة':'Coins required'}</label>
+                <input type="number" min="1" class="cs_tier_coins" value="${t.coins}" style="width:100%;">
+            </div>
+            <button onclick="coinRemoveTierRow(${i})" style="align-self:flex-end;display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.22);border-radius:8px;color:#ff6b6b;cursor:pointer;">
+                <i class="fa-solid fa-trash" style="font-size:12px;"></i>
+            </button>
+        </div>`;
+    }
+
+    // Reads current input values out of the DOM back into the draft array (so edits
+    // survive add/remove row operations without losing what the admin already typed).
+    function syncTiersFromDOM() {
+        const rows = document.querySelectorAll('#cs_tiersList .cs-tier-row');
+        const tiers = [];
+        rows.forEach(row => {
+            const months = parseInt(row.querySelector('.cs_tier_months')?.value, 10) || 1;
+            const coins = parseInt(row.querySelector('.cs_tier_coins')?.value, 10) || 1;
+            tiers.push({ months, coins });
+        });
+        if (window._coinSettingsDraft) window._coinSettingsDraft.tiers = tiers;
+        return tiers;
+    }
+
+    window.coinAddTierRow = function() {
+        syncTiersFromDOM();
+        window._coinSettingsDraft.tiers.push({ months: 1, coins: 1000 });
+        renderCoinSettingsForm();
+    };
+
+    window.coinRemoveTierRow = function(i) {
+        const tiers = syncTiersFromDOM();
+        tiers.splice(i, 1);
+        window._coinSettingsDraft.tiers = tiers;
+        renderCoinSettingsForm();
+    };
+
+    window.saveCoinSettings = async function() {
+        const isAR = lang === 'AR';
+        const btn = document.getElementById('coinSettingsSaveBtn');
+        const coinName = document.getElementById('cs_coinName')?.value.trim() || 'ATLAS Coins';
+        const coinSymbol = document.getElementById('cs_coinSymbol')?.value.trim() || '🪙';
+        const dailyMax = parseInt(document.getElementById('cs_dailyMax')?.value, 10) || 0;
+        const redemptionEnabled = !!document.getElementById('cs_redemptionEnabled')?.checked;
+        const autoApprove = !!document.getElementById('cs_autoApprove')?.checked;
+        const tiers = syncTiersFromDOM();
+        if (!tiers.length) { showToast(isAR?'أضف باقة واحدة على الأقل':'Add at least one tier', true); return; }
+
+        const data = { coinName, coinSymbol, dailyMax, redemptionEnabled, autoApprove, tiers };
+        window._coinSettingsDraft = data;
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
+        try {
+            await window._saveCoinSettings(data);
+            showToast(isAR?'✓ تم حفظ إعدادات العملات':'✓ Coin settings saved');
+        } catch(e) {
+            console.error('save coin settings error:', e);
+            showToast(isAR?'حدث خطأ أثناء الحفظ':'An error occurred while saving', true);
+        }
+        if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span>${isAR?'حفظ إعدادات العملات':'Save Coin Settings'}</span>`; }
+    };
+
+    window.adminLoadCoinRequests = async function() {
+        const isAR = lang === 'AR';
+        const list = document.getElementById('coinReqList');
+        const badge = document.getElementById('coinReqCountBadge');
+        if (!list) return;
+        list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+        try {
+            const all = await window._loadCoinRedemptionRequests();
+            const pending = all.filter(r => r.status === 'pending');
+            if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'inline-flex' : 'none'; }
+            if (!pending.length) {
+                list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;"><i class="fa-solid fa-check-circle" style="display:block;font-size:24px;opacity:0.3;margin-bottom:8px;"></i>${isAR?'لا توجد طلبات استبدال قيد المراجعة':'No pending redemption requests'}</div>`;
+                return;
+            }
+            list.innerHTML = pending.map(r => {
+                const timeStr = r.requestedAt?.toDate ? r.requestedAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+                const monthsLabel = r.months === 1 ? (isAR?'شهر':'1 month') : (isAR?`${r.months} أشهر`:`${r.months} months`);
+                return `<div id="coinReq_${r.id}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(212,160,23,0.04);border:1px solid rgba(212,160,23,0.18);border-radius:12px;flex-wrap:wrap;">
+                    <div style="width:40px;height:40px;border-radius:10px;flex-shrink:0;background:rgba(212,160,23,0.12);display:flex;align-items:center;justify-content:center;color:var(--gold3);font-size:16px;"><i class="fa-solid fa-coins"></i></div>
+                    <div style="flex:1;min-width:160px;">
+                        <div style="font-size:13px;font-weight:800;">${escapeHtmlAC(r.userName||r.userId||'')}</div>
+                        <div style="font-size:12px;color:var(--gold3);font-weight:700;margin-top:2px;">${escapeHtmlAC(String(r.coins))} 🪙 → ${monthsLabel} PRO</div>
+                        ${timeStr ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3px;"><i class="fa-regular fa-clock"></i> ${timeStr}</div>` : ''}
+                    </div>
+                    <div style="display:flex;gap:8px;flex-shrink:0;">
+                        <button onclick="approveCoinReq('${r.id}','${r.userId}',${r.months},${r.coins})" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(30,122,52,0.12);border:1px solid rgba(30,122,52,0.3);border-radius:8px;color:var(--g4);font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                            <i class="fa-solid fa-check"></i> ${isAR?'موافقة':'Approve'}
+                        </button>
+                        <button onclick="rejectCoinReq('${r.id}','${r.userId}',${r.coins})" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.22);border-radius:8px;color:#ff6b6b;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                            <i class="fa-solid fa-xmark"></i> ${isAR?'رفض':'Reject'}
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch(e) {
+            console.error('load coin requests error:', e);
+            list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">${isAR?'خطأ في التحميل':'Loading error'}</div>`;
+        }
+    };
+
+    window.approveCoinReq = async function(reqId, uid, months, coins) {
+        const isAR = lang === 'AR';
+        const row = document.getElementById(`coinReq_${reqId}`);
+        if (row) row.style.opacity = '0.5';
+        try {
+            await window._approveCoinRedemption(reqId, uid, months, coins);
+            showToast(isAR?'✓ تم تفعيل PRO للطالب':'✓ PRO activated for the student');
+            adminLoadCoinRequests();
+        } catch(e) {
+            console.error('approve error:', e);
+            showToast(isAR?'حدث خطأ أثناء الموافقة':'An error occurred while approving', true);
+            if (row) row.style.opacity = '1';
+        }
+    };
+
+    window.rejectCoinReq = async function(reqId, uid, coins) {
+        const isAR = lang === 'AR';
+        const reason = window.prompt(isAR?'سبب الرفض (اختياري):':'Rejection reason (optional):') || '';
+        const row = document.getElementById(`coinReq_${reqId}`);
+        if (row) row.style.opacity = '0.5';
+        try {
+            await window._rejectCoinRedemption(reqId, uid, coins, reason);
+            showToast(isAR?'تم الرفض ورد العملات للطالب':'Rejected and coins refunded to the student');
+            adminLoadCoinRequests();
+        } catch(e) {
+            console.error('reject error:', e);
+            showToast(isAR?'حدث خطأ أثناء الرفض':'An error occurred while rejecting', true);
+            if (row) row.style.opacity = '1';
+        }
+    };
+
     /* ─── ADMIN: STUDENT MAPS MANAGEMENT ─── */
     async function renderAdminPortfolio(area) {
         area = area || document.getElementById('contentArea');
@@ -9759,6 +10087,160 @@
             loadAdminTips();
         } catch(e) {
             console.error('Tip save error:', e);
+            showToast(isAR?'حدث خطأ أثناء الحفظ':'An error occurred while saving', true);
+            if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}`; }
+        }
+    };
+
+    /* ─── ADMIN: CHALLENGES (Millionaire-style quiz game) ─── */
+    let _adminChallenges = [];
+
+    function renderAdminChallenges(area) {
+        area = area || document.getElementById('contentArea');
+        const isAR = lang === 'AR';
+        area.innerHTML = `
+        <div class="page-header">
+            <h2>${isAR?'إدارة التحديات':'Manage Challenges'}</h2>
+            <p>${isAR?'اعمل أسئلة على شكل لعبة "من سيربح المليون" — سؤال، 4 اختيارات، وحدد الإجابة الصح وقيمة السؤال بالعملة. ترتيب الأسئلة هنا هو نفس ترتيب السلم اللي هيشوفه الطالب (من الأسهل للأصعب). لو مفيش أي سؤال مضاف، هيظهر عند الطالب إن مفيش تحديات متاحة حالياً.':'Build questions for a "Who Wants to be a Millionaire"-style game — a question, 4 choices, mark the correct one and set how many coins it\'s worth. The order below is the same ladder order the student will see (easiest to hardest). If no questions are added, students will see that no challenges are available yet.'}</p>
+        </div>
+        <button class="btn-post-job" style="margin-bottom:16px;" onclick="openChallengeForm()"><i class="fa-solid fa-plus"></i> ${isAR?'إضافة سؤال جديد':'Add New Question'}</button>
+        <div id="chList"></div>`;
+        loadAdminChallenges();
+    }
+
+    async function loadAdminChallenges() {
+        const list = document.getElementById('chList');
+        if (list) list.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+        try { _adminChallenges = await window._loadChallenges(); }
+        catch(e) { console.error(e); _adminChallenges = []; }
+        renderChList();
+    }
+
+    function renderChList() {
+        const isAR = lang === 'AR';
+        const list = document.getElementById('chList');
+        if (!list) return;
+        if (!_adminChallenges.length) {
+            list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;">${isAR?'لا توجد أسئلة مضافة بعد':'No questions added yet'}</div>`;
+            return;
+        }
+        list.innerHTML = _adminChallenges.map((c, i) => `
+        <div class="ac-row">
+            <div style="width:48px;height:48px;border-radius:10px;flex-shrink:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--gold3);border:1px solid var(--border);font-size:16px;font-weight:800;">${i+1}</div>
+            <div class="ac-main" style="margin-inline-start:12px;">
+                <div class="ac-title">${escapeHtmlAC(c.questionAR||'')}</div>
+                <div class="ac-meta">
+                    <span class="job-status-badge approved"><i class="fa-solid fa-coins"></i> ${c.coins||0} ${isAR?'عملة':'coins'}</span>
+                    <span style="font-size:11.5px;color:var(--muted);">${isAR?'الإجابة الصح':'Correct'}: ${escapeHtmlAC((c.optionsAR||[])[c.correctIndex]||'')}</span>
+                </div>
+            </div>
+            <div class="ac-actions">
+                <button class="ac-btn" title="${isAR?'تحريك لأعلى':'Move up'}" ${i===0?'disabled style="opacity:0.35;cursor:not-allowed;"':''} onclick="chMove(${i},-1)"><i class="fa-solid fa-arrow-up"></i></button>
+                <button class="ac-btn" title="${isAR?'تحريك لأسفل':'Move down'}" ${i===_adminChallenges.length-1?'disabled style="opacity:0.35;cursor:not-allowed;"':''} onclick="chMove(${i},1)"><i class="fa-solid fa-arrow-down"></i></button>
+                <button class="ac-btn" onclick="openChallengeForm('${c.id}')"><i class="fa-solid fa-pen"></i> ${isAR?'تعديل':'Edit'}</button>
+                <button class="ac-btn danger" onclick="chDeleteChallenge('${c.id}')"><i class="fa-solid fa-trash"></i> ${isAR?'حذف':'Delete'}</button>
+            </div>
+        </div>`).join('');
+    }
+
+    window.chMove = async function(index, dir) {
+        const target = index + dir;
+        if (target < 0 || target >= _adminChallenges.length) return;
+        const arr = [..._adminChallenges];
+        [arr[index], arr[target]] = [arr[target], arr[index]];
+        _adminChallenges = arr;
+        renderChList();
+        try { await window._reorderChallenges(arr.map(c => c.id)); }
+        catch(e) { console.error('reorder error:', e); }
+    };
+
+    window.chDeleteChallenge = async function(id) {
+        const isAR = lang === 'AR';
+        if (!confirm(isAR?'حذف هذا السؤال نهائياً؟':'Delete this question permanently?')) return;
+        try {
+            await window._deleteChallenge(id);
+            _adminChallenges = _adminChallenges.filter(c => c.id !== id);
+            renderChList();
+            showToast(isAR?'🗑️ تم الحذف':'🗑️ Deleted');
+        } catch(e) { showToast(isAR?'خطأ في الحذف':'Delete failed', true); }
+    };
+
+    window.openChallengeForm = function(editId) {
+        const isAR = lang === 'AR';
+        const editing = editId ? _adminChallenges.find(c => c.id === editId) : null;
+        const v = (f) => (editing && editing[f] != null) ? editing[f] : '';
+        const optAR = editing?.optionsAR || ['','','',''];
+        const optEN = editing?.optionsEN || ['','','',''];
+        const correctIdx = editing ? (editing.correctIndex ?? 0) : 0;
+        const letters = isAR ? ['أ','ب','ج','د'] : ['A','B','C','D'];
+        const modal = document.createElement('div');
+        modal.id = 'chFormModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+        modal.innerHTML = `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;" onclick="event.stopPropagation()">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <h3 style="font-size:15px;font-weight:800;">${editing ? (isAR?'تعديل سؤال':'Edit Question') : (isAR?'إضافة سؤال جديد':'Add New Question')}</h3>
+                <i class="fa-solid fa-xmark" style="cursor:pointer;color:var(--muted);" onclick="document.getElementById('chFormModal').remove()"></i>
+            </div>
+            <div class="proj-form-grid">
+                <div class="job-field full"><label>${isAR?'نص السؤال (عربي) *':'Question (Arabic) *'}</label><input type="text" id="ch_qAR" value="${escapeHtmlAC(v('questionAR'))}"></div>
+                <div class="job-field full"><label>${isAR?'نص السؤال (إنجليزي)':'Question (English)'}</label><input type="text" id="ch_qEN" value="${escapeHtmlAC(v('questionEN'))}"></div>
+                ${[0,1,2,3].map(i => `
+                <div class="job-field"><label>${isAR?`الاختيار ${letters[i]} (عربي) *`:`Option ${letters[i]} (Arabic) *`}</label><input type="text" id="ch_optAR_${i}" value="${escapeHtmlAC(optAR[i]||'')}"></div>
+                <div class="job-field"><label>${isAR?`الاختيار ${letters[i]} (إنجليزي)`:`Option ${letters[i]} (English)`}</label><input type="text" id="ch_optEN_${i}" value="${escapeHtmlAC(optEN[i]||'')}"></div>
+                `).join('')}
+                <div class="job-field full">
+                    <label>${isAR?'الإجابة الصحيحة *':'Correct Answer *'}</label>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;">
+                        ${[0,1,2,3].map(i => `
+                        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                            <input type="radio" name="ch_correct" value="${i}" ${correctIdx===i?'checked':''}> ${letters[i]}
+                        </label>`).join('')}
+                    </div>
+                </div>
+                <div class="job-field"><label>${isAR?'قيمة السؤال (عدد العملات) *':'Question value (coins) *'}</label><input type="number" min="1" id="ch_coins" value="${escapeHtmlAC(v('coins'))}" placeholder="100"></div>
+            </div>
+            <button class="btn-post-job" style="width:100%;margin-top:14px;" id="chSaveBtn" onclick="chSaveChallenge('${editId||''}')"><i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}</button>
+        </div>`;
+        document.body.appendChild(modal);
+    };
+
+    window.chSaveChallenge = async function(editId) {
+        const isAR = lang === 'AR';
+        const questionAR = document.getElementById('ch_qAR')?.value.trim();
+        if (!questionAR) { showToast(isAR?'من فضلك أدخل نص السؤال':'Please enter the question', true); return; }
+        const optionsAR = [0,1,2,3].map(i => document.getElementById(`ch_optAR_${i}`)?.value.trim() || '');
+        if (optionsAR.some(o => !o)) { showToast(isAR?'من فضلك أدخل كل الاختيارات الأربعة':'Please fill in all 4 options', true); return; }
+        const optionsEN = [0,1,2,3].map(i => document.getElementById(`ch_optEN_${i}`)?.value.trim() || '');
+        const correctRadio = document.querySelector('input[name="ch_correct"]:checked');
+        const correctIndex = correctRadio ? parseInt(correctRadio.value, 10) : 0;
+        const coins = parseInt(document.getElementById('ch_coins')?.value, 10);
+        if (!coins || coins < 1) { showToast(isAR?'من فضلك أدخل قيمة العملات للسؤال':'Please enter the coin value for this question', true); return; }
+
+        const data = {
+            questionAR,
+            questionEN: document.getElementById('ch_qEN')?.value.trim() || questionAR,
+            optionsAR,
+            optionsEN: optionsEN.map((o, i) => o || optionsAR[i]),
+            correctIndex,
+            coins,
+        };
+
+        const btn = document.getElementById('chSaveBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
+        try {
+            if (editId) {
+                await window._updateChallenge(editId, data);
+            } else {
+                data.order = _adminChallenges.length;
+                await window._addChallenge(data);
+            }
+            showToast(isAR?'تم الحفظ':'Saved');
+            document.getElementById('chFormModal')?.remove();
+            loadAdminChallenges();
+        } catch(e) {
+            console.error('Challenge save error:', e);
             showToast(isAR?'حدث خطأ أثناء الحفظ':'An error occurred while saving', true);
             if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}`; }
         }
@@ -11808,6 +12290,8 @@
         { key:'softwaretools',labelAR:'أدوات البرامج', labelEN:'Software Tools', icon:'fa-toolbox' },
         { key:'dailytips',  labelAR:'نصيحة اليوم',        labelEN:'Daily Tip',             icon:'fa-lightbulb' },
         { key:'mentorship', labelAR:'حجوزات استشارات',    labelEN:'Consultation Bookings', icon:'fa-user-tie' },
+        { key:'challenges', labelAR:'التحديات',           labelEN:'Challenges',            icon:'fa-trophy' },
+        { key:'coinsettings', labelAR:'إعدادات العملات',  labelEN:'Coin Settings',          icon:'fa-coins' },
     ];
 
     // Which DOM elements each permission key controls the visibility of
@@ -11826,6 +12310,8 @@
         jobs:       ['menuJob'],
         support:    ['menuExpert'],
         community:  ['menuCommunity'],
+        challenges: ['menuAdminChallenges'],
+        coinsettings: ['menuAdminCoins'],
     };
 
     // Maps a page route to the permission key that guards it (used for direct navigate() calls)
@@ -11838,6 +12324,8 @@
         admintips: 'dailytips',
         jobs: 'jobs', expert: 'support',
         community: 'community',
+        adminchallenges: 'challenges',
+        admincoins: 'coinsettings',
     };
 
     // Shows/hides admin nav + mobile items according to window._adminPermissions ('all' or an array of keys)
