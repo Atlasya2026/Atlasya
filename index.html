@@ -3524,6 +3524,9 @@
                     <button class="nav-item active" id="menuDash" onclick="navigate('dashboard', this)">
                         <i class="fa-solid fa-chart-pie"></i> <span id="menuDashTxt">الرئيسية</span>
                     </button>
+                    <button class="nav-item" id="menuChallenges" onclick="navigate('challenges', this)" style="color:var(--gold4);">
+                        <i class="fa-solid fa-trophy" style="color:var(--gold3);"></i> <span id="menuChallengesTxt">التحديات</span>
+                    </button>
                 </div>
 
                 <div class="nav-section collapsible" style="margin-top:8px;">
@@ -3958,7 +3961,13 @@
                 try {
                     await updateDoc(doc(db, "users", referredBy), {
                         coins: increment(30),
+                        coinsEarnedTotal: increment(30),
                         referralCount: increment(1)
+                    });
+                    await addDoc(collection(db, 'coin_transactions'), {
+                        userId: referredBy, type: 'earn', amount: 30,
+                        reasonAR: 'مكافأة دعوة صديق جديد', reasonEN: 'Reward for inviting a new friend',
+                        createdAt: serverTimestamp()
                     });
                 } catch(e) { console.error('referral reward error:', e); }
             }
@@ -3994,7 +4003,13 @@
                     try {
                         await updateDoc(doc(db, "users", referredBy), {
                             coins: increment(30),
+                            coinsEarnedTotal: increment(30),
                             referralCount: increment(1)
+                        });
+                        await addDoc(collection(db, 'coin_transactions'), {
+                            userId: referredBy, type: 'earn', amount: 30,
+                            reasonAR: 'مكافأة دعوة صديق جديد', reasonEN: 'Reward for inviting a new friend',
+                            createdAt: serverTimestamp()
                         });
                         localStorage.removeItem('pendingReferralUid');
                     } catch(e) { console.error('referral reward error:', e); }
@@ -4752,6 +4767,151 @@
             if (window._userData) window._userData.tipsLastShownStage = stageIdx;
         };
 
+        /* ─── CHALLENGES (Millionaire-style quiz game) ─── */
+        window._loadChallenges = async () => {
+            const q = query(collection(db, 'challenges'), orderBy('order', 'asc'));
+            const snap = await getDocs(q);
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        };
+        // Awards the student the DIFFERENCE between this run's coins and their previous best
+        // (so replaying only pays out when they beat their own record — keeps it fair, no farming).
+        window._submitChallengeResult = async (coinsThisRun) => {
+            if (!currentUid) throw new Error('Not logged in');
+            const prevBest = window._userData?.challengeBestCoins || 0;
+            const isNewRecord = coinsThisRun > prevBest;
+            const delta = isNewRecord ? (coinsThisRun - prevBest) : 0;
+            const payload = { challengePlayed: true };
+            if (isNewRecord) payload.challengeBestCoins = coinsThisRun;
+            if (delta > 0) { payload.coins = increment(delta); payload.coinsEarnedTotal = increment(delta); }
+            await setDoc(doc(db, 'users', currentUid), payload, { merge: true });
+            if (window._userData) {
+                window._userData.challengePlayed = true;
+                if (isNewRecord) window._userData.challengeBestCoins = coinsThisRun;
+                if (delta > 0) {
+                    window._userData.coins = (window._userData.coins || 0) + delta;
+                    window._userData.coinsEarnedTotal = (window._userData.coinsEarnedTotal || 0) + delta;
+                }
+            }
+            if (delta > 0) {
+                try {
+                    await window._logCoinTransaction(currentUid, 'earn', delta,
+                        'رقم قياسي جديد في تحدي المعلومات', 'New record in the knowledge challenge');
+                } catch(e) { console.error('coin tx log error:', e); }
+            }
+            return { isNewRecord, coinsAwarded: delta };
+        };
+
+        /* ─── COIN WALLET SYSTEM (ATLAS Coins) ─── */
+        const DEFAULT_COIN_SETTINGS = {
+            coinName: 'ATLAS Coins',
+            coinSymbol: '🪙',
+            tiers: [
+                { months: 1, coins: 1000 },
+                { months: 2, coins: 2000 },
+                { months: 3, coins: 3000 },
+                { months: 6, coins: 5000 },
+                { months: 12, coins: 8000 }
+            ],
+            dailyMax: 0, // 0 = no cap
+            redemptionEnabled: true,
+            autoApprove: true
+        };
+
+        window._loadCoinSettings = async () => {
+            try {
+                const snap = await getDoc(doc(db, 'settings', 'coins'));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    return { ...DEFAULT_COIN_SETTINGS, ...data, tiers: (Array.isArray(data.tiers) && data.tiers.length) ? data.tiers : DEFAULT_COIN_SETTINGS.tiers };
+                }
+            } catch(e) { console.error('loadCoinSettings error:', e); }
+            return DEFAULT_COIN_SETTINGS;
+        };
+
+        // Logs one earn/spend entry to the student's coin history (so they can always
+        // see where coins came from and where they went).
+        window._logCoinTransaction = async (uid, type, amount, reasonAR, reasonEN, extra) => {
+            await addDoc(collection(db, 'coin_transactions'), {
+                userId: uid, type, amount,
+                reasonAR: reasonAR || '', reasonEN: reasonEN || reasonAR || '',
+                createdAt: serverTimestamp(),
+                ...(extra || {})
+            });
+        };
+
+        window._loadCoinTransactions = async (uid, max) => {
+            const q = query(
+                collection(db, 'coin_transactions'),
+                where('userId', '==', uid),
+                orderBy('createdAt', 'desc'),
+                limit(max || 30)
+            );
+            const snap = await getDocs(q);
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        };
+
+        // Extends (or starts) a user's ATLASYA PRO subscription by N months — stacks on
+        // top of a still-active subscription instead of resetting it.
+        window._grantProMonths = async (uid, months) => {
+            const snap = await getDoc(doc(db, 'users', uid));
+            const data = snap.exists() ? snap.data() : {};
+            let base = new Date();
+            if (data.plan === 'pro' && data.proExpiresAt) {
+                const cur = data.proExpiresAt.toDate ? data.proExpiresAt.toDate() : new Date(data.proExpiresAt);
+                if (cur > base) base = cur;
+            }
+            const newExpiry = new Date(base);
+            newExpiry.setMonth(newExpiry.getMonth() + months);
+            const payload = {
+                plan: 'pro',
+                proExpiresAt: Timestamp.fromDate(newExpiry)
+            };
+            if (data.plan !== 'pro') payload.proStartAt = serverTimestamp();
+            await updateDoc(doc(db, 'users', uid), payload);
+            if (uid === currentUid) {
+                window._userData = { ...(window._userData || {}), plan: 'pro', proExpiresAt: Timestamp.fromDate(newExpiry) };
+            }
+        };
+
+        // Redeems one configured tier for the logged-in student: deducts coins immediately,
+        // then either grants PRO instantly (auto-approve) or files a pending admin request.
+        window._redeemCoinTier = async (tierIndex) => {
+            if (!currentUid) throw new Error('Not logged in');
+            const settings = await window._loadCoinSettings();
+            if (!settings.redemptionEnabled) { const e = new Error('Redemption disabled'); e.code = 'disabled'; throw e; }
+            const tier = (settings.tiers || [])[tierIndex];
+            if (!tier) throw new Error('Invalid tier');
+            const balance = window._userData?.coins || 0;
+            if (balance < tier.coins) { const e = new Error('Insufficient balance'); e.code = 'insufficient'; throw e; }
+
+            await updateDoc(doc(db, 'users', currentUid), {
+                coins: increment(-tier.coins),
+                coinsSpentTotal: increment(tier.coins)
+            });
+            window._userData.coins = balance - tier.coins;
+            window._userData.coinsSpentTotal = (window._userData.coinsSpentTotal || 0) + tier.coins;
+
+            const monthsAR = tier.months === 1 ? 'شهر' : `${tier.months} أشهر`;
+            const monthsEN = tier.months === 1 ? '1 month' : `${tier.months} months`;
+            const reasonAR = `استبدال ${tier.coins} عملة مقابل ${monthsAR} من ATLASYA PRO`;
+            const reasonEN = `Redeemed ${tier.coins} coins for ${monthsEN} of ATLASYA PRO`;
+
+            if (settings.autoApprove) {
+                await window._grantProMonths(currentUid, tier.months);
+                await window._logCoinTransaction(currentUid, 'spend', tier.coins, reasonAR, reasonEN, { status: 'approved', months: tier.months });
+            } else {
+                await addDoc(collection(db, 'coin_redemption_requests'), {
+                    userId: currentUid,
+                    userName: `${window._userData?.firstName || ''} ${window._userData?.lastName || ''}`.trim(),
+                    months: tier.months,
+                    coins: tier.coins,
+                    status: 'pending',
+                    requestedAt: serverTimestamp()
+                });
+                await window._logCoinTransaction(currentUid, 'spend', tier.coins, reasonAR, reasonEN, { status: 'pending', months: tier.months });
+            }
+            return { autoApprove: settings.autoApprove, months: tier.months };
+        };
 
         /* ─── ADMIN CONTENT (Firestore) ─── */
         window._saveContent = async (contentMap) => {
@@ -5532,7 +5692,8 @@
             community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
             account: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
             adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro',
-            adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship'
+            adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
+            challenges: 'menuChallenges'
         };
 
         /* Reflects the current page in the URL as #/page-name so every page has
@@ -5593,6 +5754,7 @@
                 portfolio:     lang==='AR'?'خرائط الطلبة':'Student Maps',
                 monthlyreport: lang==='AR'?'تقريري الشهري':'My Monthly Report',
                 mentorship:    lang==='AR'?'اسأل خبير GIS':'Ask a GIS Expert',
+                challenges:    lang==='AR'?'التحديات':'Challenges',
             };
             document.getElementById('breadcrumbTitle').textContent = titles[page] || page;
             const area = document.getElementById('contentArea');
@@ -5636,6 +5798,7 @@
             else if (page === 'mentorship') renderMentorship(area);
             else if (page === 'courses') renderCourses(area);
             else if (page === 'library') renderLibrary(area);
+            else if (page === 'challenges') renderChallenges(area);
             else renderSoon(area, page, titles[page]);
 
 
@@ -5762,6 +5925,7 @@
             </div>
 
             ${window._isAdmin ? '' : `<div class="sections-grid">
+                ${sectionCard('challenges','fa-trophy',isAR?'التحديات':'Challenges',isAR?'اختبر معلوماتك واربح عملات في لعبة أسئلة تفاعلية':'Test your knowledge and win coins in an interactive quiz game', true)}
                 ${sectionCard('playlists','fa-clapperboard',isAR?'قوائم التشغيل':'Playlists',isAR?'قوائم فيديوهات تعليمية في نظم المعلومات الجغرافية':'Educational video playlists in GIS', true)}
                 ${sectionCard('library','fa-book-bookmark',isAR?'المكتبة الرقمية':'Digital Library',isAR?'كتب ومراجع تقنية في علوم GIS':'Technical books and GIS references', true)}
                 ${sectionCard('datasets','fa-database',isAR?'البيانات المكانية':'Spatial Datasets',isAR?'تحميل مجموعات البيانات المكانية':'Download spatial data collections', true)}
@@ -5790,6 +5954,222 @@
                     <p>${desc}</p>
                 </div>
                 <i class="fa-solid fa-chevron-right section-arrow"></i>
+            </div>`;
+        }
+
+        /* ─── CHALLENGES — Millionaire-style quiz game ─── */
+        let _challengesData = null;
+        let _chGameState = null;
+
+        async function renderChallenges(area) {
+            area.innerHTML = `<div style="text-align:center;padding:60px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin" style="font-size:22px;"></i></div>`;
+            if (!_challengesData) {
+                try { _challengesData = await window._loadChallenges(); }
+                catch(e) { console.error('loadChallenges error:', e); _challengesData = []; }
+            }
+            chRenderStart(area);
+        }
+
+        function chInjectStyles() {
+            if (document.getElementById('chGameStyles')) return;
+            const style = document.createElement('style');
+            style.id = 'chGameStyles';
+            style.textContent = `
+                .ch-wrap { max-width: 720px; margin: 0 auto; }
+                .ch-empty { text-align:center; padding:70px 20px; }
+                .ch-empty i { font-size:46px; color:var(--gold3); opacity:0.55; margin-bottom:16px; display:block; }
+                .ch-empty h3 { font-size:17px; font-weight:800; margin-bottom:8px; }
+                .ch-empty p { font-size:13px; color:var(--muted); max-width:340px; margin:0 auto; }
+
+                .ch-start { text-align:center; padding:20px; }
+                .ch-start-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(212,160,23,0.12); border:1px solid rgba(212,160,23,0.35); color:var(--gold3); font-size:12px; font-weight:800; padding:6px 16px; border-radius:99px; margin-bottom:18px; }
+                .ch-start h2 { font-size:22px; font-weight:900; margin-bottom:10px; background:linear-gradient(90deg,var(--gold4),var(--gold3)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+                .ch-start p { font-size:13.5px; color:var(--muted); max-width:420px; margin:0 auto 22px; line-height:1.7; }
+                .ch-ladder { display:flex; flex-direction:column-reverse; gap:6px; max-width:320px; margin:0 auto 22px; max-height:260px; overflow-y:auto; }
+                .ch-ladder-row { display:flex; align-items:center; justify-content:space-between; padding:8px 14px; border-radius:10px; background:var(--bg3); border:1px solid var(--border); font-size:12.5px; }
+                .ch-ladder-row.last { border-color:rgba(212,160,23,0.5); background:rgba(212,160,23,0.08); }
+                .ch-ladder-row .num { color:var(--muted); font-weight:700; }
+                .ch-ladder-row .val { color:var(--gold3); font-weight:800; }
+                .ch-start-btn { display:inline-flex; align-items:center; gap:10px; padding:14px 34px; border-radius:99px; background:linear-gradient(135deg,var(--gold3),var(--gold2)); color:#0a0a0e; font-weight:900; font-size:15px; border:none; cursor:pointer; box-shadow:0 10px 30px rgba(212,160,23,0.3); transition:0.2s; font-family:'Tajawal',sans-serif; }
+                .ch-start-btn:hover { transform:translateY(-2px); box-shadow:0 14px 36px rgba(212,160,23,0.4); }
+                .ch-best { margin-top:16px; font-size:12.5px; color:var(--muted); }
+                .ch-best strong { color:var(--gold3); }
+
+                .ch-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+                .ch-level { font-size:13px; font-weight:800; color:var(--muted); }
+                .ch-level span { color:var(--gold3); }
+                .ch-coins-pill { display:inline-flex; align-items:center; gap:8px; background:rgba(212,160,23,0.12); border:1px solid rgba(212,160,23,0.3); border-radius:99px; padding:6px 14px; font-size:13px; font-weight:800; color:var(--gold3); }
+                .ch-question-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:26px 22px; margin-bottom:20px; text-align:center; box-shadow:var(--shadow); }
+                .ch-question-card h3 { font-size:16px; font-weight:800; line-height:1.7; }
+                .ch-options { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+                @media (max-width:560px) { .ch-options { grid-template-columns:1fr; } }
+                .ch-opt { display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:12px; background:var(--bg3); border:1px solid var(--border); cursor:pointer; text-align:start; font-size:13.5px; font-weight:600; color:var(--text); transition:0.15s; font-family:'Tajawal',sans-serif; width:100%; }
+                .ch-opt:hover:not(.disabled) { border-color:var(--gold3); background:rgba(212,160,23,0.08); }
+                .ch-opt .ltr { width:28px; height:28px; border-radius:50%; background:var(--bg2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12.5px; flex-shrink:0; }
+                .ch-opt.selected { border-color:var(--gold3); background:rgba(212,160,23,0.14); }
+                .ch-opt.correct { border-color:#27a346; background:rgba(39,163,70,0.15); }
+                .ch-opt.wrong { border-color:#e74c3c; background:rgba(231,76,60,0.15); }
+                .ch-opt.disabled { cursor:default; opacity:0.9; }
+                .ch-actions-row { display:flex; justify-content:center; margin-top:20px; }
+                .ch-lock-btn, .ch-next-btn { padding:12px 30px; border-radius:99px; font-weight:800; font-size:13.5px; border:none; cursor:pointer; font-family:'Tajawal',sans-serif; }
+                .ch-lock-btn { background:linear-gradient(135deg,var(--g3),var(--g2)); color:#fff; }
+                .ch-lock-btn:disabled { opacity:0.4; cursor:not-allowed; }
+                .ch-next-btn { background:linear-gradient(135deg,var(--gold3),var(--gold2)); color:#0a0a0e; }
+
+                .ch-end { text-align:center; padding:30px 20px; }
+                .ch-end i.big { font-size:52px; margin-bottom:16px; display:block; }
+                .ch-end h2 { font-size:20px; font-weight:900; margin-bottom:8px; }
+                .ch-final-coins { font-size:32px; font-weight:900; color:var(--gold3); margin:12px 0; }
+                .ch-end p { font-size:13px; color:var(--muted); max-width:380px; margin:0 auto 22px; }
+                .ch-end-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+                .ch-btn-outline { padding:11px 24px; border-radius:99px; background:transparent; border:1px solid var(--border2); color:var(--text); font-weight:700; font-size:13px; cursor:pointer; font-family:'Tajawal',sans-serif; }
+            `;
+            document.head.appendChild(style);
+        }
+
+        function chRenderStart(area) {
+            chInjectStyles();
+            const isAR = lang === 'AR';
+            if (!_challengesData || !_challengesData.length) {
+                area.innerHTML = `
+                <div class="ch-wrap">
+                    <div class="ch-empty">
+                        <i class="fa-solid fa-trophy"></i>
+                        <h3>${isAR?'لا توجد تحديات متاحة حالياً':'No challenges available right now'}</h3>
+                        <p>${isAR?'إدارة المنصة بتجهز أسئلة جديدة، تابعنا قريباً هيبقى في تحدي تقدر تلعبه وتربح عملات 🎯':"We're preparing new questions — check back soon to play and win coins 🎯"}</p>
+                    </div>
+                </div>`;
+                return;
+            }
+            const best = window._userData?.challengeBestCoins || 0;
+            const ladderHTML = _challengesData.map((c, i) => `
+                <div class="ch-ladder-row ${i===_challengesData.length-1?'last':''}">
+                    <span class="num">${isAR?'سؤال':'Q'} ${i+1}</span>
+                    <span class="val"><i class="fa-solid fa-coins"></i> ${c.coins||0}</span>
+                </div>`).join('');
+            area.innerHTML = `
+            <div class="ch-wrap">
+                <div class="ch-start">
+                    <div class="ch-start-badge"><i class="fa-solid fa-gamepad"></i> ${isAR?'لعبة تحدي المعلومات':'Knowledge Challenge'}</div>
+                    <h2>${isAR?'من سيربح العملات؟':'Who Wants to Win Coins?'}</h2>
+                    <p>${isAR?`جاوب على ${_challengesData.length} سؤال بالترتيب، وكل ما تكمل صح كل ما تكسب عملات أكتر. لو غلطت في سؤال، اللعبة تخلص وتاخد العملات اللي كسبتها لحد هناك.`:`Answer ${_challengesData.length} questions in order — the further you get, the more coins you win. Get one wrong and the game ends, keeping the coins you've already earned.`}</p>
+                    <div class="ch-ladder">${ladderHTML}</div>
+                    <button class="ch-start-btn" onclick="chStartGame()"><i class="fa-solid fa-play"></i> ${isAR?'ابدأ التحدي':'Start Challenge'}</button>
+                    ${best > 0 ? `<div class="ch-best">${isAR?'أفضل نتيجة ليك':'Your best score'}: <strong>${best} ${isAR?'عملة':'coins'}</strong></div>` : ''}
+                </div>
+            </div>`;
+        }
+
+        window.chStartGame = function() {
+            _chGameState = { index: 0, coinsSoFar: 0, locked: false, selected: null };
+            chRenderQuestion();
+        };
+
+        function chRenderQuestion() {
+            const area = document.getElementById('contentArea');
+            if (!area) return;
+            const isAR = lang === 'AR';
+            const st = _chGameState;
+            const q = _challengesData[st.index];
+            const letters = isAR ? ['أ','ب','ج','د'] : ['A','B','C','D'];
+            const options = isAR ? (q.optionsAR||[]) : (q.optionsEN||q.optionsAR||[]);
+            const qText = isAR ? q.questionAR : (q.questionEN || q.questionAR);
+
+            const optsHTML = options.map((opt, i) => `
+                <button class="ch-opt" id="chOpt${i}" onclick="chSelectOption(${i})">
+                    <span class="ltr">${letters[i]}</span> <span>${escapeHtml(opt)}</span>
+                </button>`).join('');
+
+            area.innerHTML = `
+            <div class="ch-wrap">
+                <div class="ch-top">
+                    <div class="ch-level">${isAR?'السؤال':'Question'} <span>${st.index+1}</span> / ${_challengesData.length}</div>
+                    <div class="ch-coins-pill"><i class="fa-solid fa-coins"></i> ${st.coinsSoFar} ${isAR?'عملة':'coins'}</div>
+                </div>
+                <div class="ch-question-card">
+                    <h3>${escapeHtml(qText)}</h3>
+                </div>
+                <div class="ch-options">${optsHTML}</div>
+                <div class="ch-actions-row">
+                    <button class="ch-lock-btn" id="chLockBtn" disabled onclick="chLockAnswer()">${isAR?'تأكيد الإجابة':'Lock In Answer'}</button>
+                </div>
+            </div>`;
+        }
+
+        window.chSelectOption = function(i) {
+            const st = _chGameState;
+            if (!st || st.locked) return;
+            st.selected = i;
+            document.querySelectorAll('.ch-opt').forEach((el, idx) => {
+                el.classList.toggle('selected', idx === i);
+            });
+            const lockBtn = document.getElementById('chLockBtn');
+            if (lockBtn) lockBtn.disabled = false;
+        };
+
+        window.chLockAnswer = function() {
+            const isAR = lang === 'AR';
+            const st = _chGameState;
+            if (!st || st.locked || st.selected === null) return;
+            st.locked = true;
+            const q = _challengesData[st.index];
+            const correct = q.correctIndex;
+            document.querySelectorAll('.ch-opt').forEach((el, idx) => {
+                el.classList.add('disabled');
+                el.onclick = null;
+                if (idx === correct) el.classList.add('correct');
+                else if (idx === st.selected) el.classList.add('wrong');
+            });
+            const lockBtn = document.getElementById('chLockBtn');
+            const isLast = st.index === _challengesData.length - 1;
+
+            if (st.selected === correct) {
+                st.coinsSoFar += (q.coins || 0);
+                if (lockBtn) {
+                    lockBtn.classList.remove('ch-lock-btn'); lockBtn.classList.add('ch-next-btn'); lockBtn.disabled = false;
+                    lockBtn.innerHTML = isLast
+                        ? `<i class="fa-solid fa-flag-checkered"></i> ${isAR?'إنهاء اللعبة':'Finish Game'}`
+                        : `<i class="fa-solid fa-arrow-left"></i> ${isAR?'السؤال التالي':'Next Question'}`;
+                    lockBtn.onclick = isLast ? chEndGame : window.chNextQuestion;
+                }
+            } else if (lockBtn) {
+                lockBtn.classList.remove('ch-lock-btn'); lockBtn.classList.add('ch-next-btn'); lockBtn.disabled = false;
+                lockBtn.innerHTML = `<i class="fa-solid fa-flag-checkered"></i> ${isAR?'عرض النتيجة':'See Result'}`;
+                lockBtn.onclick = chEndGame;
+            }
+        };
+
+        window.chNextQuestion = function() {
+            _chGameState.index += 1;
+            _chGameState.locked = false;
+            _chGameState.selected = null;
+            chRenderQuestion();
+        };
+
+        async function chEndGame() {
+            const area = document.getElementById('contentArea');
+            if (!area) return;
+            const isAR = lang === 'AR';
+            const st = _chGameState;
+            area.innerHTML = `<div style="text-align:center;padding:60px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin" style="font-size:22px;"></i></div>`;
+            let result = { isNewRecord: false, coinsAwarded: 0 };
+            try { result = await window._submitChallengeResult(st.coinsSoFar); }
+            catch(e) { console.error('submitChallengeResult error:', e); }
+
+            area.innerHTML = `
+            <div class="ch-wrap">
+                <div class="ch-end">
+                    <i class="fa-solid ${st.coinsSoFar>0?'fa-trophy':'fa-face-frown'} big" style="color:${st.coinsSoFar>0?'var(--gold3)':'var(--muted)'};"></i>
+                    <h2>${isAR?'انتهت الجولة':'Round Over'}</h2>
+                    <div class="ch-final-coins"><i class="fa-solid fa-coins"></i> ${st.coinsSoFar}</div>
+                    <p>${result.isNewRecord && result.coinsAwarded > 0
+                        ? (isAR?`رقم قياسي جديد! تمت إضافة ${result.coinsAwarded} عملة لرصيدك 🎉`:`New record! ${result.coinsAwarded} coins added to your balance 🎉`)
+                        : (isAR?'محاولة كويسة! جرب تاني عشان تكسر رقمك القياسي.':'Nice try! Play again to beat your best score.')}</p>
+                    <div class="ch-end-actions">
+                        <button class="ch-start-btn" onclick="chStartGame()"><i class="fa-solid fa-rotate-right"></i> ${isAR?'إعادة اللعب':'Play Again'}</button>
+                        <button class="ch-btn-outline" onclick="navigate('dashboard', document.getElementById('menuDash'))">${isAR?'رجوع للرئيسية':'Back to Dashboard'}</button>
+                    </div>
+                </div>
             </div>`;
         }
 
@@ -10456,6 +10836,14 @@
                         </div>
                         <i class="fa-solid fa-${isAR?'angle-left':'angle-right'} settings-hub-arrow"></i>
                     </div>
+                    <div class="settings-hub-item" onclick="goSettings('wallet')">
+                        <div class="settings-hub-icon"><i class="fa-solid fa-coins"></i></div>
+                        <div class="settings-hub-text">
+                            <div class="settings-hub-title">${isAR?'🪙 محفظة العملات':'🪙 Coin Wallet'}</div>
+                            <div class="settings-hub-desc">${isAR?`رصيدك الحالي: ${d.coins||0} عملة — استبدلها بشهور PRO`:`Your balance: ${d.coins||0} coins — redeem for PRO months`}</div>
+                        </div>
+                        <i class="fa-solid fa-${isAR?'angle-left':'angle-right'} settings-hub-arrow"></i>
+                    </div>
                     <div class="settings-hub-item" onclick="goSettings('invite')">
                         <div class="settings-hub-icon"><i class="fa-solid fa-user-plus"></i></div>
                         <div class="settings-hub-text">
@@ -10627,6 +11015,21 @@
                 return;
             }
 
+            /* ── COIN WALLET (earn/redeem ATLAS Coins) ── */
+            if (tab === 'wallet') {
+                area.innerHTML = `
+                <div class="page-header">
+                    <h2>${isAR?'🪙 محفظة العملات':'🪙 Coin Wallet'}</h2>
+                    <p>${isAR?'اجمع العملات من التحديات والدعوات، واستبدلها بشهور من ATLASYA PRO':'Earn coins from challenges and invites, and redeem them for ATLASYA PRO months'}</p>
+                </div>
+                ${backBtn}
+                <div id="walletRoot" style="margin-top:16px;">
+                    <div style="text-align:center;padding:50px 20px;color:var(--muted);"><div class="spinner" style="margin:0 auto;"></div></div>
+                </div>`;
+                renderWalletRoot();
+                return;
+            }
+
             /* ── INVITE FRIENDS (referral link) ── */
             if (tab === 'invite') {
                 const refLink = PLATFORM_BASE_URL + '?ref=' + (window._currentUid || '') + '#/dashboard';
@@ -10678,6 +11081,128 @@
         function selectSettingsLang(code) {
             if (lang !== code) toggleLang();
         }
+
+        /* ─── COIN WALLET UI ─── */
+        async function renderWalletRoot() {
+            const root = document.getElementById('walletRoot');
+            if (!root) return;
+            const isAR = lang === 'AR';
+            const d = window._userData || {};
+            let settings = DEFAULT_COIN_SETTINGS;
+            let txs = [];
+            try { settings = await window._loadCoinSettings(); } catch(e) {}
+            try { txs = await window._loadCoinTransactions(window._currentUid || null); } catch(e) {}
+            window._walletSettings = settings;
+
+            const root2 = document.getElementById('walletRoot');
+            if (!root2) return; // user navigated away while loading
+
+            const balance = d.coins || 0;
+            const earned = d.coinsEarnedTotal || 0;
+            const spent = d.coinsSpentTotal || 0;
+            const sym = settings.coinSymbol || '🪙';
+            const nf = (n) => (n||0).toLocaleString(isAR ? 'ar-EG' : 'en-US');
+
+            const tiersHTML = (settings.tiers || []).map((t, i) => {
+                const afford = balance >= t.coins;
+                const disabled = !afford || !settings.redemptionEnabled;
+                const monthsLabel = t.months === 1 ? (isAR?'شهر':'1 month') : (isAR?`${t.months} أشهر`:`${t.months} months`);
+                return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--gold3),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:16px;color:#0a0a0e;flex-shrink:0;"><i class="fa-solid fa-crown"></i></div>
+                        <div>
+                            <div style="font-size:13.5px;font-weight:800;">${isAR?`${monthsLabel} من ATLASYA PRO`:`${monthsLabel} of ATLASYA PRO`}</div>
+                            <div style="font-size:12px;color:var(--gold3);font-weight:700;">${nf(t.coins)} ${sym}</div>
+                        </div>
+                    </div>
+                    <button ${disabled?'disabled':''} onclick="openRedeemConfirm(${i})" style="display:flex;align-items:center;gap:6px;padding:9px 18px;border-radius:10px;border:none;font-size:12.5px;font-weight:800;font-family:'Tajawal',sans-serif;cursor:${disabled?'not-allowed':'pointer'};background:${disabled?'rgba(255,255,255,0.05)':'linear-gradient(135deg,var(--gold3),var(--gold2))'};color:${disabled?'var(--muted)':'#0a0a0e'};">
+                        <i class="fa-solid fa-gift"></i> ${isAR?'استبدال':'Redeem'}
+                    </button>
+                </div>`;
+            }).join('');
+
+            const txHTML = txs.length ? txs.map(tx => {
+                const isEarn = tx.type === 'earn';
+                const dateStr = tx.createdAt?.toDate ? tx.createdAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+                const reason = isAR ? (tx.reasonAR||'') : (tx.reasonEN||tx.reasonAR||'');
+                const statusBadge = tx.status === 'pending' ? `<span style="font-size:10px;color:var(--gold3);">(${isAR?'قيد المراجعة':'pending review'})</span>`
+                    : tx.status === 'rejected' ? `<span style="font-size:10px;color:#ff6b6b;">(${isAR?'مرفوض — تم رد العملات':'rejected — coins refunded'})</span>` : '';
+                return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;background:${isEarn?'rgba(30,122,52,0.12)':'rgba(220,50,50,0.1)'};display:flex;align-items:center;justify-content:center;color:${isEarn?'var(--g4)':'#ff6b6b'};font-size:13px;">
+                        <i class="fa-solid fa-${isEarn?'plus':'minus'}"></i>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:12.5px;font-weight:700;">${reason} ${statusBadge}</div>
+                        <div style="font-size:10.5px;color:var(--muted);">${dateStr}</div>
+                    </div>
+                    <div style="font-size:13px;font-weight:800;color:${isEarn?'var(--g4)':'#ff6b6b'};flex-shrink:0;">${isEarn?'+':'-'}${nf(tx.amount)} ${sym}</div>
+                </div>`;
+            }).join('') : `<div style="text-align:center;padding:20px;color:var(--muted);font-size:12.5px;">${isAR?'لا توجد عمليات بعد':'No transactions yet'}</div>`;
+
+            root2.innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+                <div class="report-stat-card"><div class="rs-icon"><i class="fa-solid fa-coins"></i></div><div class="rs-val">${nf(balance)}</div><div class="rs-label">${isAR?'رصيد العملات الحالي':'Current balance'}</div></div>
+                <div class="report-stat-card"><div class="rs-icon"><i class="fa-solid fa-arrow-trend-up"></i></div><div class="rs-val">${nf(earned)}</div><div class="rs-label">${isAR?'إجمالي العملات المكتسبة':'Total earned'}</div></div>
+                <div class="report-stat-card"><div class="rs-icon"><i class="fa-solid fa-arrow-trend-down"></i></div><div class="rs-val">${nf(spent)}</div><div class="rs-label">${isAR?'العملات المستخدمة':'Coins used'}</div></div>
+            </div>
+            <div class="form-card">
+                <h3><i class="fa-solid fa-gift" style="color:var(--gold3);margin-left:8px;"></i>${isAR?'🎁 استبدال العملات':'🎁 Redeem Coins'}</h3>
+                ${settings.redemptionEnabled ? '' : `<div style="padding:10px 14px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.22);border-radius:10px;color:#ff6b6b;font-size:12.5px;margin-bottom:12px;">${isAR?'الاستبدال متوقف مؤقتاً من إدارة المنصة':'Redemption is currently disabled by the platform admin'}</div>`}
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+                    ${tiersHTML || `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12.5px;">${isAR?'لا توجد باقات استبدال متاحة حالياً':'No redemption tiers available yet'}</div>`}
+                </div>
+            </div>
+            <div class="form-card" style="margin-top:16px;">
+                <h3><i class="fa-solid fa-receipt" style="color:var(--g4);margin-left:8px;"></i>${isAR?'سجل العمليات':'Transaction History'}</h3>
+                <div style="margin-top:6px;">${txHTML}</div>
+            </div>`;
+        }
+
+        window.openRedeemConfirm = function(tierIndex) {
+            const isAR = lang === 'AR';
+            const settings = window._walletSettings || DEFAULT_COIN_SETTINGS;
+            const tier = (settings.tiers || [])[tierIndex];
+            if (!tier) return;
+            const sym = settings.coinSymbol || '🪙';
+            const nf = (n) => (n||0).toLocaleString(isAR ? 'ar-EG' : 'en-US');
+            const monthsLabel = tier.months === 1 ? (isAR?'شهر':'1 month') : (isAR?`${tier.months} أشهر`:`${tier.months} months`);
+            const modal = document.createElement('div');
+            modal.id = 'redeemConfirmModal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;';
+            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+            modal.innerHTML = `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:380px;width:100%;padding:26px 22px;text-align:center;" onclick="event.stopPropagation()">
+                <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--gold3),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:24px;color:#0a0a0e;margin:0 auto 14px;"><i class="fa-solid fa-gift"></i></div>
+                <h3 style="font-size:15px;font-weight:800;margin-bottom:8px;">${isAR?'تأكيد الاستبدال':'Confirm Redemption'}</h3>
+                <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6;">${isAR?`هل تريد استبدال ${nf(tier.coins)} ${sym} مقابل ${monthsLabel} من ATLASYA PRO؟`:`Redeem ${nf(tier.coins)} ${sym} for ${monthsLabel} of ATLASYA PRO?`}</p>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="document.getElementById('redeemConfirmModal').remove()" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">${isAR?'إلغاء':'Cancel'}</button>
+                    <button id="redeemConfirmBtn" onclick="doRedeemTier(${tierIndex})" style="flex:1;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;font-size:13px;font-weight:800;font-family:'Tajawal',sans-serif;cursor:pointer;">${isAR?'تأكيد الاستبدال':'Confirm'}</button>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+        };
+
+        window.doRedeemTier = async function(tierIndex) {
+            const isAR = lang === 'AR';
+            const btn = document.getElementById('redeemConfirmBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="margin:0 auto;"></div>'; }
+            try {
+                const result = await window._redeemCoinTier(tierIndex);
+                document.getElementById('redeemConfirmModal')?.remove();
+                showToast(result.autoApprove
+                    ? (isAR?'🎉 تم الاستبدال وتفعيل PRO بنجاح':'🎉 Redeemed — PRO activated successfully')
+                    : (isAR?'✅ تم إرسال طلب الاستبدال لمراجعة الإدارة':'✅ Redemption request sent for admin review'));
+                if (window._accountTab === 'wallet') renderWalletRoot();
+            } catch(e) {
+                console.error('redeem error:', e);
+                let msg = isAR?'حدث خطأ أثناء الاستبدال':'An error occurred while redeeming';
+                if (e.code === 'insufficient') msg = isAR?'رصيدك من العملات غير كافٍ':'Insufficient coin balance';
+                if (e.code === 'disabled') msg = isAR?'الاستبدال متوقف حالياً':'Redemption is currently disabled';
+                showToast(msg, true);
+                if (btn) { btn.disabled = false; btn.innerHTML = isAR?'تأكيد الاستبدال':'Confirm'; }
+            }
+        };
 
         window.copyReferralLink = function() {
             const isAR = lang === 'AR';
