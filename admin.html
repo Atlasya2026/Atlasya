@@ -2887,6 +2887,9 @@
                     <button class="nav-item" id="menuAdminLibrary" onclick="navigate('adminlibrary', this)" style="display:none;">
                         <i class="fa-solid fa-book-bookmark"></i> <span id="menuAdminLibraryTxt">المكتبة الرقمية</span>
                     </button>
+                    <button class="nav-item" id="menuAdminTips" onclick="navigate('admintips', this)" style="display:none;">
+                        <i class="fa-solid fa-lightbulb"></i> <span id="menuAdminTipsTxt">نصيحة اليوم</span>
+                    </button>
                 </div>
             </div>
 
@@ -2903,11 +2906,8 @@
                     <button class="nav-item" id="menuAdminTools" onclick="navigate('admintools', this)" style="display:none;">
                         <i class="fa-solid fa-toolbox"></i> <span id="menuAdminToolsTxt">أدوات البرامج</span>
                     </button>
-                    <button class="nav-item" id="menuAdminTips" onclick="navigate('admintips', this)" style="display:none;">
-                        <i class="fa-solid fa-lightbulb"></i> <span id="menuAdminTipsTxt">نصيحة اليوم</span>
-                    </button>
-                    <button class="nav-item" id="menuAdminChallenges" onclick="navigate('adminchallenges', this)" style="display:none;">
-                        <i class="fa-solid fa-trophy"></i> <span id="menuAdminChallengesTxt">التحديات</span>
+                    <button class="nav-item" id="menuAdminDailyChallenges" onclick="navigate('admindailychallenges', this)" style="display:none;">
+                        <i class="fa-solid fa-calendar-check"></i> <span id="menuAdminDailyChallengesTxt">التحديات</span>
                     </button>
                     <button class="nav-item" id="menuJob" onclick="navigate('jobs', this)">
                         <i class="fa-solid fa-briefcase"></i> <span id="menuJobTxt">الوظائف</span>
@@ -2958,6 +2958,9 @@
                     </button>
                     <button class="nav-item" id="menuAdminCoins" onclick="navigate('admincoins', this)" style="display:none;">
                         <i class="fa-solid fa-coins"></i> <span id="menuAdminCoinsTxt">إعدادات نظام العملات</span>
+                    </button>
+                    <button class="nav-item" id="menuAdminWheel" onclick="navigate('adminwheel', this)" style="display:none;">
+                        <i class="fa-solid fa-dharmachakra"></i> <span id="menuAdminWheelTxt">عجلة الحظ والهدايا</span>
                     </button>
                     <button class="nav-item" id="menuAdminMentorship" onclick="navigate('adminmentorship', this)" style="display:none;">
                         <i class="fa-solid fa-user-tie"></i> <span id="menuAdminMentorshipTxt">حجوزات الاستشارات</span>
@@ -3503,23 +3506,31 @@
         await deleteDoc(doc(db, 'daily_tips', id));
     };
 
-    /* ─── ADMIN: CHALLENGES (Millionaire-style quiz game) ─── */
-    window._loadChallenges = async () => {
-        const q = query(collection(db, 'challenges'), orderBy('order', 'asc'));
-        const snap = await getDocs(q);
+    /* ─── ADMIN: DAILY & WEEKLY CHALLENGE (one scheduled question per calendar date) ─── */
+    window._loadDailyChallengeQs = async () => {
+        const snap = await getDocs(collection(db, 'daily_challenges'));
         return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     };
-    window._addChallenge = async (data) => {
-        await addDoc(collection(db, 'challenges'), { ...data, createdAt: serverTimestamp() });
+    window._addDailyChallengeQ = async (data) => {
+        await addDoc(collection(db, 'daily_challenges'), { ...data, createdAt: serverTimestamp() });
     };
-    window._updateChallenge = async (id, data) => {
-        await updateDoc(doc(db, 'challenges', id), data);
+    window._updateDailyChallengeQ = async (id, data) => {
+        await updateDoc(doc(db, 'daily_challenges', id), data);
     };
-    window._deleteChallenge = async (id) => {
-        await deleteDoc(doc(db, 'challenges', id));
+    window._deleteDailyChallengeQ = async (id) => {
+        await deleteDoc(doc(db, 'daily_challenges', id));
     };
-    window._reorderChallenges = async (idsInOrder) => {
-        await Promise.all(idsInOrder.map((id, i) => updateDoc(doc(db, 'challenges', id), { order: i })));
+    const DEFAULT_WEEKLY_CHALLENGE_SETTINGS = { enabled: true, bonusCoins: 100 };
+    window.DEFAULT_WEEKLY_CHALLENGE_SETTINGS = DEFAULT_WEEKLY_CHALLENGE_SETTINGS;
+    window._loadWeeklyChallengeSettings = async () => {
+        try {
+            const snap = await getDoc(doc(db, 'settings', 'weeklyChallenge'));
+            if (snap.exists()) return { ...DEFAULT_WEEKLY_CHALLENGE_SETTINGS, ...snap.data() };
+        } catch(e) { console.error('loadWeeklyChallengeSettings error:', e); }
+        return DEFAULT_WEEKLY_CHALLENGE_SETTINGS;
+    };
+    window._saveWeeklyChallengeSettings = async (data) => {
+        await setDoc(doc(db, 'settings', 'weeklyChallenge'), data, { merge: true });
     };
 
     /* ─── COIN WALLET SYSTEM (ATLAS Coins) — admin config + redemption review ─── */
@@ -3552,6 +3563,67 @@
 
     window._saveCoinSettings = async (data) => {
         await setDoc(doc(db, 'settings', 'coins'), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+    };
+
+    /* ─── FORTUNE WHEEL & GIFT WHEEL (admin) ─── */
+    window.DEFAULT_WHEEL_CONFIG = {
+        enabled: true,
+        cooldownHours: 24,
+        testModeEnabled: false,
+        testModeEmail: '',
+        testModeUid: '',
+        basic: {
+            coin1: { amount: 10, weight: 20 },
+            coin2: { amount: 25, weight: 15 },
+            coin3: { amount: 50, weight: 8 },
+            extraSpin: { weight: 12 },
+            gift: { weight: 10 },
+            lose1: { weight: 20 },
+            lose2: { weight: 15 }
+        },
+        gift: {
+            promonth: { months: 1, weight: 10 },
+            tempfeature: { hours: 24, featureAR: 'مكتبة GIS الرقمية كاملة', featureEN: 'Full digital GIS library', weight: 25 },
+            discount: { percent: 10, requiredMonths: 6, validDays: 14, weight: 35 },
+            boost: { multiplier: 2, hours: 24, weight: 30 }
+        }
+    };
+    window._loadWheelConfig = async () => {
+        try {
+            const snap = await getDoc(doc(db, 'settings', 'wheel'));
+            if (snap.exists()) {
+                const d = snap.data();
+                return {
+                    enabled: d.enabled !== false,
+                    cooldownHours: d.cooldownHours || 24,
+                    testModeEnabled: d.testModeEnabled === true,
+                    testModeEmail: d.testModeEmail || '',
+                    testModeUid: d.testModeUid || '',
+                    basic: { ...window.DEFAULT_WHEEL_CONFIG.basic, ...(d.basic || {}) },
+                    gift: { ...window.DEFAULT_WHEEL_CONFIG.gift, ...(d.gift || {}) }
+                };
+            }
+        } catch(e) { console.error('loadWheelConfig error:', e); }
+        return JSON.parse(JSON.stringify(window.DEFAULT_WHEEL_CONFIG));
+    };
+    window._saveWheelConfig = async (data) => {
+        await setDoc(doc(db, 'settings', 'wheel'), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+    };
+    window._loadDiscountCodes = async () => {
+        const q = query(collection(db, 'discount_codes'), orderBy('createdAt', 'desc'));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    };
+    window._markDiscountCodeUsed = async (code) => {
+        await updateDoc(doc(db, 'discount_codes', code), { used: true, usedAt: serverTimestamp() });
+    };
+    window._markDiscountCodeUnused = async (code) => {
+        await updateDoc(doc(db, 'discount_codes', code), { used: false, usedAt: null });
+    };
+    window._loadWheelSpinLog = async (n) => {
+        const q = query(collection(db, 'wheel_spins'), orderBy('createdAt', 'desc'), limit(n || 50));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     };
 
     window._loadCoinRedemptionRequests = async () => {
@@ -3598,6 +3670,23 @@
         await addDoc(collection(db, 'coin_transactions'), {
             userId: uid, type: 'earn', amount: coins,
             reasonAR: 'رد عملات — تم رفض طلب الاستبدال', reasonEN: 'Coins refunded — redemption request rejected',
+            createdAt: serverTimestamp()
+        });
+    };
+
+    // Manually adjusts a student's coin balance from the admin panel and logs the transaction.
+    // type must be 'earn' (add) or 'spend' (deduct). Exposed on window since the coin-management
+    // UI code lives in a later classic <script> block that can't see these module-scoped consts.
+    window._adjustUserCoinsManual = async (uid, amount, type) => {
+        const delta = type === 'earn' ? amount : -amount;
+        await updateDoc(doc(db, 'users', uid), {
+            coins: increment(delta),
+            ...(type === 'earn' ? { coinsEarnedTotal: increment(amount) } : { coinsSpentTotal: increment(amount) })
+        });
+        await addDoc(collection(db, 'coin_transactions'), {
+            userId: uid, type, amount,
+            reasonAR: type === 'earn' ? 'إضافة عملات يدوياً من الإدارة' : 'خصم عملات يدوياً من الإدارة',
+            reasonEN: type === 'earn' ? 'Coins added manually by admin' : 'Coins deducted manually by admin',
             createdAt: serverTimestamp()
         });
     };
@@ -4060,6 +4149,24 @@
     window._loadAllUsers = async () => {
         const snap = await getDocs(collection(db, 'users'));
         return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    };
+
+    // Sums coin_transactions specifically tagged as referral rewards, grouped by userId.
+    // More reliable than the `referralCoinsEarned` field alone, since that field was only
+    // added at a certain point — older referrals may only be traceable via their logged
+    // transaction record (or may predate transaction logging entirely and have neither).
+    window._loadReferralCoinsByUser = async () => {
+        const map = {};
+        try {
+            const q = query(collection(db, 'coin_transactions'), where('reasonEN', '==', 'Reward for inviting a new friend'));
+            const snap = await getDocs(q);
+            snap.docs.forEach(d => {
+                const data = d.data();
+                if (!data.userId) return;
+                map[data.userId] = (map[data.userId] || 0) + (data.amount || 0);
+            });
+        } catch(e) { console.error('_loadReferralCoinsByUser error:', e); }
+        return map;
     };
 
     window._deleteUserData = async (uid) => {
@@ -4860,12 +4967,13 @@
         jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
         community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
         account: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
-        adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro', admincoins: 'menuAdminCoins',
+        adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro', admincoins: 'menuAdminCoins', adminwheel: 'menuAdminWheel',
         adminreferrals: 'menuAdminReferrals',
         adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
         admincourses: 'menuAdminCourses', adminlibrary: 'menuAdminLibrary',
         adminplaylists: 'menuAdminPlaylists', admindatasets: 'menuAdminDatasets',
-        admintools: 'menuAdminTools', admintips: 'menuAdminTips', adminchallenges: 'menuAdminChallenges'
+        admintools: 'menuAdminTools', admintips: 'menuAdminTips',
+        admindailychallenges: 'menuAdminDailyChallenges'
     };
 
     /* Reflects the current page in the URL as #/page-name so every page has
@@ -4923,6 +5031,7 @@
             adminreferrals: lang==='AR'?'دعوة الأصدقاء':'Invite Friends',
             adminpro:      lang==='AR'?'طلبات Pro':'Pro Requests',
             admincoins:    lang==='AR'?'إعدادات نظام العملات':'Coin System Settings',
+            adminwheel:    lang==='AR'?'عجلة الحظ والهدايا':'Fortune & Gift Wheel',
             adminportfolio: lang==='AR'?'خرائط الطلبة':'Student Maps',
             admincourses: lang==='AR'?'إدارة الكورسات':'Manage Courses',
             adminlibrary: lang==='AR'?'إدارة المكتبة الرقمية':'Manage Digital Library',
@@ -4930,7 +5039,7 @@
             admindatasets: lang==='AR'?'إدارة مكتبة البيانات المكانية':'Manage Spatial Data Library',
             admintools: lang==='AR'?'إدارة أدوات البرامج':'Manage Software Tools',
             admintips: lang==='AR'?'إدارة نصيحة اليوم':'Manage Daily Tips',
-            adminchallenges: lang==='AR'?'إدارة التحديات':'Manage Challenges',
+            admindailychallenges: lang==='AR'?'إدارة التحدي اليومي والأسبوعي':'Manage Daily & Weekly Challenge',
             adminmentorship: lang==='AR'?'حجوزات الاستشارات':'Consultation Bookings',
             portfolio:     lang==='AR'?'خرائط الطلبة':'Student Maps',
             monthlyreport: lang==='AR'?'تقريري الشهري':'My Monthly Report',
@@ -4967,6 +5076,7 @@
         else if (page === 'adminreferrals') renderAdminReferrals(area);
         else if (page === 'adminpro') renderAdminProRequests(area);
         else if (page === 'admincoins') renderAdminCoinSettings(area);
+        else if (page === 'adminwheel') renderAdminWheelSettings(area);
         else if (page === 'adminportfolio') renderAdminPortfolio(area);
         else if (page === 'admincourses') renderAdminCourses(area);
         else if (page === 'adminlibrary') renderAdminLibrary(area);
@@ -4974,7 +5084,7 @@
         else if (page === 'admindatasets') renderAdminDatasets(area);
         else if (page === 'admintools') renderAdminTools(area);
         else if (page === 'admintips') renderAdminTips(area);
-        else if (page === 'adminchallenges') renderAdminChallenges(area);
+        else if (page === 'admindailychallenges') renderAdminDailyChallenges(area);
         else if (page === 'adminmentorship') renderAdminMentorship(area);
         else if (page === 'portfolio') renderPortfolio(area);
         else if (page === 'monthlyreport') renderMonthlyReport(area);
@@ -7951,17 +8061,33 @@
     function renderAdminMembers(area) {
         area = area || document.getElementById('contentArea');
         const isAR = lang === 'AR';
+        window._memberFilter = window._memberFilter || 'all';
+        window._memberSortAZ = window._memberSortAZ || false;
         area.innerHTML = `
         <div class="page-header">
             <h2>${isAR ? 'قائمة الأعضاء' : 'Members List'}</h2>
             <p>${isAR ? 'إدارة جميع أعضاء المنصة' : 'Manage all platform members'}</p>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+            <div style="position:relative;flex:1;min-width:220px;">
+                <i class="fa-solid fa-magnifying-glass" style="position:absolute;top:50%;transform:translateY(-50%);${isAR?'right':'left'}:14px;color:var(--muted);font-size:12px;pointer-events:none;"></i>
+                <input type="text" id="memberSearchInput" value="${(window._memberSearch||'').replace(/"/g,'&quot;')}" placeholder="${isAR?'ابحث بالاسم أو البريد الإلكتروني أو رقم الهاتف':'Search by name, email, or phone'}" oninput="adminSetMemberSearch(this.value)" style="width:100%;padding:9px 14px;padding-${isAR?'right':'left'}:34px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-family:'Tajawal',sans-serif;font-size:12.5px;">
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
             <h4 style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px;margin:0;">
                 <i class="fa-solid fa-list" style="color:var(--g3);"></i>
                 ${isAR ? 'جميع الأعضاء' : 'All Members'}
                 <span id="memberCountBadge" style="background:var(--g3);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;"></span>
             </h4>
+            <select id="memberPlanFilter" onchange="adminSetMemberFilter(this.value)" style="padding:7px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-family:'Tajawal',sans-serif;font-size:12px;cursor:pointer;">
+                <option value="all" ${window._memberFilter==='all'?'selected':''}>${isAR?'كل الطلبة':'All students'}</option>
+                <option value="basic" ${window._memberFilter==='basic'?'selected':''}>${isAR?'Basic فقط':'Basic only'}</option>
+                <option value="pro" ${window._memberFilter==='pro'?'selected':''}>${isAR?'Pro فقط':'Pro only'}</option>
+            </select>
+            <button onclick="adminToggleMemberSort()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:${window._memberSortAZ?'rgba(212,160,23,0.18)':'rgba(255,255,255,0.04)'};border:1px solid ${window._memberSortAZ?'rgba(212,160,23,0.4)':'var(--border)'};border-radius:10px;color:${window._memberSortAZ?'var(--gold3)':'var(--muted)'};font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;">
+                <i class="fa-solid fa-arrow-down-a-z"></i> ${isAR?'ترتيب أبجدي':'Sort A-Z'}
+            </button>
             <button onclick="adminLoadMembers()" style="margin-right:auto;display:flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:10px;color:var(--gold3);font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;" onmouseover="this.style.background='rgba(212,160,23,0.22)'" onmouseout="this.style.background='rgba(212,160,23,0.1)'">
                 <i class="fa-solid fa-rotate"></i> ${isAR ? 'تحديث' : 'Refresh'}
             </button>
@@ -7971,6 +8097,23 @@
         </div>`;
         setTimeout(() => adminLoadMembers(), 100);
     }
+
+    window.adminSetMemberFilter = function(val) {
+        window._memberFilter = val;
+        adminLoadMembers();
+    };
+    // Debounced live search across name / email / phone — re-filters without disturbing the input's focus,
+    // since adminLoadMembers only ever replaces the #membersList div, never the search input itself.
+    window._memberSearchDebounce = null;
+    window.adminSetMemberSearch = function(val) {
+        window._memberSearch = val;
+        clearTimeout(window._memberSearchDebounce);
+        window._memberSearchDebounce = setTimeout(() => adminLoadMembers(), 200);
+    };
+    window.adminToggleMemberSort = function() {
+        window._memberSortAZ = !window._memberSortAZ;
+        renderAdminMembers();
+    };
 
     /* ─── ADMIN: REFERRALS / INVITE FRIENDS ─── */
     function renderAdminReferrals(area) {
@@ -7983,7 +8126,7 @@
         </div>
         <div id="referralsSummary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px;">
             <div class="report-stat-card"><div class="rs-icon"><i class="fa-solid fa-user-group"></i></div><div class="rs-val" id="refSumInvites">—</div><div class="rs-label">${isAR?'إجمالي الدعوات الناجحة':'Total successful invites'}</div></div>
-            <div class="report-stat-card"><div class="rs-icon"><i class="fa-solid fa-coins"></i></div><div class="rs-val" id="refSumCoins">—</div><div class="rs-label">${isAR?'إجمالي العملات الممنوحة':'Total coins granted'}</div></div>
+            <div class="report-stat-card"><div class="rs-icon"><i class="fa-solid fa-coins"></i></div><div class="rs-val" id="refSumCoins">—</div><div class="rs-label">${isAR?'عملات دعوة الأصدقاء فقط':'Coins from invites only'}</div></div>
             <div class="report-stat-card"><div class="rs-icon"><i class="fa-solid fa-share-nodes"></i></div><div class="rs-val" id="refSumSharers">—</div><div class="rs-label">${isAR?'عدد الطلاب الداعين':'Students who invited someone'}</div></div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
@@ -8009,13 +8152,17 @@
         if (!list) return;
         list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
         try {
-            const users = await window._loadAllUsers();
+            const [users, referralCoinsByUser] = await Promise.all([
+                window._loadAllUsers(),
+                window._loadReferralCoinsByUser()
+            ]);
+            const coinsFor = (u) => Math.max(referralCoinsByUser[u.uid] || 0, u.referralCoinsEarned || 0);
             const inviters = users
                 .filter(u => (u.referralCount || 0) > 0)
                 .sort((a, b) => (b.referralCount || 0) - (a.referralCount || 0));
 
             const totalInvites = users.reduce((sum, u) => sum + (u.referralCount || 0), 0);
-            const totalCoins = users.reduce((sum, u) => sum + (u.coins || 0), 0);
+            const totalCoins = users.reduce((sum, u) => sum + coinsFor(u), 0);
             const sumInvitesEl = document.getElementById('refSumInvites');
             const sumCoinsEl = document.getElementById('refSumCoins');
             const sumSharersEl = document.getElementById('refSumSharers');
@@ -8055,8 +8202,8 @@
                             <div style="font-size:9px;color:var(--muted);">${isAR?'دعوات':'invites'}</div>
                         </div>
                         <div style="text-align:center;padding:6px 12px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;">
-                            <div style="font-size:13px;font-weight:800;color:var(--gold3);">${u.coins||0}</div>
-                            <div style="font-size:9px;color:var(--muted);">${isAR?'عملة':'coins'}</div>
+                            <div style="font-size:13px;font-weight:800;color:var(--gold3);">${coinsFor(u)}</div>
+                            <div style="font-size:9px;color:var(--muted);">${isAR?'عملة دعوة':'referral coins'}</div>
                         </div>
                     </div>
                 </div>`;
@@ -8108,6 +8255,19 @@
             <div style="text-align:center;padding:40px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
         </div>
         <div class="form-card" style="margin-top:16px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+                <h3 style="margin:0;"><i class="fa-solid fa-user-pen" style="color:var(--gold3);margin-left:8px;"></i>${isAR?'إدارة رصيد عملات الطلاب':'Manage Student Coin Balance'}</h3>
+            </div>
+            <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;">${isAR?'ابحث عن الطالب ببريده الإلكتروني المسجل، ثم أضف أو اخصم أي عدد من العملات من رصيده.':"Search for a student by their registered email, then add or deduct any amount of coins from their balance."}</p>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <input type="email" id="coinMgmtEmail" placeholder="${isAR?'بريد الطالب الإلكتروني':"Student's email"}" style="flex:1;min-width:220px;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-family:'Tajawal',sans-serif;font-size:13px;direction:ltr;" onkeydown="if(event.key==='Enter'){event.preventDefault();adminCoinMgmtSearch();}">
+                <button onclick="adminCoinMgmtSearch()" style="display:flex;align-items:center;gap:6px;padding:9px 18px;background:linear-gradient(135deg,var(--gold3),var(--gold2));border:none;border-radius:9px;color:#000;font-size:12.5px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                    <i class="fa-solid fa-magnifying-glass"></i> ${isAR?'بحث':'Search'}
+                </button>
+            </div>
+            <div id="coinMgmtResult" style="margin-top:14px;"></div>
+        </div>
+        <div class="form-card" style="margin-top:16px;">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
                 <h3 style="margin:0;"><i class="fa-solid fa-clock-rotate-left" style="color:var(--gold3);margin-left:8px;"></i>${isAR?'طلبات الاستبدال قيد المراجعة':'Pending Redemption Requests'}</h3>
                 <span id="coinReqCountBadge" style="background:var(--gold3);color:#0a0a0e;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;"></span>
@@ -8124,6 +8284,95 @@
         renderCoinSettingsForm();
         adminLoadCoinRequests();
     }
+
+    /* ─── ADMIN: MANUAL COIN BALANCE MANAGEMENT (search a student by email, add/remove coins) ─── */
+    window.adminCoinMgmtSearch = async function() {
+        const isAR = lang === 'AR';
+        const emailInput = document.getElementById('coinMgmtEmail');
+        const resultEl = document.getElementById('coinMgmtResult');
+        const email = (emailInput?.value || '').trim().toLowerCase();
+        if (!resultEl) return;
+        if (!email) { showToast(isAR?'من فضلك أدخل البريد الإلكتروني':'Please enter an email', true); return; }
+        resultEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+        try {
+            const users = await window._loadAllUsers();
+            window._adminUsersCache = users;
+            const u = users.find(x => (x.email || '').trim().toLowerCase() === email);
+            if (!u) {
+                resultEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;"><i class="fa-solid fa-user-slash" style="display:block;font-size:22px;opacity:0.3;margin-bottom:8px;"></i>${isAR?'لا يوجد طالب مسجل بهذا البريد الإلكتروني':'No registered student found with this email'}</div>`;
+                return;
+            }
+            window._coinMgmtUid = u.uid;
+            renderCoinMgmtResult(u);
+        } catch(e) {
+            console.error('adminCoinMgmtSearch error:', e);
+            resultEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">${(isAR?'حدث خطأ أثناء البحث: ':'Search error: ')}${e?.message || e}</div>`;
+        }
+    };
+
+    function renderCoinMgmtResult(u) {
+        const isAR = lang === 'AR';
+        const resultEl = document.getElementById('coinMgmtResult');
+        if (!resultEl) return;
+        const fullName = ((u.firstName||'') + ' ' + (u.lastName||'')).trim() || 'User';
+        const letter = fullName[0].toUpperCase();
+        const hasImg = !!(u.profileImg);
+        const avatarBg = hasImg ? `background-image:url('${u.profileImg}');background-size:cover;background-position:center;` : `background:linear-gradient(135deg,var(--g2),var(--g4));`;
+        resultEl.innerHTML = `
+            <div style="display:flex;align-items:center;gap:12px;padding:14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;">
+                <div style="width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff;border:2px solid rgba(212,160,23,0.4);${avatarBg}">${hasImg?'':letter}</div>
+                <div style="flex:1;min-width:160px;">
+                    <div style="font-weight:700;font-size:13.5px;">${fullName}</div>
+                    <div style="font-size:11px;color:var(--muted);direction:ltr;text-align:${isAR?'right':'left'};">${u.email||''}</div>
+                </div>
+                <div style="text-align:center;padding:6px 14px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;">
+                    <div id="coinMgmtBalance" style="font-size:15px;font-weight:800;color:var(--gold3);">${u.coins||0}</div>
+                    <div style="font-size:9px;color:var(--muted);">${isAR?'الرصيد الحالي':'current balance'}</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;">
+                <input type="number" min="1" id="coinMgmtAmount" value="100" style="width:130px;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-family:'Tajawal',sans-serif;font-size:13px;">
+                <button onclick="adminApplyCoinAdjustment(1)" style="display:flex;align-items:center;gap:6px;padding:9px 16px;background:rgba(39,163,70,0.12);border:1px solid rgba(39,163,70,0.3);border-radius:9px;color:var(--green4);font-weight:700;font-size:12.5px;cursor:pointer;font-family:'Tajawal',sans-serif;">
+                    <i class="fa-solid fa-plus"></i> ${isAR?'إضافة عملات':'Add coins'}
+                </button>
+                <button onclick="adminApplyCoinAdjustment(-1)" style="display:flex;align-items:center;gap:6px;padding:9px 16px;background:rgba(220,50,50,0.1);border:1px solid rgba(220,50,50,0.3);border-radius:9px;color:#ff6b6b;font-weight:700;font-size:12.5px;cursor:pointer;font-family:'Tajawal',sans-serif;">
+                    <i class="fa-solid fa-minus"></i> ${isAR?'خصم عملات':'Remove coins'}
+                </button>
+            </div>`;
+    }
+
+    window.adminApplyCoinAdjustment = async function(sign) {
+        const isAR = lang === 'AR';
+        const uid = window._coinMgmtUid;
+        if (!uid) return;
+        const amtInput = document.getElementById('coinMgmtAmount');
+        const amount = parseInt(amtInput?.value, 10);
+        if (!amount || amount <= 0) { showToast(isAR?'أدخل عدد صحيح أكبر من صفر':'Enter a valid positive amount', true); return; }
+        try {
+            const users = window._adminUsersCache || await window._loadAllUsers();
+            const u = users.find(x => x.uid === uid);
+            const currentBalance = u?.coins || 0;
+            let appliedAmount = amount;
+            if (sign < 0 && amount > currentBalance) {
+                appliedAmount = currentBalance;
+            }
+            if (appliedAmount <= 0) { showToast(isAR?'رصيد الطالب صفر بالفعل':'Student balance is already zero', true); return; }
+            await window._adjustUserCoinsManual(uid, appliedAmount, sign > 0 ? 'earn' : 'spend');
+            showToast(sign > 0
+                ? (isAR ? `✓ تم إضافة ${appliedAmount} عملة` : `✓ Added ${appliedAmount} coins`)
+                : (isAR ? `✓ تم خصم ${appliedAmount} عملة` : `✓ Deducted ${appliedAmount} coins`));
+
+            // Refresh cache + result card + members list (if visible)
+            const freshUsers = await window._loadAllUsers();
+            window._adminUsersCache = freshUsers;
+            const freshUser = freshUsers.find(x => x.uid === uid);
+            if (freshUser) renderCoinMgmtResult(freshUser);
+            if (document.getElementById('membersList')) adminLoadMembers();
+        } catch(e) {
+            console.error('adminApplyCoinAdjustment error:', e);
+            showToast((isAR?'خطأ: ':'Error: ') + (e?.message || e?.code || String(e)), true);
+        }
+    };
 
     function renderCoinSettingsForm() {
         const root = document.getElementById('coinSettingsRoot');
@@ -8310,6 +8559,291 @@
             console.error('reject error:', e);
             showToast(isAR?'حدث خطأ أثناء الرفض':'An error occurred while rejecting', true);
             if (row) row.style.opacity = '1';
+        }
+    };
+
+    /* ─── ADMIN: FORTUNE WHEEL & GIFT WHEEL SETTINGS ─── */
+    async function renderAdminWheelSettings(area) {
+        area = area || document.getElementById('contentArea');
+        const isAR = lang === 'AR';
+        area.innerHTML = `
+        <div class="page-header">
+            <h2>${isAR?'🎡 عجلة الحظ وعجلة الهدايا':'🎡 Fortune Wheel & Gift Wheel'}</h2>
+            <p>${isAR?'تحكم كامل في المكافآت، احتمالية كل خانة، مدة المحاولة اليومية، ومدة تفعيل الهدايا':'Full control over rewards, each slot\'s odds, the daily attempt cooldown, and gift durations'}</p>
+        </div>
+        <div id="wheelSettingsRoot">
+            <div style="text-align:center;padding:40px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
+        </div>
+        <div class="form-card" style="margin-top:16px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                <h3 style="margin:0;"><i class="fa-solid fa-ticket" style="color:var(--gold3);margin-left:8px;"></i>${isAR?'أكواد الخصم':'Discount Codes'}</h3>
+                <button onclick="adminLoadDiscountCodes()" style="margin-right:auto;display:flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:10px;color:var(--gold3);font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                    <i class="fa-solid fa-rotate"></i> ${isAR?'تحديث':'Refresh'}
+                </button>
+            </div>
+            <div id="wheelCodesList" style="display:flex;flex-direction:column;gap:8px;">
+                <div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
+            </div>
+        </div>
+        <div class="form-card" style="margin-top:16px;">
+            <h3><i class="fa-solid fa-list" style="color:var(--g4);margin-left:8px;"></i>${isAR?'آخر نتائج العجلة':'Recent Wheel Spins'}</h3>
+            <div id="wheelSpinLogList" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
+                <div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
+            </div>
+        </div>`;
+        try { window._wheelSettingsDraft = await window._loadWheelConfig(); }
+        catch(e) { window._wheelSettingsDraft = JSON.parse(JSON.stringify(window.DEFAULT_WHEEL_CONFIG)); }
+        renderWheelSettingsForm();
+        adminLoadDiscountCodes();
+        adminLoadWheelSpinLog();
+    }
+
+    const WHEEL_BASIC_SLOT_LABELS_AR = { coin1:'عملات (خانة 1)', coin2:'عملات (خانة 2)', coin3:'عملات (خانة 3)', extraSpin:'لفة إضافية', gift:'هدية مفاجأة', lose1:'حاول مرة أخرى', lose2:'حظ أوفر في المرة القادمة' };
+    const WHEEL_BASIC_SLOT_LABELS_EN = { coin1:'Coins (slot 1)', coin2:'Coins (slot 2)', coin3:'Coins (slot 3)', extraSpin:'Extra Spin', gift:'Surprise Gift', lose1:'Try Again', lose2:'Better Luck Next Time' };
+    const WHEEL_BASIC_ORDER = ['coin1','coin2','coin3','extraSpin','gift','lose1','lose2'];
+    const WHEEL_GIFT_ORDER = ['promonth','tempfeature','discount','boost'];
+
+    function renderWheelSettingsForm() {
+        const root = document.getElementById('wheelSettingsRoot');
+        if (!root) return;
+        const isAR = lang === 'AR';
+        const s = window._wheelSettingsDraft || JSON.parse(JSON.stringify(window.DEFAULT_WHEEL_CONFIG));
+        root.innerHTML = `
+        <div class="form-card">
+            <h3><i class="fa-solid fa-sliders" style="color:var(--g3);margin-left:8px;"></i>${isAR?'الإعدادات العامة':'General Settings'}</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>${isAR?'مدة المحاولة اليومية (ساعة)':'Daily attempt cooldown (hours)'}</label>
+                    <input type="number" min="1" id="ws_cooldown" value="${s.cooldownHours||24}">
+                </div>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-top:12px;">
+                <input type="checkbox" id="ws_enabled" ${s.enabled!==false?'checked':''}> ${isAR?'تفعيل عجلة الحظ للطلاب':'Enable the wheel for students'}
+            </label>
+        </div>
+
+        <div class="form-card" style="margin-top:16px;">
+            <h3><i class="fa-solid fa-flask" style="color:var(--g3);margin-left:8px;"></i>${isAR?'وضع الاختبار':'Test Mode'}</h3>
+            <p style="font-size:11.5px;color:var(--muted);margin-bottom:12px;">${isAR?'فعّل ده وحط الـ UID بتاع حسابك اللي بتختبر بيه، هيقدر يلف العجلة براحته من غير انتظار 24 ساعة — وباقي الطلاب هيفضلوا على مدة الانتظار العادية زي ماهي':'Turn this on and enter the UID of the account you\'re testing with — that one account can spin any time with no 24h wait, while every other student keeps the normal cooldown untouched'}</p>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:12px;">
+                <input type="checkbox" id="ws_testmode_enabled" ${s.testModeEnabled?'checked':''}> ${isAR?'تفعيل وضع الاختبار (تجاهل الانتظار لحساب واحد بس)':'Enable test mode (bypass cooldown for one account only)'}
+            </label>
+            <div class="form-group">
+                <label>${isAR?'إيميل حساب الاختبار':'Test account email'}</label>
+                <input type="email" id="ws_testmode_email" value="${s.testModeEmail||''}" placeholder="${isAR?'إيميل حساب الطالب اللي هتختبر بيه':'The student account email you\'ll test with'}" style="direction:ltr;text-align:left;">
+            </div>
+        </div>
+
+        <div class="form-card" style="margin-top:16px;">
+            <h3><i class="fa-solid fa-dharmachakra" style="color:var(--gold3);margin-left:8px;"></i>${isAR?'خانات عجلة الحظ الأساسية (7 خانات)':'Basic Wheel Slots (7 slots)'}</h3>
+            <p style="font-size:11.5px;color:var(--muted);margin-bottom:12px;">${isAR?'الاحتمالية = وزن الخانة ÷ مجموع كل الأوزان. زوّد الوزن لخانة عشان تزيد فرصتها':'Odds = this slot\'s weight ÷ the sum of all weights. Raise a slot\'s weight to raise its chance'}</p>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                ${WHEEL_BASIC_ORDER.map(k => {
+                    const slot = s.basic[k] || {};
+                    const label = isAR ? WHEEL_BASIC_SLOT_LABELS_AR[k] : WHEEL_BASIC_SLOT_LABELS_EN[k];
+                    const hasAmount = k === 'coin1' || k === 'coin2' || k === 'coin3';
+                    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:140px;font-size:12.5px;font-weight:700;">${label}</div>
+                        ${hasAmount ? `<div style="min-width:100px;"><label style="font-size:10px;color:var(--muted);">${isAR?'عدد العملات':'Coins'}</label><input type="number" min="1" class="ws_basic_amount" data-key="${k}" value="${slot.amount||10}" style="width:100%;"></div>` : ''}
+                        <div style="min-width:100px;"><label style="font-size:10px;color:var(--muted);">${isAR?'الوزن (الاحتمالية)':'Weight (odds)'}</label><input type="number" min="0" class="ws_basic_weight" data-key="${k}" value="${slot.weight||0}" style="width:100%;"></div>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>
+
+        <div class="form-card" style="margin-top:16px;">
+            <h3><i class="fa-solid fa-gift" style="color:var(--gold3);margin-left:8px;"></i>${isAR?'خانات عجلة الهدايا (4 خانات)':'Gift Wheel Slots (4 slots)'}</h3>
+            <p style="font-size:11.5px;color:var(--muted);margin-bottom:12px;">${isAR?'تفتح هذه العجلة تلقائياً لما الطالب يوقف على 🎁 في العجلة الأساسية':'This wheel opens automatically when a student lands on 🎁 on the basic wheel'}</p>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="padding:12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;">
+                    <div style="font-size:12.5px;font-weight:800;margin-bottom:8px;">👑 ${isAR?'اشتراك ATLASYA PRO مجاني':'Free ATLASYA PRO subscription'}</div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>${isAR?'عدد الشهور':'Months'}</label><input type="number" min="1" id="ws_gift_promonth_months" value="${s.gift.promonth?.months||1}"></div>
+                        <div class="form-group"><label>${isAR?'الوزن (الاحتمالية)':'Weight (odds)'}</label><input type="number" min="0" id="ws_gift_promonth_weight" value="${s.gift.promonth?.weight||10}"></div>
+                    </div>
+                </div>
+                <div style="padding:12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;">
+                    <div style="font-size:12.5px;font-weight:800;margin-bottom:8px;">🔓 ${isAR?'فتح ميزة PRO مؤقتاً':'Temporary PRO feature unlock'}</div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>${isAR?'اسم الميزة (عربي)':'Feature name (Arabic)'}</label><input type="text" id="ws_gift_tf_ar" value="${escapeHtmlAC(s.gift.tempfeature?.featureAR||'')}"></div>
+                        <div class="form-group"><label>${isAR?'اسم الميزة (إنجليزي)':'Feature name (English)'}</label><input type="text" id="ws_gift_tf_en" value="${escapeHtmlAC(s.gift.tempfeature?.featureEN||'')}"></div>
+                        <div class="form-group"><label>${isAR?'مدة الفتح (ساعة)':'Unlock duration (hours)'}</label><input type="number" min="1" id="ws_gift_tf_hours" value="${s.gift.tempfeature?.hours||24}"></div>
+                        <div class="form-group"><label>${isAR?'الوزن (الاحتمالية)':'Weight (odds)'}</label><input type="number" min="0" id="ws_gift_tf_weight" value="${s.gift.tempfeature?.weight||25}"></div>
+                    </div>
+                    <p style="font-size:10.5px;color:var(--muted);margin-top:6px;">${isAR?'ملحوظة: تقنياً بيفتح كل مميزات PRO مؤقتاً للطالب خلال المدة دي، والاسم هنا للعرض بس':'Note: technically this temporarily unlocks all PRO features for the student during this window — the name above is just for display'}</p>
+                </div>
+                <div style="padding:12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;">
+                    <div style="font-size:12.5px;font-weight:800;margin-bottom:8px;">🎟️ ${isAR?'قسيمة خصم':'Discount coupon'}</div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>${isAR?'نسبة الخصم %':'Discount %'}</label><input type="number" min="1" max="100" id="ws_gift_disc_percent" value="${s.gift.discount?.percent||10}"></div>
+                        <div class="form-group"><label>${isAR?'خطة PRO المستحقة للخصم':'PRO plan this discount applies to'}</label><select id="ws_gift_disc_months">
+                            <option value="1" ${(s.gift.discount?.requiredMonths||6)==1?'selected':''}>${isAR?'شهر واحد':'1 month'}</option>
+                            <option value="3" ${(s.gift.discount?.requiredMonths||6)==3?'selected':''}>${isAR?'3 أشهر':'3 months'}</option>
+                            <option value="6" ${(s.gift.discount?.requiredMonths||6)==6?'selected':''}>${isAR?'6 أشهر':'6 months'}</option>
+                        </select></div>
+                        <div class="form-group"><label>${isAR?'مدة صلاحية الكود (يوم)':'Code validity (days)'}</label><input type="number" min="1" id="ws_gift_disc_days" value="${s.gift.discount?.validDays||14}"></div>
+                        <div class="form-group"><label>${isAR?'الوزن (الاحتمالية)':'Weight (odds)'}</label><input type="number" min="0" id="ws_gift_disc_weight" value="${s.gift.discount?.weight||35}"></div>
+                    </div>
+                </div>
+                <div style="padding:12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;">
+                    <div style="font-size:12.5px;font-weight:800;margin-bottom:8px;">⚡ ${isAR?'مضاعفة العملات':'Coin multiplier boost'}</div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>${isAR?'قيمة المضاعفة':'Multiplier'}</label><input type="number" min="2" id="ws_gift_boost_mult" value="${s.gift.boost?.multiplier||2}"></div>
+                        <div class="form-group"><label>${isAR?'مدة التفعيل (ساعة)':'Duration (hours)'}</label><input type="number" min="1" id="ws_gift_boost_hours" value="${s.gift.boost?.hours||24}"></div>
+                        <div class="form-group"><label>${isAR?'الوزن (الاحتمالية)':'Weight (odds)'}</label><input type="number" min="0" id="ws_gift_boost_weight" value="${s.gift.boost?.weight||30}"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-save" style="margin-top:16px;width:auto;padding:11px 26px;" id="wheelSettingsSaveBtn" onclick="saveWheelSettings()">
+            <i class="fa-solid fa-floppy-disk"></i> <span>${isAR?'حفظ إعدادات العجلة':'Save Wheel Settings'}</span>
+        </button>`;
+    }
+
+    window.saveWheelSettings = async function() {
+        const isAR = lang === 'AR';
+        const btn = document.getElementById('wheelSettingsSaveBtn');
+        const enabled = !!document.getElementById('ws_enabled')?.checked;
+        const cooldownHours = parseInt(document.getElementById('ws_cooldown')?.value, 10) || 24;
+        const testModeEnabled = !!document.getElementById('ws_testmode_enabled')?.checked;
+        const testModeEmail = document.getElementById('ws_testmode_email')?.value.trim().toLowerCase() || '';
+
+        const basic = {};
+        document.querySelectorAll('.ws_basic_weight').forEach(inp => {
+            const k = inp.dataset.key;
+            basic[k] = { weight: parseInt(inp.value, 10) || 0 };
+        });
+        document.querySelectorAll('.ws_basic_amount').forEach(inp => {
+            const k = inp.dataset.key;
+            if (basic[k]) basic[k].amount = parseInt(inp.value, 10) || 1;
+        });
+
+        const gift = {
+            promonth: { months: parseInt(document.getElementById('ws_gift_promonth_months')?.value,10)||1, weight: parseInt(document.getElementById('ws_gift_promonth_weight')?.value,10)||0 },
+            tempfeature: {
+                featureAR: document.getElementById('ws_gift_tf_ar')?.value.trim() || '',
+                featureEN: document.getElementById('ws_gift_tf_en')?.value.trim() || '',
+                hours: parseInt(document.getElementById('ws_gift_tf_hours')?.value,10)||24,
+                weight: parseInt(document.getElementById('ws_gift_tf_weight')?.value,10)||0
+            },
+            discount: {
+                percent: parseInt(document.getElementById('ws_gift_disc_percent')?.value,10)||10,
+                requiredMonths: parseInt(document.getElementById('ws_gift_disc_months')?.value,10)||6,
+                validDays: parseInt(document.getElementById('ws_gift_disc_days')?.value,10)||14,
+                weight: parseInt(document.getElementById('ws_gift_disc_weight')?.value,10)||0
+            },
+            boost: {
+                multiplier: parseInt(document.getElementById('ws_gift_boost_mult')?.value,10)||2,
+                hours: parseInt(document.getElementById('ws_gift_boost_hours')?.value,10)||24,
+                weight: parseInt(document.getElementById('ws_gift_boost_weight')?.value,10)||0
+            }
+        };
+
+        // Resolve the typed email to that student's uid, since the wheel's cooldown-bypass
+        // check on the student side matches by uid, not by email.
+        let testModeUid = '';
+        if (testModeEnabled && testModeEmail) {
+            try {
+                const allUsers = window._adminUsersCache && window._adminUsersCache.length ? window._adminUsersCache : await window._loadAllUsers();
+                const match = allUsers.find(u => (u.email || '').trim().toLowerCase() === testModeEmail);
+                if (match) {
+                    testModeUid = match.uid;
+                } else {
+                    showToast(isAR?'مفيش طالب مسجل بهذا الإيميل — راجع الإيميل وحاول تاني':'No student found with that email — please check it and try again', true);
+                    if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span>${isAR?'حفظ إعدادات العجلة':'Save Wheel Settings'}</span>`; }
+                    return;
+                }
+            } catch(e) {
+                console.error('resolve test mode email error:', e);
+                showToast(isAR?'حدث خطأ أثناء البحث عن الطالب':'An error occurred while looking up the student', true);
+                if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span>${isAR?'حفظ إعدادات العجلة':'Save Wheel Settings'}</span>`; }
+                return;
+            }
+        }
+
+        const data = { enabled, cooldownHours, testModeEnabled, testModeEmail, testModeUid, basic, gift };
+        window._wheelSettingsDraft = data;
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
+        try {
+            await window._saveWheelConfig(data);
+            showToast(isAR?'✓ تم حفظ إعدادات العجلة':'✓ Wheel settings saved');
+        } catch(e) {
+            console.error('save wheel settings error:', e);
+            showToast(isAR?'حدث خطأ أثناء الحفظ':'An error occurred while saving', true);
+        }
+        if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span>${isAR?'حفظ إعدادات العجلة':'Save Wheel Settings'}</span>`; }
+    };
+
+    window.adminLoadDiscountCodes = async function() {
+        const isAR = lang === 'AR';
+        const list = document.getElementById('wheelCodesList');
+        if (!list) return;
+        list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+        try {
+            const codes = await window._loadDiscountCodes();
+            if (!codes.length) {
+                list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;">${isAR?'لا توجد أكواد خصم بعد':'No discount codes yet'}</div>`;
+                return;
+            }
+            list.innerHTML = codes.map(c => {
+                const exp = c.expiresAt?.toDate ? c.expiresAt.toDate() : new Date(c.expiresAt);
+                const expired = !c.used && exp < new Date();
+                const timeStr = c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric'}) : '';
+                const statusHTML = c.used
+                    ? `<span class="job-status-badge" style="background:rgba(120,120,130,0.15);color:var(--muted);">${isAR?'مُستخدم':'Used'}</span>`
+                    : expired ? `<span class="job-status-badge rejected">${isAR?'منتهي':'Expired'}</span>`
+                    : `<span class="job-status-badge approved">${isAR?'فعّال':'Active'}</span>`;
+                return `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:160px;">
+                        <div style="font-size:12.5px;font-weight:800;direction:ltr;text-align:start;">${c.code}</div>
+                        <div style="font-size:10.5px;color:var(--muted);">${escapeHtmlAC(c.userId||'')} — ${c.percent}% / ${c.requiredMonths} ${isAR?'شهر':'mo'} — ${timeStr}</div>
+                    </div>
+                    ${statusHTML}
+                    ${(!c.used && !expired) ? `<button onclick="adminMarkCodeUsed('${c.code}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;font-family:'Tajawal',sans-serif;">${isAR?'تعليم كمستخدم':'Mark used'}</button>` : ''}
+                    ${c.used ? `<button onclick="adminUnmarkCodeUsed('${c.code}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;font-family:'Tajawal',sans-serif;">${isAR?'استرجاع':'Restore'}</button>` : ''}
+                </div>`;
+            }).join('');
+        } catch(e) {
+            console.error('load discount codes error:', e);
+            list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">${isAR?'خطأ في التحميل':'Loading error'}</div>`;
+        }
+    };
+
+    window.adminMarkCodeUsed = async function(code) {
+        try { await window._markDiscountCodeUsed(code); adminLoadDiscountCodes(); }
+        catch(e) { console.error(e); showToast(lang==='AR'?'حدث خطأ':'An error occurred', true); }
+    };
+
+    window.adminUnmarkCodeUsed = async function(code) {
+        try { await window._markDiscountCodeUnused(code); adminLoadDiscountCodes(); }
+        catch(e) { console.error(e); showToast(lang==='AR'?'حدث خطأ':'An error occurred', true); }
+    };
+
+    window.adminLoadWheelSpinLog = async function() {
+        const isAR = lang === 'AR';
+        const list = document.getElementById('wheelSpinLogList');
+        if (!list) return;
+        try {
+            const spins = await window._loadWheelSpinLog(50);
+            if (!spins.length) {
+                list.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12.5px;">${isAR?'لا توجد لفات بعد':'No spins yet'}</div>`;
+                return;
+            }
+            const basicLabels = isAR ? WHEEL_BASIC_SLOT_LABELS_AR : WHEEL_BASIC_SLOT_LABELS_EN;
+            const giftLabels = { promonth: isAR?'شهر PRO':'PRO month', tempfeature: isAR?'ميزة مؤقتة':'Temp feature', discount: isAR?'كود خصم':'Discount code', boost: isAR?'مضاعفة عملات':'Coin boost' };
+            list.innerHTML = spins.map(sp => {
+                const label = sp.wheelType === 'gift' ? (giftLabels[sp.resultType]||sp.resultType) : (basicLabels[sp.resultType]||sp.resultType);
+                const timeStr = sp.createdAt?.toDate ? sp.createdAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+                return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border);font-size:11.5px;">
+                    <span style="color:var(--muted);">${escapeHtmlAC(sp.userId||'')}</span>
+                    <span style="font-weight:700;">${sp.wheelType==='gift'?'🎁':'🎡'} ${label}${sp.coinsAwarded?` (+${sp.coinsAwarded})`:''}</span>
+                    <span style="color:var(--muted);">${timeStr}</span>
+                </div>`;
+            }).join('');
+        } catch(e) {
+            console.error('load wheel spin log error:', e);
+            list.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12.5px;">${isAR?'خطأ في التحميل':'Loading error'}</div>`;
         }
     };
 
@@ -10093,155 +10627,220 @@
         }
     };
 
-    /* ─── ADMIN: CHALLENGES (Millionaire-style quiz game) ─── */
-    let _adminChallenges = [];
+    /* ─── ADMIN: DAILY & WEEKLY CHALLENGE (one scheduled question per date) ─── */
+    let _adminDCQs = [];
+    let _adminDCWeekly = { enabled: true, bonusCoins: 100 };
 
-    function renderAdminChallenges(area) {
+    function renderAdminDailyChallenges(area) {
         area = area || document.getElementById('contentArea');
         const isAR = lang === 'AR';
         area.innerHTML = `
         <div class="page-header">
-            <h2>${isAR?'إدارة التحديات':'Manage Challenges'}</h2>
-            <p>${isAR?'اعمل أسئلة على شكل لعبة "من سيربح المليون" — سؤال، 4 اختيارات، وحدد الإجابة الصح وقيمة السؤال بالعملة. ترتيب الأسئلة هنا هو نفس ترتيب السلم اللي هيشوفه الطالب (من الأسهل للأصعب). لو مفيش أي سؤال مضاف، هيظهر عند الطالب إن مفيش تحديات متاحة حالياً.':'Build questions for a "Who Wants to be a Millionaire"-style game — a question, 4 choices, mark the correct one and set how many coins it\'s worth. The order below is the same ladder order the student will see (easiest to hardest). If no questions are added, students will see that no challenges are available yet.'}</p>
+            <h2>${isAR?'إدارة التحدي اليومي والأسبوعي':'Manage Daily & Weekly Challenge'}</h2>
+            <p>${isAR?'كل سؤال هنا مرتبط بتاريخ محدد — سؤال "يومي" يظهر للطلاب في يومه فقط، وأسئلة "أسبوعية" تتجمع حسب الأسبوع (الأحد للسبت) وتديك مكافأة إضافية لو الطالب جاوب صح على كل أسئلة الأسبوع.':'Every question here is tied to a specific date — a "daily" question shows to students only on that day, and "weekly" questions group by their calendar week (Sun–Sat) and unlock a bonus if the student answers every question in the week correctly.'}</p>
         </div>
-        <button class="btn-post-job" style="margin-bottom:16px;" onclick="openChallengeForm()"><i class="fa-solid fa-plus"></i> ${isAR?'إضافة سؤال جديد':'Add New Question'}</button>
-        <div id="chList"></div>`;
-        loadAdminChallenges();
+        <div class="form-card" id="dcWeeklySettingsCard" style="margin-bottom:16px;">
+            <div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
+        </div>
+        <button class="btn-post-job" style="margin-bottom:16px;" onclick="openDCForm()"><i class="fa-solid fa-plus"></i> ${isAR?'إضافة سؤال جديد':'Add New Question'}</button>
+        <div id="dcList"></div>`;
+        loadAdminDailyChallenges();
     }
 
-    async function loadAdminChallenges() {
-        const list = document.getElementById('chList');
+    async function loadAdminDailyChallenges() {
+        const list = document.getElementById('dcList');
         if (list) list.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
-        try { _adminChallenges = await window._loadChallenges(); }
-        catch(e) { console.error(e); _adminChallenges = []; }
-        renderChList();
+        try { _adminDCQs = await window._loadDailyChallengeQs(); }
+        catch(e) { console.error(e); _adminDCQs = []; }
+        try { _adminDCWeekly = await window._loadWeeklyChallengeSettings(); }
+        catch(e) { console.error(e); _adminDCWeekly = { ...window.DEFAULT_WEEKLY_CHALLENGE_SETTINGS }; }
+        renderDCWeeklySettingsCard();
+        renderDCList();
     }
 
-    function renderChList() {
+    function renderDCWeeklySettingsCard() {
+        const card = document.getElementById('dcWeeklySettingsCard');
+        if (!card) return;
         const isAR = lang === 'AR';
-        const list = document.getElementById('chList');
+        const s = _adminDCWeekly;
+        card.innerHTML = `
+        <h3><i class="fa-solid fa-gift" style="color:var(--gold3);margin-left:8px;"></i>${isAR?'مكافأة إكمال التحدي الأسبوعي':'Weekly Challenge Completion Bonus'}</h3>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>${isAR?'عدد العملات الإضافية عند إكمال كل أسئلة الأسبوع':'Bonus coins for completing every question in the week'}</label>
+                <input type="number" min="0" id="dcw_bonus" value="${s.bonusCoins||0}">
+            </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-top:10px;">
+            <input type="checkbox" id="dcw_enabled" ${s.enabled?'checked':''}> ${isAR?'تفعيل مكافأة إكمال الأسبوع':'Enable weekly completion bonus'}
+        </label>
+        <button class="btn-save" style="margin-top:14px;width:auto;padding:10px 22px;" onclick="saveDCWeeklySettings()"><i class="fa-solid fa-floppy-disk"></i> <span>${isAR?'حفظ':'Save'}</span></button>`;
+    }
+
+    window.saveDCWeeklySettings = async function() {
+        const isAR = lang === 'AR';
+        const bonusCoins = parseInt(document.getElementById('dcw_bonus')?.value, 10) || 0;
+        const enabled = !!document.getElementById('dcw_enabled')?.checked;
+        try {
+            await window._saveWeeklyChallengeSettings({ bonusCoins, enabled });
+            _adminDCWeekly = { bonusCoins, enabled };
+            showToast(isAR?'تم الحفظ':'Saved');
+        } catch(e) { console.error(e); showToast(isAR?'حدث خطأ أثناء الحفظ':'An error occurred while saving', true); }
+    };
+
+    function dcWeekStartOf(dateStr) {
+        // returns the Sunday (YYYY-MM-DD) of the week containing dateStr
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() - d.getDay());
+        return d.toISOString().slice(0, 10);
+    }
+
+    function renderDCList() {
+        const isAR = lang === 'AR';
+        const list = document.getElementById('dcList');
         if (!list) return;
-        if (!_adminChallenges.length) {
+        if (!_adminDCQs.length) {
             list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;">${isAR?'لا توجد أسئلة مضافة بعد':'No questions added yet'}</div>`;
             return;
         }
-        list.innerHTML = _adminChallenges.map((c, i) => `
+        const sorted = [..._adminDCQs].sort((a, b) => (a.scheduledDate||'').localeCompare(b.scheduledDate||''));
+        const diffLabel = (d) => ({ easy: isAR?'سهل':'Easy', medium: isAR?'متوسط':'Medium', hard: isAR?'صعب':'Hard' }[d] || d || '');
+        list.innerHTML = sorted.map((c) => `
         <div class="ac-row">
-            <div style="width:48px;height:48px;border-radius:10px;flex-shrink:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--gold3);border:1px solid var(--border);font-size:16px;font-weight:800;">${i+1}</div>
+            <div style="width:48px;height:48px;border-radius:10px;flex-shrink:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:${c.type==='weekly'?'var(--g4)':'var(--gold3)'};border:1px solid var(--border);font-size:16px;">
+                <i class="fa-solid ${c.type==='weekly'?'fa-calendar-week':'fa-calendar-day'}"></i>
+            </div>
             <div class="ac-main" style="margin-inline-start:12px;">
                 <div class="ac-title">${escapeHtmlAC(c.questionAR||'')}</div>
                 <div class="ac-meta">
+                    <span class="job-status-badge ${c.type==='weekly'?'pending':'approved'}"><i class="fa-solid fa-calendar-day"></i> ${escapeHtmlAC(c.scheduledDate||'')}</span>
+                    <span class="job-status-badge approved">${c.type==='weekly'?(isAR?'أسبوعي':'Weekly'):(isAR?'يومي':'Daily')}</span>
+                    <span style="font-size:11.5px;color:var(--muted);">${diffLabel(c.difficulty)}</span>
                     <span class="job-status-badge approved"><i class="fa-solid fa-coins"></i> ${c.coins||0} ${isAR?'عملة':'coins'}</span>
                     <span style="font-size:11.5px;color:var(--muted);">${isAR?'الإجابة الصح':'Correct'}: ${escapeHtmlAC((c.optionsAR||[])[c.correctIndex]||'')}</span>
                 </div>
             </div>
             <div class="ac-actions">
-                <button class="ac-btn" title="${isAR?'تحريك لأعلى':'Move up'}" ${i===0?'disabled style="opacity:0.35;cursor:not-allowed;"':''} onclick="chMove(${i},-1)"><i class="fa-solid fa-arrow-up"></i></button>
-                <button class="ac-btn" title="${isAR?'تحريك لأسفل':'Move down'}" ${i===_adminChallenges.length-1?'disabled style="opacity:0.35;cursor:not-allowed;"':''} onclick="chMove(${i},1)"><i class="fa-solid fa-arrow-down"></i></button>
-                <button class="ac-btn" onclick="openChallengeForm('${c.id}')"><i class="fa-solid fa-pen"></i> ${isAR?'تعديل':'Edit'}</button>
-                <button class="ac-btn danger" onclick="chDeleteChallenge('${c.id}')"><i class="fa-solid fa-trash"></i> ${isAR?'حذف':'Delete'}</button>
+                <button class="ac-btn" onclick="openDCForm('${c.id}')"><i class="fa-solid fa-pen"></i> ${isAR?'تعديل':'Edit'}</button>
+                <button class="ac-btn danger" onclick="dcDeleteQuestion('${c.id}')"><i class="fa-solid fa-trash"></i> ${isAR?'حذف':'Delete'}</button>
             </div>
         </div>`).join('');
     }
 
-    window.chMove = async function(index, dir) {
-        const target = index + dir;
-        if (target < 0 || target >= _adminChallenges.length) return;
-        const arr = [..._adminChallenges];
-        [arr[index], arr[target]] = [arr[target], arr[index]];
-        _adminChallenges = arr;
-        renderChList();
-        try { await window._reorderChallenges(arr.map(c => c.id)); }
-        catch(e) { console.error('reorder error:', e); }
-    };
-
-    window.chDeleteChallenge = async function(id) {
+    window.dcDeleteQuestion = async function(id) {
         const isAR = lang === 'AR';
         if (!confirm(isAR?'حذف هذا السؤال نهائياً؟':'Delete this question permanently?')) return;
         try {
-            await window._deleteChallenge(id);
-            _adminChallenges = _adminChallenges.filter(c => c.id !== id);
-            renderChList();
+            await window._deleteDailyChallengeQ(id);
+            _adminDCQs = _adminDCQs.filter(c => c.id !== id);
+            renderDCList();
             showToast(isAR?'🗑️ تم الحذف':'🗑️ Deleted');
         } catch(e) { showToast(isAR?'خطأ في الحذف':'Delete failed', true); }
     };
 
-    window.openChallengeForm = function(editId) {
+    window.openDCForm = function(editId) {
         const isAR = lang === 'AR';
-        const editing = editId ? _adminChallenges.find(c => c.id === editId) : null;
+        const editing = editId ? _adminDCQs.find(c => c.id === editId) : null;
         const v = (f) => (editing && editing[f] != null) ? editing[f] : '';
         const optAR = editing?.optionsAR || ['','','',''];
         const optEN = editing?.optionsEN || ['','','',''];
         const correctIdx = editing ? (editing.correctIndex ?? 0) : 0;
         const letters = isAR ? ['أ','ب','ج','د'] : ['A','B','C','D'];
+        const type = editing?.type || 'daily';
+        const difficulty = editing?.difficulty || 'easy';
         const modal = document.createElement('div');
-        modal.id = 'chFormModal';
+        modal.id = 'dcFormModal';
         modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
         modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
         modal.innerHTML = `
         <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                 <h3 style="font-size:15px;font-weight:800;">${editing ? (isAR?'تعديل سؤال':'Edit Question') : (isAR?'إضافة سؤال جديد':'Add New Question')}</h3>
-                <i class="fa-solid fa-xmark" style="cursor:pointer;color:var(--muted);" onclick="document.getElementById('chFormModal').remove()"></i>
+                <i class="fa-solid fa-xmark" style="cursor:pointer;color:var(--muted);" onclick="document.getElementById('dcFormModal').remove()"></i>
             </div>
             <div class="proj-form-grid">
-                <div class="job-field full"><label>${isAR?'نص السؤال (عربي) *':'Question (Arabic) *'}</label><input type="text" id="ch_qAR" value="${escapeHtmlAC(v('questionAR'))}"></div>
-                <div class="job-field full"><label>${isAR?'نص السؤال (إنجليزي)':'Question (English)'}</label><input type="text" id="ch_qEN" value="${escapeHtmlAC(v('questionEN'))}"></div>
+                <div class="job-field">
+                    <label>${isAR?'نوع التحدي *':'Challenge Type *'}</label>
+                    <select id="dc_type">
+                        <option value="daily" ${type==='daily'?'selected':''}>${isAR?'يومي':'Daily'}</option>
+                        <option value="weekly" ${type==='weekly'?'selected':''}>${isAR?'أسبوعي':'Weekly'}</option>
+                    </select>
+                </div>
+                <div class="job-field">
+                    <label>${isAR?'تاريخ ظهور السؤال *':'Date this question appears *'}</label>
+                    <input type="date" id="dc_date" value="${escapeHtmlAC(v('scheduledDate'))}">
+                </div>
+                <div class="job-field">
+                    <label>${isAR?'مستوى الصعوبة':'Difficulty'}</label>
+                    <select id="dc_difficulty">
+                        <option value="easy" ${difficulty==='easy'?'selected':''}>${isAR?'سهل':'Easy'}</option>
+                        <option value="medium" ${difficulty==='medium'?'selected':''}>${isAR?'متوسط':'Medium'}</option>
+                        <option value="hard" ${difficulty==='hard'?'selected':''}>${isAR?'صعب':'Hard'}</option>
+                    </select>
+                </div>
+                <div class="job-field"><label>${isAR?'قيمة السؤال (عدد العملات) *':'Question value (coins) *'}</label><input type="number" min="1" id="dc_coins" value="${escapeHtmlAC(v('coins'))}" placeholder="10"></div>
+                <div class="job-field full"><label>${isAR?'نص السؤال (عربي) *':'Question (Arabic) *'}</label><input type="text" id="dc_qAR" value="${escapeHtmlAC(v('questionAR'))}"></div>
+                <div class="job-field full"><label>${isAR?'نص السؤال (إنجليزي)':'Question (English)'}</label><input type="text" id="dc_qEN" value="${escapeHtmlAC(v('questionEN'))}"></div>
                 ${[0,1,2,3].map(i => `
-                <div class="job-field"><label>${isAR?`الاختيار ${letters[i]} (عربي) *`:`Option ${letters[i]} (Arabic) *`}</label><input type="text" id="ch_optAR_${i}" value="${escapeHtmlAC(optAR[i]||'')}"></div>
-                <div class="job-field"><label>${isAR?`الاختيار ${letters[i]} (إنجليزي)`:`Option ${letters[i]} (English)`}</label><input type="text" id="ch_optEN_${i}" value="${escapeHtmlAC(optEN[i]||'')}"></div>
+                <div class="job-field"><label>${isAR?`الاختيار ${letters[i]} (عربي) *`:`Option ${letters[i]} (Arabic) *`}</label><input type="text" id="dc_optAR_${i}" value="${escapeHtmlAC(optAR[i]||'')}"></div>
+                <div class="job-field"><label>${isAR?`الاختيار ${letters[i]} (إنجليزي)`:`Option ${letters[i]} (English)`}</label><input type="text" id="dc_optEN_${i}" value="${escapeHtmlAC(optEN[i]||'')}"></div>
                 `).join('')}
                 <div class="job-field full">
                     <label>${isAR?'الإجابة الصحيحة *':'Correct Answer *'}</label>
                     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;">
                         ${[0,1,2,3].map(i => `
                         <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-                            <input type="radio" name="ch_correct" value="${i}" ${correctIdx===i?'checked':''}> ${letters[i]}
+                            <input type="radio" name="dc_correct" value="${i}" ${correctIdx===i?'checked':''}> ${letters[i]}
                         </label>`).join('')}
                     </div>
                 </div>
-                <div class="job-field"><label>${isAR?'قيمة السؤال (عدد العملات) *':'Question value (coins) *'}</label><input type="number" min="1" id="ch_coins" value="${escapeHtmlAC(v('coins'))}" placeholder="100"></div>
             </div>
-            <button class="btn-post-job" style="width:100%;margin-top:14px;" id="chSaveBtn" onclick="chSaveChallenge('${editId||''}')"><i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}</button>
+            <p style="font-size:11.5px;color:var(--muted);margin-top:8px;">${isAR?'لو حددت "أسبوعي"، هيتحسب السؤال ده ضمن أسبوعه (الأحد للسبت) حسب التاريخ اللي اخترته — أضف سؤال لكل يوم من أيام الأسبوع عشان يقدر الطالب ياخد مكافأة الإكمال.':'If you pick "Weekly", this question is grouped into its calendar week (Sun–Sat) based on the date you chose — add one question per weekday so students can earn the completion bonus.'}</p>
+            <button class="btn-post-job" style="width:100%;margin-top:14px;" id="dcSaveBtn" onclick="dcSaveQuestion('${editId||''}')"><i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}</button>
         </div>`;
         document.body.appendChild(modal);
     };
 
-    window.chSaveChallenge = async function(editId) {
+    window.dcSaveQuestion = async function(editId) {
         const isAR = lang === 'AR';
-        const questionAR = document.getElementById('ch_qAR')?.value.trim();
+        const scheduledDate = document.getElementById('dc_date')?.value.trim();
+        if (!scheduledDate) { showToast(isAR?'من فضلك اختر تاريخ ظهور السؤال':'Please pick the date this question appears', true); return; }
+        const questionAR = document.getElementById('dc_qAR')?.value.trim();
         if (!questionAR) { showToast(isAR?'من فضلك أدخل نص السؤال':'Please enter the question', true); return; }
-        const optionsAR = [0,1,2,3].map(i => document.getElementById(`ch_optAR_${i}`)?.value.trim() || '');
+        const optionsAR = [0,1,2,3].map(i => document.getElementById(`dc_optAR_${i}`)?.value.trim() || '');
         if (optionsAR.some(o => !o)) { showToast(isAR?'من فضلك أدخل كل الاختيارات الأربعة':'Please fill in all 4 options', true); return; }
-        const optionsEN = [0,1,2,3].map(i => document.getElementById(`ch_optEN_${i}`)?.value.trim() || '');
-        const correctRadio = document.querySelector('input[name="ch_correct"]:checked');
+        const optionsEN = [0,1,2,3].map(i => document.getElementById(`dc_optEN_${i}`)?.value.trim() || '');
+        const correctRadio = document.querySelector('input[name="dc_correct"]:checked');
         const correctIndex = correctRadio ? parseInt(correctRadio.value, 10) : 0;
-        const coins = parseInt(document.getElementById('ch_coins')?.value, 10);
+        const coins = parseInt(document.getElementById('dc_coins')?.value, 10);
         if (!coins || coins < 1) { showToast(isAR?'من فضلك أدخل قيمة العملات للسؤال':'Please enter the coin value for this question', true); return; }
 
+        // one question per date+type — warn if a question already exists for this date/type (excluding the one being edited)
+        const dup = _adminDCQs.find(c => c.id !== editId && c.scheduledDate === scheduledDate && c.type === document.getElementById('dc_type').value);
+        if (dup) { showToast(isAR?'يوجد بالفعل سؤال بنفس النوع والتاريخ':'A question with this type and date already exists', true); return; }
+
         const data = {
+            type: document.getElementById('dc_type')?.value || 'daily',
+            scheduledDate,
+            difficulty: document.getElementById('dc_difficulty')?.value || 'easy',
             questionAR,
-            questionEN: document.getElementById('ch_qEN')?.value.trim() || questionAR,
+            questionEN: document.getElementById('dc_qEN')?.value.trim() || questionAR,
             optionsAR,
             optionsEN: optionsEN.map((o, i) => o || optionsAR[i]),
             correctIndex,
             coins,
         };
 
-        const btn = document.getElementById('chSaveBtn');
+        const btn = document.getElementById('dcSaveBtn');
         if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
         try {
-            if (editId) {
-                await window._updateChallenge(editId, data);
-            } else {
-                data.order = _adminChallenges.length;
-                await window._addChallenge(data);
-            }
+            if (editId) await window._updateDailyChallengeQ(editId, data);
+            else await window._addDailyChallengeQ(data);
             showToast(isAR?'تم الحفظ':'Saved');
-            document.getElementById('chFormModal')?.remove();
-            loadAdminChallenges();
+            document.getElementById('dcFormModal')?.remove();
+            loadAdminDailyChallenges();
         } catch(e) {
-            console.error('Challenge save error:', e);
+            console.error('Daily challenge save error:', e);
             showToast(isAR?'حدث خطأ أثناء الحفظ':'An error occurred while saving', true);
             if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> ${isAR?'حفظ':'Save'}`; }
         }
@@ -10896,6 +11495,7 @@
                                     ${r.amount ? `<span><i class="fa-solid fa-money-bill" style="margin-left:3px;color:var(--gold3);"></i>${r.amount} ${isAR?'ج':'EGP'}</span>` : ''}
                                     ${r.paymentDate ? `<span><i class="fa-regular fa-calendar" style="margin-left:3px;"></i>${r.paymentDate}</span>` : ''}
                                 </div>
+                                ${r.discountCode ? `<div style="font-size:11px;color:var(--gold3);margin-top:4px;"><i class="fa-solid fa-ticket" style="margin-left:3px;"></i>${isAR?`كود خصم مُطبّق: `:`Discount code applied: `}<strong style="direction:ltr;display:inline-block;">${escapeHtmlAC(r.discountCode)}</strong> (${r.discountPercent}%)</div>` : ''}
                                 <div style="font-size:10px;color:var(--muted);margin-top:4px;"><i class="fa-regular fa-clock" style="margin-left:3px;"></i>${isAR?'أُرسل':'Sent'}: ${timeStr}</div>
                                 ${reviewedStr ? `<div style="font-size:10px;color:var(--muted);margin-top:1px;"><i class="fa-solid fa-check-double" style="margin-left:3px;"></i>${isAR?'روجع':'Reviewed'}: ${reviewedStr}${r.approvedMonths ? ' · '+r.approvedMonths+(isAR?' شهر':' mo') : ''}</div>` : ''}
                                 ${r.rejectionReason ? `<div style="font-size:11px;color:#ff6b6b;margin-top:6px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.2);border-radius:8px;padding:6px 10px;">${isAR?'سبب الرفض':'Rejection reason'}: ${r.rejectionReason}</div>` : ''}
@@ -10935,12 +11535,36 @@
 
             // ── Members Row List with inline toggle ──
             if (memList) {
-            if (memBadge) memBadge.textContent = users.length;
-            if (!users.length) {
-                memList.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px;">${isAR?'لا يوجد أعضاء':'No members yet'}</div>`;
+            // Store users data globally for the modal (always the FULL unfiltered list)
+            window._adminUsersCache = users;
+
+            // Apply plan filter + search + optional alphabetical sort just for display
+            let visibleUsers = users.slice();
+            const memberFilter = window._memberFilter || 'all';
+            if (memberFilter === 'basic') visibleUsers = visibleUsers.filter(u => (u.plan || 'basic') !== 'pro');
+            else if (memberFilter === 'pro') visibleUsers = visibleUsers.filter(u => (u.plan || 'basic') === 'pro');
+            const searchTerm = (window._memberSearch || '').trim().toLowerCase();
+            if (searchTerm) {
+                visibleUsers = visibleUsers.filter(u => {
+                    const fullName = ((u.firstName||'') + ' ' + (u.lastName||'')).trim().toLowerCase();
+                    const email = (u.email || '').toLowerCase();
+                    const phone = (u.phone || '').replace(/\s|-/g, '');
+                    const searchPhone = searchTerm.replace(/\s|-/g, '');
+                    return fullName.includes(searchTerm) || email.includes(searchTerm) || (searchPhone && phone.includes(searchPhone));
+                });
+            }
+            if (window._memberSortAZ) {
+                visibleUsers.sort((a, b) => {
+                    const na = ((a.firstName||'') + ' ' + (a.lastName||'')).trim();
+                    const nb = ((b.firstName||'') + ' ' + (b.lastName||'')).trim();
+                    return na.localeCompare(nb, 'ar');
+                });
+            }
+
+            if (memBadge) memBadge.textContent = visibleUsers.length;
+            if (!visibleUsers.length) {
+                memList.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px;">${searchTerm ? (isAR?'لا يوجد أعضاء يطابقون البحث':'No members match your search') : (isAR?'لا يوجد أعضاء يطابقون الفلتر':'No members match this filter')}</div>`;
             } else {
-                // Store users data globally for the modal
-                window._adminUsersCache = users;
                 memList.innerHTML = `
                 <!-- Plan Picker Modal (choose subscription package when manually setting a member to Pro) -->
                 <div id="planPickerModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closePlanPickerModal()">
@@ -10972,7 +11596,7 @@
                 </div>
 
                 <div style="display:flex;flex-direction:column;gap:8px;">
-                    ${users.map(u => {
+                    ${visibleUsers.map(u => {
                         const isPro = (u.plan || 'basic') === 'pro';
                         const fullName = ((u.firstName||'') + ' ' + (u.lastName||'')).trim() || 'User';
                         const letter = fullName[0].toUpperCase();
@@ -10993,6 +11617,10 @@
                                 </div>
                                 <div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.email||'—'}</div>
                                 ${proRemRowHtml}
+                            </div>
+                            <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;text-align:center;padding:5px 10px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;" title="${isAR?'رصيد العملات':'Coin balance'}">
+                                <i class="fa-solid fa-coins" style="color:var(--gold3);font-size:11px;"></i>
+                                <span style="font-size:12.5px;font-weight:800;color:var(--gold3);">${u.coins||0}</span>
                             </div>
                             <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
                                 <button onclick="${isPro ? `adminSetPlan('${u.uid}','basic')` : `openPlanPickerModal('${u.uid}')`}" style="display:flex;align-items:center;gap:4px;padding:6px 11px;background:${isPro?'rgba(220,50,50,0.08)':'rgba(212,160,23,0.1)'};border:1px solid ${isPro?'rgba(220,50,50,0.25)':'rgba(212,160,23,0.3)'};border-radius:8px;color:${isPro?'#ff6b6b':'var(--gold3)'};font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" title="${isPro?(isAR?'تحويل Basic':'Set Basic'):(isAR?'ترقية Pro':'Set Pro')}">
@@ -11059,6 +11687,7 @@
                             </div>
                         </div>
                         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+                            ${row('fa-coins', isAR?'رصيد العملات':'Coin balance', `${u.coins||0}`)}
                             ${row('fa-envelope', isAR?'البريد الإلكتروني':'Email', u.email)}
                             ${row('fa-phone', isAR?'الهاتف':'Phone', u.phone)}
                             ${row('fa-briefcase', isAR?'المسمى الوظيفي':'Job Title', u.job)}
@@ -11080,6 +11709,10 @@
                             <button onclick="closeMemberModal();openAdminAlert('${u.uid}','${fullName.replace(/'/g,"&#39;")}');" style="width:100%;padding:11px;background:rgba(100,149,237,0.08);border:1px solid rgba(100,149,237,0.25);border-radius:10px;color:#6495ed;font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
                                 <i class="fa-solid fa-paper-plane"></i>
                                 ${isAR?'إرسال رسالة تنبيه':'Send Alert Message'}
+                            </button>
+                            <button onclick="closeMemberModal();navigate('admincoins', document.getElementById('menuAdminCoins'));setTimeout(()=>{const el=document.getElementById('coinMgmtEmail'); if(el){el.value='${(u.email||'').replace(/'/g,"&#39;")}'; adminCoinMgmtSearch();}},250);" style="width:100%;padding:11px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:10px;color:var(--gold3);font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
+                                <i class="fa-solid fa-coins"></i>
+                                ${isAR?'إدارة رصيد العملات':'Manage Coin Balance'}
                             </button>
                             <button onclick="adminDeleteMember('${u.uid}','${fullName.replace(/'/g,"&#39;")}');closeMemberModal();" style="width:100%;padding:11px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.25);border-radius:10px;color:#ff6b6b;font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
                                 <i class="fa-solid fa-trash"></i>
@@ -11217,6 +11850,9 @@
             const reqData = allReqs.find(r => r.id === reqId) || {};
 
             await window._reviewUpgradeRequest(reqId, 'rejected', { reason });
+            if (reqData.discountCode) {
+                try { await window._markDiscountCodeUnused(reqData.discountCode); } catch(e) { console.error('discount code refund error:', e); }
+            }
 
             const alertMsg = isAR
                 ? `تم رفض طلب اشتراكك في ATLASYA PRO.${reason ? ' السبب: ' + reason : ''} يمكنك إعادة التقديم في أي وقت.`
@@ -12291,8 +12927,9 @@
         { key:'softwaretools',labelAR:'أدوات البرامج', labelEN:'Software Tools', icon:'fa-toolbox' },
         { key:'dailytips',  labelAR:'نصيحة اليوم',        labelEN:'Daily Tip',             icon:'fa-lightbulb' },
         { key:'mentorship', labelAR:'حجوزات استشارات',    labelEN:'Consultation Bookings', icon:'fa-user-tie' },
-        { key:'challenges', labelAR:'التحديات',           labelEN:'Challenges',            icon:'fa-trophy' },
+        { key:'dailychallenges', labelAR:'التحديات', labelEN:'Challenges', icon:'fa-calendar-check' },
         { key:'coinsettings', labelAR:'إعدادات العملات',  labelEN:'Coin Settings',          icon:'fa-coins' },
+        { key:'wheelsettings', labelAR:'عجلة الحظ والهدايا', labelEN:'Fortune & Gift Wheel', icon:'fa-dharmachakra' },
     ];
 
     // Which DOM elements each permission key controls the visibility of
@@ -12311,8 +12948,9 @@
         jobs:       ['menuJob'],
         support:    ['menuExpert'],
         community:  ['menuCommunity'],
-        challenges: ['menuAdminChallenges'],
+        dailychallenges: ['menuAdminDailyChallenges'],
         coinsettings: ['menuAdminCoins'],
+        wheelsettings: ['menuAdminWheel'],
     };
 
     // Maps a page route to the permission key that guards it (used for direct navigate() calls)
@@ -12325,8 +12963,9 @@
         admintips: 'dailytips',
         jobs: 'jobs', expert: 'support',
         community: 'community',
-        adminchallenges: 'challenges',
+        admindailychallenges: 'dailychallenges',
         admincoins: 'coinsettings',
+        adminwheel: 'wheelsettings',
     };
 
     // Shows/hides admin nav + mobile items according to window._adminPermissions ('all' or an array of keys)
