@@ -5605,6 +5605,12 @@
                 window._userData = null;
                 document.getElementById('authBox').style.display = 'flex';
                 document.getElementById('mainApp').style.display = 'none';
+                // Clear any leftover page hash from a previous session (e.g. #/cvbuilder)
+                // so the address bar doesn't show a platform page while the login screen
+                // is what's actually on screen.
+                try {
+                    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+                } catch(e) {}
             }
         });
 
