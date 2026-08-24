@@ -4070,12 +4070,14 @@
         /* ─── PORTFOLIO (STUDENT MAPS) ─── */
         window._submitPortfolioItem = async (data) => {
             if (!currentUid) throw new Error('غير مسجل الدخول');
+            const authorName = ((window._userData?.firstName || '') + ' ' + (window._userData?.lastName || '')).trim() || 'User';
             await addDoc(collection(db, 'portfolio_items'), {
                 ...data,
                 uid: currentUid,
-                authorName: ((window._userData?.firstName || '') + ' ' + (window._userData?.lastName || '')).trim() || 'User',
+                authorName,
                 createdAt: serverTimestamp()
             });
+            window._notifyAdminsBot('portfolio_map', { studentName: authorName, title: data.title || data.titleAR || data.titleEN || '' });
         };
 
         window._loadPortfolioItems = async (uid) => {
@@ -4187,9 +4189,10 @@
         window._sendMentorshipRequest = async (message, preferredDay, preferredTime) => {
             if (!currentUid) throw new Error('Not logged in');
             const d = window._userData || {};
+            const authorName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
             await addDoc(collection(db, 'mentorship_requests'), {
                 uid: currentUid,
-                authorName: ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User',
+                authorName,
                 email: d.email || '',
                 phone: d.phone || '',
                 message: message || '',
@@ -4199,6 +4202,7 @@
                 reply: '',
                 createdAt: serverTimestamp()
             });
+            window._notifyAdminsBot('expert_question', { studentName: authorName, message: message || '' });
         };
 
         window._loadMyMentorshipRequests = async () => {
@@ -4294,8 +4298,8 @@
            وسيط بيمسك التوكن بدل ما يبقى هنا في كود الموقع. شوف
            atlasya-notify-bot/README.md لتفاصيل التركيب.
            "Fire and forget": لو الإشعار فشل مش بيوقف أي حاجة تانية بتحصل للطالب. */
-        const ADMIN_BOT_WORKER_URL = 'https://atlasya-notify-bot.atlasyateam26.workers.dev/notify';
-        window._notifyAdminsBot = async (type, data) => {
+        
+        window._notifyAdminsBot = async (type, data) => {const ADMIN_BOT_WORKER_URL = 'https://atlasya-notify-bot.atlasyateam26.workers.dev/notify';
             try {
                 if (!currentUid || !auth.currentUser) return;
                 const idToken = await auth.currentUser.getIdToken();
@@ -4439,15 +4443,18 @@
         window._submitCVRequest = async (data) => {
             if (!currentUid) throw new Error('Not logged in');
             const d = window._userData || {};
+            const authorName = ((d.firstName || '') + ' ' + (d.lastName || '')).trim() || 'Member';
+            const isFirstSubmit = !window._myCVCreatedAt;
             await setDoc(doc(db, 'cv_requests', currentUid), {
                 ...data,
                 uid: currentUid,
-                authorName: ((d.firstName || '') + ' ' + (d.lastName || '')).trim() || 'Member',
+                authorName,
                 authorEmail: d.email || '',
                 status: 'pending',
                 updatedAt: serverTimestamp(),
                 createdAt: window._myCVCreatedAt || serverTimestamp()
             }, { merge: true });
+            window._notifyAdminsBot('cv_request', { studentName: authorName, targetTitle: data.targetTitle || '', isUpdate: !isFirstSubmit });
         };
         window._loadMyCVRequest = async () => {
             if (!currentUid) return null;
@@ -5365,6 +5372,11 @@
                 const snap = await getDoc(ref);
                 const current = snap.exists() ? (snap.data().memberCount || 0) : 0;
                 await updateDoc(ref, { memberCount: current + 1 });
+                if (!isAdminUser) {
+                    const groupData = snap.exists() ? snap.data() : {};
+                    const groupName = groupData.nameAR || groupData.name || groupData.titleAR || groupData.title || '';
+                    window._notifyAdminsBot('community_join', { studentName: memberName, groupName });
+                }
             } catch(e) {}
         };
         /* Send a message into a group's in-app chat */
@@ -5382,6 +5394,15 @@
                 text,
                 createdAt: serverTimestamp()
             });
+            if (!isAdminUser) {
+                let groupName = '';
+                try {
+                    const groupSnap = await getDoc(doc(db, 'community_groups', groupId));
+                    const gd = groupSnap.exists() ? groupSnap.data() : {};
+                    groupName = gd.nameAR || gd.name || gd.titleAR || gd.title || '';
+                } catch(e) {}
+                window._notifyAdminsBot('community_message', { studentName: senderName, groupName, message: text });
+            }
         };
         /* Delete a message from a group's in-app chat */
         window._deleteCommunityMessage = async (groupId, messageId) => {
@@ -5420,6 +5441,9 @@
                 createdAt: serverTimestamp()
             });
             await updateDoc(doc(db, 'community_groups', groupId, 'messages', messageId), { replyCount: increment(1) });
+            if (!isAdminUser) {
+                window._notifyAdminsBot('community_message', { studentName: senderName, groupName: '', message: text, isThreadReply: true });
+            }
         };
 
         /* Real-time listener for a message's thread replies */
