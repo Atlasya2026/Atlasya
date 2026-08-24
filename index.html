@@ -4836,6 +4836,24 @@
             return rows.slice(0, max || 30);
         };
 
+        // Loads a student's past fortune-wheel spins (basic + gift), newest first. Same
+        // "filter only, sort client-side" pattern as _loadCoinTransactions to avoid needing
+        // a composite Firestore index.
+        window._loadWheelSpinsHistory = async (uid, max) => {
+            const q = query(
+                collection(db, 'wheel_spins'),
+                where('userId', '==', uid)
+            );
+            const snap = await getDocs(q);
+            const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            rows.sort((a, b) => {
+                const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+                const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+                return tb - ta;
+            });
+            return rows.slice(0, max || 50);
+        };
+
         // Extends (or starts) a user's ATLASYA PRO subscription by N months — stacks on
         // top of a still-active subscription instead of resetting it.
         window._grantProMonths = async (uid, months) => {
@@ -5182,10 +5200,6 @@
             if (slotKey === 'promonth') {
                 const months = slot.months || 1;
                 await window._grantProMonths(currentUid, months);
-                const monthsAR = months === 1 ? 'شهر' : `${months} أشهر`;
-                const monthsEN = months === 1 ? '1 month' : `${months} months`;
-                try { await window._logCoinTransaction(currentUid, 'earn', 0, `هدية عجلة الحظ: ${monthsAR} من ATLASYA PRO مجاناً`, `Gift wheel prize: ${monthsEN} of ATLASYA PRO free`, { isGift: true }); }
-                catch(e) { console.error(e); }
                 result.months = months;
             } else if (slotKey === 'tempfeature') {
                 const hours = slot.hours || 24;
@@ -6752,6 +6766,89 @@
             return M[key] || { emoji:'❔', short:'', fullAR:'', fullEN:'' };
         }
 
+        // Formats a single wheel_spins record for the history modal. Uses the amounts/details
+        // actually saved on the record (coinsAwarded, extra) rather than the current live wheel
+        // config, since config values (coin amounts, month counts, etc.) can change over time.
+        function wheelHistoryLabel(entry, isAR) {
+            const rt = entry.resultType;
+            if (entry.wheelType !== 'gift') {
+                if (rt === 'coin1' || rt === 'coin2' || rt === 'coin3') {
+                    return { emoji: '🪙', text: isAR ? `${entry.coinsAwarded||0} عملة` : `${entry.coinsAwarded||0} coins` };
+                }
+                if (rt === 'extraSpin') return { emoji: '🔄', text: isAR ? 'لفة إضافية' : 'Extra spin' };
+                if (rt === 'gift') return { emoji: '🎁', text: isAR ? 'فتح عجلة الهدايا المفاجئة' : 'Unlocked the surprise gift wheel' };
+                if (rt === 'lose1' || rt === 'lose2') return { emoji: '🍀', text: isAR ? 'حظ أوفر في المرة القادمة' : 'Better luck next time' };
+                return { emoji: '🎡', text: isAR ? 'العجلة الأساسية' : 'Basic wheel' };
+            }
+            const extra = entry.extra || {};
+            if (rt === 'promonth') {
+                const months = extra.months || 1;
+                return { emoji: '👑', text: isAR ? `${months} ${months===1?'شهر':'أشهر'} من ATLASYA PRO مجاناً` : `${months} month(s) of ATLASYA PRO free` };
+            }
+            if (rt === 'tempfeature') {
+                const hours = extra.hours || 24;
+                const feat = isAR ? (extra.featureAR||'') : (extra.featureEN||'');
+                return { emoji: '🔓', text: isAR ? `فتح ميزة${feat?': '+feat:''} لمدة ${hours} ساعة` : `Unlocked${feat?': '+feat:''} for ${hours}h` };
+            }
+            if (rt === 'discount') {
+                const pct = extra.percent || 10;
+                return { emoji: '🎟️', text: isAR ? `كود خصم ${pct}%` : `${pct}% discount code` };
+            }
+            if (rt === 'boost') {
+                const mult = extra.multiplier || 2;
+                const hrs = extra.hours || 24;
+                return { emoji: '⚡', text: isAR ? `مضاعفة عملات ×${mult} لمدة ${hrs} ساعة` : `×${mult} coin boost for ${hrs}h` };
+            }
+            return { emoji: '🎁', text: isAR ? 'هدية مفاجأة' : 'Surprise gift' };
+        }
+
+        // Small "Spin History" button on the wheel page opens this — lists past spins
+        // (basic + gift wheel) for the logged-in student, newest first.
+        window.openWheelHistoryModal = async function() {
+            const isAR = lang === 'AR';
+            const modal = document.createElement('div');
+            modal.id = 'wheelHistoryModal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;';
+            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+            modal.innerHTML = `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:440px;width:100%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;" onclick="event.stopPropagation()">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <h3 style="font-size:14.5px;font-weight:800;margin:0;"><i class="fa-solid fa-clock-rotate-left" style="color:var(--gold3);margin-left:8px;"></i>${isAR?'سجل عجلة الحظ':'Wheel Spin History'}</h3>
+                    <button onclick="document.getElementById('wheelHistoryModal').remove()" style="background:none;border:none;color:var(--muted);font-size:17px;cursor:pointer;padding:4px;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div id="wheelHistoryBody" style="padding:8px 20px 16px;overflow-y:auto;">
+                    <div style="text-align:center;padding:24px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+
+            try {
+                const rows = await window._loadWheelSpinsHistory(window._currentUid, 50);
+                const body = document.getElementById('wheelHistoryBody');
+                if (!body) return;
+                if (!rows.length) {
+                    body.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:12.5px;">${isAR?'لسه معملتش أي لفة عجلة':"You haven't spun the wheel yet"}</div>`;
+                    return;
+                }
+                body.innerHTML = rows.map(r => {
+                    const meta = wheelHistoryLabel(r, isAR);
+                    const dateStr = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+                    const wheelLabel = r.wheelType === 'gift' ? (isAR?'عجلة الهدايا':'Gift wheel') : (isAR?'العجلة الأساسية':'Basic wheel');
+                    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+                        <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;background:rgba(212,160,23,0.1);display:flex;align-items:center;justify-content:center;font-size:15px;">${meta.emoji}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:12.5px;font-weight:700;">${meta.text}</div>
+                            <div style="font-size:10.5px;color:var(--muted);">${wheelLabel} · ${dateStr}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch(e) {
+                console.error('wheel history load error:', e);
+                const body = document.getElementById('wheelHistoryBody');
+                if (body) body.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:12.5px;">${isAR?'حدث خطأ أثناء تحميل السجل':'Something went wrong loading history'}</div>`;
+            }
+        };
+
         function wheelInjectStyles() {
             if (document.getElementById('wheelStyles')) return;
             const style = document.createElement('style');
@@ -6837,9 +6934,14 @@
                 banners += `<div class="wh-banner"><i class="fa-solid fa-unlock"></i><div>${isAR?`تم فتح: ${label} لفترة محدودة`:`Unlocked: ${label} for a limited time`}</div></div>`;
             }
             area.innerHTML = `
-            <div class="page-header">
-                <h2>${isAR?'🎡 عجلة الحظ':'🎡 Fortune Wheel'}</h2>
-                <p>${isAR?'محاولة مجانية كل 24 ساعة — اكسب عملات، لفات إضافية، أو افتح عجلة الهدايا المفاجئة':'One free spin every 24 hours — win coins, extra spins, or unlock the surprise gift wheel'}</p>
+            <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                <div>
+                    <h2>${isAR?'🎡 عجلة الحظ':'🎡 Fortune Wheel'}</h2>
+                    <p>${isAR?'محاولة مجانية كل 24 ساعة — اكسب عملات، لفات إضافية، أو افتح عجلة الهدايا المفاجئة':'One free spin every 24 hours — win coins, extra spins, or unlock the surprise gift wheel'}</p>
+                </div>
+                <button onclick="openWheelHistoryModal()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:10px;color:var(--gold3);font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                    <i class="fa-solid fa-clock-rotate-left"></i> ${isAR?'سجل العجلة':'Spin History'}
+                </button>
             </div>
             <div class="wh-wrap">
                 ${banners}
