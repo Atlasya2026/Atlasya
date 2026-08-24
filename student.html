@@ -4235,9 +4235,10 @@
         window._createTicket = async (data) => {
             if (!currentUid) throw new Error('Not logged in');
             const d = window._userData || {};
+            const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
             await addDoc(collection(db, 'support_tickets'), {
                 uid: currentUid,
-                studentName: ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User',
+                studentName,
                 studentEmail: d.email || '',
                 type: data.type,
                 message: data.message,
@@ -4249,6 +4250,7 @@
                 repliedAt: null,
                 ratedAt: null
             });
+            window._notifyAdminsBot('support_ticket', { studentName, ticketType: data.type, message: data.message });
         };
         // Real-time listener for student's own tickets
         window._subscribeMyTickets = (callback) => {
@@ -4285,6 +4287,26 @@
         };
         window._rateTicket = async (ticketId, rating, comment) => {
             await updateDoc(doc(db, 'support_tickets', ticketId), { rating, ratingComment: comment || '', ratedAt: serverTimestamp() });
+        };
+
+        /* ─── TELEGRAM ADMIN BOT NOTIFICATIONS ───
+           بتبعت حدث (تذكرة دعم، لفة عجلة حظ...) لجروب الأدمنز عن طريق Worker
+           وسيط بيمسك التوكن بدل ما يبقى هنا في كود الموقع. شوف
+           atlasya-notify-bot/README.md لتفاصيل التركيب.
+           "Fire and forget": لو الإشعار فشل مش بيوقف أي حاجة تانية بتحصل للطالب. */
+        const ADMIN_BOT_WORKER_URL = 'https://atlasya-notify-bot.atlasyateam26.workers.dev/notify';
+        window._notifyAdminsBot = async (type, data) => {
+            try {
+                if (!currentUid || !auth.currentUser) return;
+                const idToken = await auth.currentUser.getIdToken();
+                await fetch(ADMIN_BOT_WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, type, data })
+                });
+            } catch (e) {
+                console.error('admin bot notify error:', e);
+            }
         };
 
         /* ─── ADMIN BROADCAST NOTIFICATIONS ─── */
@@ -5186,6 +5208,12 @@
             try { await addDoc(collection(db, 'wheel_spins'), { userId: currentUid, wheelType: 'basic', resultType: slotKey, coinsAwarded: result.coinsAwarded || 0, createdAt: serverTimestamp() }); }
             catch(e) { console.error('wheel spin log error:', e); }
 
+            {
+                const d = window._userData || {};
+                const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
+                window._notifyAdminsBot('wheel_spin', { studentName, wheelType: 'basic', resultType: slotKey, coinsAwarded: result.coinsAwarded || 0 });
+            }
+
             return result;
         };
 
@@ -5227,6 +5255,12 @@
 
             try { await addDoc(collection(db, 'wheel_spins'), { userId: currentUid, wheelType: 'gift', resultType: slotKey, extra: result, createdAt: serverTimestamp() }); }
             catch(e) { console.error('gift wheel spin log error:', e); }
+
+            {
+                const d = window._userData || {};
+                const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
+                window._notifyAdminsBot('wheel_spin', { studentName, wheelType: 'gift', resultType: slotKey });
+            }
 
             return result;
         };
