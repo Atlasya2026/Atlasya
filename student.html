@@ -4298,8 +4298,8 @@
            وسيط بيمسك التوكن بدل ما يبقى هنا في كود الموقع. شوف
            atlasya-notify-bot/README.md لتفاصيل التركيب.
            "Fire and forget": لو الإشعار فشل مش بيوقف أي حاجة تانية بتحصل للطالب. */
-        
-        window._notifyAdminsBot = async (type, data) => {const ADMIN_BOT_WORKER_URL = 'https://atlasya-notify-bot.atlasyateam26.workers.dev/notify';
+        const ADMIN_BOT_WORKER_URL = 'https://atlasya-notify-bot.atlasyateam26.workers.dev/notify';
+        window._notifyAdminsBot = async (type, data) => {
             try {
                 if (!currentUid || !auth.currentUser) return;
                 const idToken = await auth.currentUser.getIdToken();
@@ -9920,19 +9920,44 @@
         };
 
         let portfolioFileData = null;
-        function handlePortFile(e) {
+        const PORT_FILE_BUDGET_BYTES = 800000; // leaves headroom under Firestore's ~1MB doc limit for title/desc text
+        const PORT_NONIMAGE_MAX_BYTES = 600000; // pdf/zip aren't compressed, so cap the raw file size instead
+        async function handlePortFile(e) {
+            const isAR = lang === 'AR';
             const file = e.target.files[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = ev => {
-                portfolioFileData = { name: file.name, data: ev.target.result };
-                const zone = document.getElementById('portDropZone');
-                if (zone) {
-                    const p = zone.querySelector('p');
-                    if (p) p.textContent = `✓ ${file.name}`;
+            const zone = document.getElementById('portDropZone');
+            const setZoneTxt = (t) => { if (zone) { const p = zone.querySelector('p'); if (p) p.textContent = t; } };
+            try {
+                let dataUrl;
+                if (/^image\//.test(file.type)) {
+                    // Reuses the same budget-aware compressor as the CV certificates uploader:
+                    // resizes + re-encodes as JPEG until it fits comfortably under Firestore's doc limit.
+                    setZoneTxt(isAR ? 'جاري ضغط الصورة...' : 'Compressing image...');
+                    dataUrl = await _cvCompressToBudget(file, PORT_FILE_BUDGET_BYTES);
+                } else {
+                    if (file.size > PORT_NONIMAGE_MAX_BYTES) {
+                        showToast(isAR
+                            ? `⚠️ الملف كبير جداً (الحد الأقصى ~${Math.floor(PORT_NONIMAGE_MAX_BYTES / 1000)}KB لملفات PDF/ZIP)`
+                            : `⚠️ File too large (max ~${Math.floor(PORT_NONIMAGE_MAX_BYTES / 1000)}KB for PDF/ZIP)`, true);
+                        e.target.value = '';
+                        return;
+                    }
+                    dataUrl = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = ev => resolve(ev.target.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
                 }
-            };
-            reader.readAsDataURL(file);
+                portfolioFileData = { name: file.name, data: dataUrl };
+                setZoneTxt(`✓ ${file.name}`);
+            } catch (err) {
+                console.error('portfolio file compress error:', err);
+                showToast(isAR ? '⚠️ فشل تجهيز الملف، حاول مرة أخرى' : '⚠️ Failed to process the file, try again', true);
+                setZoneTxt(isAR ? 'اضغط لرفع صورة الخريطة أو ملف المشروع' : 'Click to upload a map screenshot or project file');
+                e.target.value = '';
+            }
         }
 
         window.openPortfolioUpload = function() {
@@ -9948,6 +9973,13 @@
             const title = document.getElementById('portTitle')?.value?.trim();
             const desc  = document.getElementById('portDesc')?.value?.trim();
             if (!title) { if (typeof showToast === 'function') showToast(isAR ? '⚠️ اكتب اسم المشروع' : '⚠️ Enter a project title'); return; }
+            const FIRESTORE_SAFE_DOC_BYTES = 950000;
+            const payloadCheck = { title, desc, fileName: portfolioFileData?.name || '', fileData: portfolioFileData?.data || '' };
+            const fullPayloadBytes = new Blob([JSON.stringify(payloadCheck)]).size;
+            if (fullPayloadBytes > FIRESTORE_SAFE_DOC_BYTES) {
+                if (typeof showToast === 'function') showToast(isAR ? '⚠️ حجم الملف كبير جداً حتى بعد الضغط، جرب صورة تانية' : '⚠️ File is too large even after compression, try a different image', true);
+                return;
+            }
             const btn = document.querySelector('#portfolioUploadForm button[onclick="submitPortfolioItem()"]');
             if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
             try {
