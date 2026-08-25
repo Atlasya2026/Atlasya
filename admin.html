@@ -3078,11 +3078,6 @@
                             <span id="txtTopbarLogoutDesk">خروج</span>
                         </button>
                     </div>
-                    <!-- Admin Edit btn -->
-                    <button id="adminEditBtn" onclick="toggleEditMode()" style="display:none;align-items:center;gap:7px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:800;font-family:'Tajawal',sans-serif;cursor:pointer;transition:all 0.25s;box-shadow:0 2px 10px rgba(212,160,23,0.35);">
-                        <i class="fa-solid fa-pen-to-square" id="adminEditIcon"></i>
-                        <span id="adminEditTxt">Edit Mode</span>
-                    </button>
                     <!-- MOBILE RIGHT / DESKTOP RIGHT: theme + lang + notif -->
                     <div class="mob-tools-group" style="display:none;">
                         <button class="theme-toggle-btn" id="themeToggleBtnMob" onclick="toggleTheme()" title="تبديل المظهر"><i class="fa-solid fa-moon" id="themeToggleIconMob"></i></button>
@@ -4224,9 +4219,12 @@
     };
     window._applyContent = async () => {
         try {
+            // Manual override for these 4 is removed — they're always computed
+            // live from Firestore now (see renderDashboard).
+            const LIVE_STAT_IDS = ['stat_videos', 'stat_library', 'stat_jobs', 'stat_datasets'];
             const content = await window._loadContent();
             Object.entries(content).forEach(([id, text]) => {
-                if (id === 'updatedAt') return;
+                if (id === 'updatedAt' || LIVE_STAT_IDS.includes(id)) return;
                 const el = document.getElementById(id);
                 if (el) el.innerHTML = text;
             });
@@ -5217,15 +5215,43 @@
             ${sectionCard('courses','fa-building-shield',isAR?'الكورسات والشركات':'Courses & Companies',isAR?'دورات تدريبية وشركات GIS الرائدة':'Training courses and leading GIS firms', true)}
         </div>`}`;
 
-        // Load live job count from Firestore and update stat_jobs card
-        if (window._loadJobs) {
+        // Load live counts from Firestore for all 4 dashboard stat cards
+        (async () => {
             try {
-                const jobs = await window._loadJobs();
-                const approvedJobs = jobs.filter(j => (j.status || 'approved') === 'approved');
-                const statJobs = document.getElementById('stat_jobs');
-                if (statJobs) statJobs.textContent = approvedJobs.length;
+                if (window._loadPlaylists) {
+                    const playlists = await window._loadPlaylists();
+                    const videoCounts = await Promise.all(
+                        playlists.map(p => getDocs(collection(db, 'playlists', p.id, 'videos')).then(s => s.size).catch(() => 0))
+                    );
+                    const totalVideos = videoCounts.reduce((a, b) => a + b, 0);
+                    const el = document.getElementById('stat_videos');
+                    if (el) el.textContent = totalVideos;
+                }
             } catch(e) { /* silent fail — keep default 0 */ }
-        }
+            try {
+                if (window._loadLibraryBooksAdmin) {
+                    const books = await window._loadLibraryBooksAdmin();
+                    const visibleBooks = books.filter(b => !b.hidden);
+                    const el = document.getElementById('stat_library');
+                    if (el) el.textContent = visibleBooks.length;
+                }
+            } catch(e) { /* silent fail — keep default 0 */ }
+            try {
+                if (window._loadJobs) {
+                    const jobs = await window._loadJobs();
+                    const approvedJobs = jobs.filter(j => (j.status || 'approved') === 'approved');
+                    const el = document.getElementById('stat_jobs');
+                    if (el) el.textContent = approvedJobs.length;
+                }
+            } catch(e) { /* silent fail — keep default 0 */ }
+            try {
+                if (window._loadSpatialDatasets) {
+                    const datasets = await window._loadSpatialDatasets();
+                    const el = document.getElementById('stat_datasets');
+                    if (el) el.textContent = datasets.length;
+                }
+            } catch(e) { /* silent fail — keep default 0 */ }
+        })();
     }
 
     function sectionCard(page, icon, title, desc, hideMobile=false) {
@@ -13067,65 +13093,9 @@
         }
     }
 
-    let editModeOn = false;
-    let _editSnapshot = {};
-    const EDITABLE_IDS = ['stat_videos','stat_library','stat_jobs','stat_datasets'];
-
-    function toggleEditMode() {
-        editModeOn = !editModeOn;
-        document.getElementById('pageBody').classList.toggle('edit-mode', editModeOn);
-        const btn = document.getElementById('adminEditBtn');
-        if (btn) {
-            if (editModeOn) {
-                btn.style.background = 'linear-gradient(135deg,#e74c3c,#c0392b)';
-                btn.style.color = '#fff';
-                btn.style.boxShadow = '0 2px 10px rgba(231,76,60,0.4)';
-            } else {
-                btn.style.background = 'linear-gradient(135deg,var(--gold3),var(--gold2))';
-                btn.style.color = '#0a0a0e';
-                btn.style.boxShadow = '0 2px 10px rgba(212,160,23,0.35)';
-            }
-        }
-        document.getElementById('adminEditIcon').className = editModeOn ? 'fa-solid fa-xmark' : 'fa-solid fa-pen-to-square';
-        document.getElementById('adminEditTxt').textContent = editModeOn ? 'Stop Editing' : 'Edit Mode';
-
-        if (editModeOn) {
-            _editSnapshot = {};
-            EDITABLE_IDS.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    _editSnapshot[id] = el.innerHTML;
-                    el.setAttribute('contenteditable','true');
-                    el.setAttribute('spellcheck','false');
-                    el.style.outline = '2px dashed rgba(212,160,23,0.8)';
-                    el.style.borderRadius = '4px';
-                    el.style.padding = '2px 4px';
-                    el.style.cursor = 'text';
-                }
-            });
-            showToast('Click any number to edit it');
-        } else {
-            const changed = {};
-            EDITABLE_IDS.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.removeAttribute('contenteditable');
-                    el.style.outline = '';
-                    el.style.borderRadius = '';
-                    el.style.padding = '';
-                    el.style.cursor = '';
-                    if (el.innerHTML !== _editSnapshot[id]) changed[id] = el.innerHTML;
-                }
-            });
-            if (Object.keys(changed).length > 0 && window._saveContent) {
-                window._saveContent(changed).then(() => {
-                    showToast('✓ ' + Object.keys(changed).length + ' number(s) saved — visible to all users');
-                }).catch(() => showToast('Save failed', true));
-            } else {
-                showToast('No changes detected');
-            }
-        }
-    }
+    /* Manual "Edit Mode" for the 4 dashboard stat numbers was removed — they're
+       now always computed live from Firestore (see renderDashboard), so there's
+       nothing to manually type in anymore. */
 
     /* ─── SIDEBAR TOGGLE ─── */
     function toggleSidebar() {
