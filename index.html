@@ -2027,6 +2027,10 @@
                 text-decoration: none; color: var(--text);
                 overflow: hidden; cursor: pointer;
                 transition: transform 0.3s cubic-bezier(.2,.8,.2,1), box-shadow 0.3s, border-color 0.3s, background 0.3s;
+                /* Blocks iOS/Android long-press "Copy Link" / save-image menu, since
+                   right-click (oncontextmenu) alone doesn't catch touch long-press. */
+                -webkit-touch-callout: none;
+                -webkit-user-select: none; user-select: none;
             }
             .dataset-card::before {
                 content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
@@ -3899,10 +3903,11 @@
         };
         window._companySubmitCourse = async (data) => {
             if (!companyUid) throw new Error('Not logged in');
+            const companyName = companyProfile?.companyName || '';
             await addDoc(collection(companyDb, 'courses'), {
                 ...data,
                 companyId: companyUid,
-                companyName: companyProfile?.companyName || '',
+                companyName,
                 email: data.email || companyProfile?.email || '',
                 whatsapp: data.whatsapp || companyProfile?.whatsapp || '',
                 website: data.website || companyProfile?.website || '',
@@ -3914,6 +3919,7 @@
                 status: 'pending',
                 createdAt: serverTimestamp()
             });
+            window._notifyAdminsBot('course_submission', { companyName, courseTitle: data.title || data.courseTitle || '' }, companyAuth);
         };
         window._companyUpdateCourse = async (courseId, data) => {
             await updateDoc(doc(companyDb, 'courses', courseId), {
@@ -4055,6 +4061,26 @@
         };
         window._incrementDatasetDownload = async (id, current) => {
             await updateDoc(doc(db, 'spatial_datasets', id), { downloads: (current || 0) + 1 });
+        };
+
+        /* ─── ANTI COPY-LINK PROTECTION (datasets & GIS tools) ───
+           Blocks the right-click/long-press menu on download cards (so "Copy Link"
+           never has a real file URL to grab — see the javascript:void(0) hrefs) and
+           logs each attempt against the user, so repeat offenders are visible to
+           admins even though the block itself is silent to the student. */
+        window._blockCopyAttempt = function(ev) {
+            try {
+                if (currentUid) {
+                    updateDoc(doc(db, 'users', currentUid), {
+                        copyAttempts: increment(1),
+                        lastCopyAttemptAt: serverTimestamp()
+                    }).catch(() => {
+                        // doc might not have the field yet on very old accounts — seed it
+                        setDoc(doc(db, 'users', currentUid), { copyAttempts: 1, lastCopyAttemptAt: serverTimestamp() }, { merge: true }).catch(() => {});
+                    });
+                }
+            } catch (e) {}
+            return false; // still blocks the native context menu either way
         };
 
         /* ─── SOFTWARE TOOLS (read) ─── */
@@ -4299,10 +4325,11 @@
            atlasya-notify-bot/README.md لتفاصيل التركيب.
            "Fire and forget": لو الإشعار فشل مش بيوقف أي حاجة تانية بتحصل للطالب. */
         const ADMIN_BOT_WORKER_URL = 'https://atlasya-notify-bot.atlasyateam26.workers.dev/notify';
-        window._notifyAdminsBot = async (type, data) => {
+        window._notifyAdminsBot = async (type, data, authInstance) => {
             try {
-                if (!currentUid || !auth.currentUser) return;
-                const idToken = await auth.currentUser.getIdToken();
+                const authObj = authInstance || auth;
+                if (!authObj || !authObj.currentUser) return;
+                const idToken = await authObj.currentUser.getIdToken();
                 await fetch(ADMIN_BOT_WORKER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -4370,6 +4397,9 @@
                 status: isAdminUser ? 'approved' : 'pending',
                 createdAt: serverTimestamp()
             });
+            if (!isAdminUser) {
+                window._notifyAdminsBot('job_post', { studentName: authorName, jobTitle: data.title || '', company: data.company || '' });
+            }
         };
         window._loadJobs = async () => {
             const q = query(collection(db, 'job_posts'), orderBy('createdAt', 'desc'));
@@ -7725,7 +7755,7 @@
         function dsCardHTML(d, isAR) {
             const sub = scFindSub(d.category, d.subcategory);
             return `
-            <a href="javascript:void(0)" onclick="dsOpenDataset('${d.id}')" oncontextmenu="return false;" class="dataset-card">
+            <a href="javascript:void(0)" onclick="dsOpenDataset('${d.id}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card">
                 ${d.previewImage ? `<img src="${d.previewImage}" style="width:100%;height:100px;object-fit:cover;border-radius:12px;margin-bottom:-2px;">` : ''}
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid fa-map-location-dot"></i></div>
@@ -7813,7 +7843,7 @@
         /* ─── GIS SOFTWARE TOOLS ─── */
         function dsCardWrap(icon, title, badge, url) {
             return `
-            <a href="javascript:void(0)" onclick="handleFileDownload('${url.replace(/'/g,"&#39;")}')" oncontextmenu="return false;" class="dataset-card">
+            <a href="javascript:void(0)" onclick="handleFileDownload('${url.replace(/'/g,"&#39;")}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${icon}"></i></div>
                     <span class="ds-badge">${badge}</span>
@@ -7827,15 +7857,15 @@
         only ever consume ONE slot from the daily download quota */
         function dsCardSplit(icon, title, badge, note, comboId, item1, item2) {
             return `
-            <div class="dataset-card split" oncontextmenu="return false;">
+            <div class="dataset-card split" oncontextmenu="return window._blockCopyAttempt(event);">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${icon}"></i></div>
                     <span class="ds-badge">${badge}</span>
                 </div>
                 <div class="ds-info"><h4>${title}</h4>${note ? `<div class="ds-combo-note">${note}</div>` : ''}</div>
                 <div class="ds-dl-group">
-                    <button type="button" class="ds-dl-mini" onclick="handleFileDownloadPair('${item1.url.replace(/'/g,"&#39;")}','${comboId}')" oncontextmenu="return false;"><i class="fa-solid fa-download"></i><span>${item1.label}</span></button>
-                    <button type="button" class="ds-dl-mini" onclick="handleFileDownloadPair('${item2.url.replace(/'/g,"&#39;")}','${comboId}')" oncontextmenu="return false;"><i class="fa-solid fa-download"></i><span>${item2.label}</span></button>
+                    <button type="button" class="ds-dl-mini" onclick="handleFileDownloadPair('${item1.url.replace(/'/g,"&#39;")}','${comboId}')" oncontextmenu="return window._blockCopyAttempt(event);"><i class="fa-solid fa-download"></i><span>${item1.label}</span></button>
+                    <button type="button" class="ds-dl-mini" onclick="handleFileDownloadPair('${item2.url.replace(/'/g,"&#39;")}','${comboId}')" oncontextmenu="return window._blockCopyAttempt(event);"><i class="fa-solid fa-download"></i><span>${item2.label}</span></button>
                 </div>
             </div>`;
         }
@@ -8582,7 +8612,7 @@
         function toolCardHTML(t, isAR) {
             const cat = scFindToolCat(t.category);
             return `
-            <a href="javascript:void(0)" onclick="handleToolDownload('${t.id}')" oncontextmenu="return false;" class="dataset-card">
+            <a href="javascript:void(0)" onclick="handleToolDownload('${t.id}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${t.icon || (cat?cat.icon:'fa-download')}"></i></div>
                     <span class="ds-badge">${escapeHtml(t.version||'')}</span>
@@ -8597,7 +8627,7 @@
 
         function toolCardSplitHTML(t, isAR) {
             return `
-            <div class="dataset-card split" oncontextmenu="return false;">
+            <div class="dataset-card split" oncontextmenu="return window._blockCopyAttempt(event);">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${t.icon || 'fa-circle-down'}"></i></div>
                     <span class="ds-badge">${escapeHtml(t.version||'')}</span>
@@ -8608,8 +8638,8 @@
                     ${t.notes ? `<div style="font-size:10.5px;color:var(--gold3);margin-top:4px;"><i class="fa-solid fa-circle-info"></i> ${escapeHtml(t.notes)}</div>` : ''}
                 </div>
                 <div class="ds-dl-group">
-                    <button type="button" class="ds-dl-mini" onclick="handleToolDownloadPair('${t.id}','main')" oncontextmenu="return false;"><i class="fa-solid fa-download"></i><span>${escapeHtml(isAR?(t.name||''):(t.nameEn||t.name||''))}</span></button>
-                    <button type="button" class="ds-dl-mini" onclick="handleToolDownloadPair('${t.id}','prereq')" oncontextmenu="return false;"><i class="fa-solid fa-download"></i><span>${escapeHtml(t.prerequisiteLabel || (isAR?'المتطلب':'Requirement'))}</span></button>
+                    <button type="button" class="ds-dl-mini" onclick="handleToolDownloadPair('${t.id}','main')" oncontextmenu="return window._blockCopyAttempt(event);"><i class="fa-solid fa-download"></i><span>${escapeHtml(isAR?(t.name||''):(t.nameEn||t.name||''))}</span></button>
+                    <button type="button" class="ds-dl-mini" onclick="handleToolDownloadPair('${t.id}','prereq')" oncontextmenu="return window._blockCopyAttempt(event);"><i class="fa-solid fa-download"></i><span>${escapeHtml(t.prerequisiteLabel || (isAR?'المتطلب':'Requirement'))}</span></button>
                 </div>
             </div>`;
         }
