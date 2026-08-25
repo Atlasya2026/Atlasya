@@ -757,6 +757,23 @@
             .stat-num { font-family: 'Space Mono', monospace; font-size: 26px; font-weight: 700; }
             .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
+            /* ── Clickable dashboard stat cards: the whole card is a nav shortcut,
+               not just a static number, per the "stats double as navigation" design ── */
+            .stat-nav-card {
+                cursor: pointer; position: relative;
+            }
+            .stat-nav-card:hover { border-color: var(--green3); box-shadow: 0 8px 28px rgba(30,122,52,0.16); }
+            body.light-mode .stat-nav-card:hover { border-color: rgba(0,120,215,0.35); box-shadow: 0 8px 24px rgba(0,120,215,0.14); }
+            .stat-nav-explore {
+                display: flex; align-items: center; gap: 6px;
+                margin-top: 14px; font-size: 12.5px; font-weight: 800;
+                color: var(--green3);
+            }
+            body.theme-gold .stat-nav-explore { color: var(--gold3); }
+            .stat-nav-card .fa-arrow-left, .stat-nav-card .fa-arrow-right { font-size: 11px; transition: transform 0.25s; }
+            .stat-nav-card:hover .fa-arrow-left { transform: translateX(-3px); }
+            .stat-nav-card:hover .fa-arrow-right { transform: translateX(3px); }
+
             .sections-grid {
                 display: grid; grid-template-columns: repeat(3, 1fr);
                 gap: 16px;
@@ -6343,8 +6360,8 @@
                     : `${greetEN}${_nameStr} <span style="font-size:0.75em;">${greetIcon}</span>`}
                 </h1>
                 <p>${isAR
-                    ? 'منصتك الشاملة لتعلم نظم المعلومات الجغرافية — اختر قسماً من القائمة للبدء.'
-                    : 'Your comprehensive GIS learning hub. Select a section from the sidebar to get started.'}</p>
+                    ? 'منصتك الشاملة لتعلّم نظم المعلومات الجغرافية والجغرافيا<br>اختر ما تريد استكشافه وابدأ رحلتك 🚀'
+                    : 'Your comprehensive hub for learning GIS and Geography<br>Pick what you want to explore and start your journey 🚀'}</p>
                 ${window._isAdmin ? '' : `
                 <div onclick="goSettings('wallet')" style="position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:7px 14px;background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:99px;cursor:pointer;">
                     <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--gold3),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:11px;color:#0a0a0e;flex-shrink:0;"><i class="fa-solid fa-coins"></i></div>
@@ -6356,48 +6373,82 @@
             ${''/* dashboard install box removed per request */}
 
             <div class="stats-row">
-                <div class="stat-card">
-                    <div class="stat-icon g"><i class="fa-solid fa-clapperboard"></i></div>
-                    <div class="stat-num" id="stat_videos">0</div>
-                    <div class="stat-label">${isAR?'قائمة تشغيل':'Playlists'}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon b"><i class="fa-solid fa-book-bookmark"></i></div>
-                    <div class="stat-num" id="stat_library">0</div>
-                    <div class="stat-label">${isAR?'مراجع علمية':'Library Resources'}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon y"><i class="fa-solid fa-briefcase"></i></div>
-                    <div class="stat-num" id="stat_jobs">0</div>
-                    <div class="stat-label">${isAR?'وظيفة متاحة':'Open Positions'}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon p"><i class="fa-solid fa-database"></i></div>
-                    <div class="stat-num" id="stat_datasets">34</div>
-                    <div class="stat-label">${isAR?'مجموعة بيانات':'Datasets'}</div>
-                </div>
+                ${statNavCard('playlists', 'g', 'fa-clapperboard', 'stat_videos', 0,
+                    isAR?'فيديو':'Videos', isAR?'استكشف قوائم التشغيل':'Explore Playlists', 'menuPlay')}
+                ${statNavCard('library', 'b', 'fa-book-bookmark', 'stat_library', 0,
+                    isAR?'مرجعًا':'References', isAR?'استكشف المكتبة':'Explore Library', 'menuLib')}
+                ${statNavCard('jobs', 'y', 'fa-briefcase', 'stat_jobs', 0,
+                    isAR?'وظيفة متاحة':'Open Positions', isAR?'تصفح الوظائف':'Browse Jobs', 'menuJob')}
+                ${statNavCard('datasets', 'p', 'fa-database', 'stat_datasets', 0,
+                    isAR?'مجموعة بيانات':'Datasets', isAR?'استكشف البيانات':'Explore Datasets', 'menuData')}
             </div>
 
-            ${window._isAdmin ? '' : `<div class="sections-grid">
-                ${sectionCard('dailychallenge','fa-calendar-check',isAR?'التحديات':'Challenges',isAR?'جاوب على سؤال اليوم وتحدي الأسبوع واكسب عملات ومكافأة إكمال':"Answer today's question and the weekly challenge to earn coins and a completion bonus", true)}
-                ${sectionCard('wheel','fa-dharmachakra',isAR?'عجلة الحظ':'Fortune Wheel',isAR?'محاولة مجانية كل 24 ساعة — اكسب عملات، لفات إضافية، أو هدايا مفاجئة':'One free spin every 24 hours — win coins, extra spins, or surprise gifts', true)}
-                ${sectionCard('playlists','fa-clapperboard',isAR?'قوائم التشغيل':'Playlists',isAR?'قوائم فيديوهات تعليمية في نظم المعلومات الجغرافية':'Educational video playlists in GIS', true)}
+            ${window._isAdmin ? '' : `
+            <div style="display:flex;align-items:center;gap:10px;margin:6px 0 16px;">
+                <div style="font-size:16px;font-weight:800;">${isAR?'🚀 استكشف ATLASYA':'🚀 Explore ATLASYA'}</div>
+            </div>
+            <div class="sections-grid">
                 ${sectionCard('library','fa-book-bookmark',isAR?'المكتبة الرقمية':'Digital Library',isAR?'كتب ومراجع تقنية في علوم GIS':'Technical books and GIS references', true)}
                 ${sectionCard('datasets','fa-database',isAR?'البيانات المكانية':'Spatial Datasets',isAR?'تحميل مجموعات البيانات المكانية':'Download spatial data collections', true)}
-                ${sectionCard('tools','fa-laptop-code',isAR?'أدوات البرامج':'GIS Software Tools',isAR?'أفضل برامج وأدوات GIS للمبتدئين والمحترفين':'Top GIS tools for all levels', true)}
-                ${sectionCard('jobs','fa-briefcase',isAR?'لوحة الوظائف':'Job Board',isAR?'فرص وظيفية في مجال الخرائط وتحليل البيانات':'GIS & mapping job opportunities', true)}
                 ${sectionCard('courses','fa-building-shield',isAR?'الكورسات والشركات':'Courses & Companies',isAR?'دورات تدريبية وشركات GIS الرائدة':'Training courses and leading GIS firms', true)}
+                ${sectionCard('playlists','fa-clapperboard',isAR?'قوائم التشغيل':'Playlists',isAR?'قوائم فيديوهات تعليمية في نظم المعلومات الجغرافية':'Educational video playlists in GIS', true)}
+                ${sectionCard('tools','fa-laptop-code',isAR?'أدوات البرامج':'GIS Software Tools',isAR?'أفضل برامج وأدوات GIS للمبتدئين والمحترفين':'Top GIS tools for all levels', true)}
+                ${sectionCard('portfolio','fa-map-location-dot',isAR?'خرائط الطلبة':'Student Maps',isAR?'شارك مشاريعك وخرائطك مع باقي الطلاب':'Share your maps and projects with other students', true)}
+                ${sectionCard('insights','fa-lightbulb',isAR?'نصائح GIS':'GIS Insights',isAR?'نصيحة يومية جديدة في نظم المعلومات الجغرافية':'A new GIS tip every day', true)}
+                ${sectionCard('dailychallenge','fa-calendar-check',isAR?'التحديات':'Challenges',isAR?'جاوب على سؤال اليوم وتحدي الأسبوع واكسب عملات ومكافأة إكمال':"Answer today's question and the weekly challenge to earn coins and a completion bonus", true)}
+                ${sectionCard('wheel','fa-dharmachakra',isAR?'عجلة الحظ':'Fortune Wheel',isAR?'محاولة مجانية كل 24 ساعة — اكسب عملات، لفات إضافية، أو هدايا مفاجئة':'One free spin every 24 hours — win coins, extra spins, or surprise gifts', true)}
+                ${sectionCard('jobs','fa-briefcase',isAR?'لوحة الوظائف':'Job Board',isAR?'فرص وظيفية في مجال الخرائط وتحليل البيانات':'GIS & mapping job opportunities', true)}
             </div>`}`;
 
-            // Load live job count from Firestore and update stat_jobs card
-            if (window._loadJobs) {
+            // Load live counts from Firestore for the clickable stat cards
+            (async () => {
                 try {
-                    const jobs = await window._loadJobs();
-                    const approvedJobs = jobs.filter(j => (j.status || 'approved') === 'approved');
-                    const statJobs = document.getElementById('stat_jobs');
-                    if (statJobs) statJobs.textContent = approvedJobs.length;
+                    if (window._loadPlaylists) {
+                        const playlists = await window._loadPlaylists();
+                        const videoCounts = await Promise.all(
+                            playlists.map(p => getDocs(collection(db, 'playlists', p.id, 'videos')).then(s => s.size).catch(() => 0))
+                        );
+                        const totalVideos = videoCounts.reduce((a, b) => a + b, 0);
+                        const el = document.getElementById('stat_videos');
+                        if (el) el.textContent = totalVideos;
+                    }
                 } catch(e) { /* silent fail — keep default 0 */ }
-            }
+                try {
+                    if (window._loadLibraryBooks) {
+                        const books = await window._loadLibraryBooks();
+                        const el = document.getElementById('stat_library');
+                        if (el) el.textContent = books.length;
+                    }
+                } catch(e) { /* silent fail — keep default 0 */ }
+                try {
+                    if (window._loadJobs) {
+                        const jobs = await window._loadJobs();
+                        const approvedJobs = jobs.filter(j => (j.status || 'approved') === 'approved');
+                        const el = document.getElementById('stat_jobs');
+                        if (el) el.textContent = approvedJobs.length;
+                    }
+                } catch(e) { /* silent fail — keep default 0 */ }
+                try {
+                    if (window._loadSpatialDatasets) {
+                        const datasets = await window._loadSpatialDatasets();
+                        const el = document.getElementById('stat_datasets');
+                        if (el) el.textContent = datasets.length;
+                    }
+                } catch(e) { /* silent fail — keep default 0 */ }
+            })();
+        }
+
+        /* A dashboard stat card that's also a nav shortcut: clicking anywhere on
+           it (not just the "explore" line) jumps straight to that section. */
+        function statNavCard(page, colorClass, icon, numId, numDefault, label, exploreText, navElId) {
+            const arrowIcon = document.getElementById('pageBody')?.classList.contains('rtl') ? 'fa-arrow-left' : 'fa-arrow-right';
+            return `
+            <div class="stat-card stat-nav-card" onclick="navigate('${page}', document.getElementById('${navElId}'))" role="button" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
+                <div class="stat-icon ${colorClass}"><i class="fa-solid ${icon}"></i></div>
+                <div class="stat-num" id="${numId}">${numDefault}</div>
+                <div class="stat-label">${label}</div>
+                <div class="stat-nav-explore"><span>${exploreText}</span> <i class="fa-solid ${arrowIcon}"></i></div>
+            </div>`;
         }
 
         function sectionCard(page, icon, title, desc, hideMobile=false) {
