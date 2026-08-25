@@ -5220,10 +5220,11 @@
             try {
                 if (window._loadPlaylists) {
                     const playlists = await window._loadPlaylists();
-                    const videoCounts = await Promise.all(
-                        playlists.map(p => getDocs(collection(db, 'playlists', p.id, 'videos')).then(s => s.size).catch(() => 0))
-                    );
-                    const totalVideos = videoCounts.reduce((a, b) => a + b, 0);
+                    // Each playlist doc keeps its own videoCount field in sync
+                    // (see _addPlaylistVideo/_deletePlaylistVideo) — summing that
+                    // is far cheaper and more reliable than querying every
+                    // playlist's videos subcollection individually.
+                    const totalVideos = playlists.reduce((s, p) => s + (p.videoCount || 0), 0);
                     const el = document.getElementById('stat_videos');
                     if (el) el.textContent = totalVideos;
                 }
