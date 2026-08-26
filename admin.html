@@ -3196,7 +3196,11 @@
         appId: "1:1089790888670:web:fd1d1ffb289bf89bed104f"
     };
 
-    const app = initializeApp(firebaseConfig);
+    /* Admin panel gets its own isolated Firebase Auth session (separate named
+       app), so it never inherits a student's already-logged-in session on this
+       device/browser — the admin has to submit the login form every time,
+       and student.html's session is never touched by anything here either. */
+    const app = initializeApp(firebaseConfig, 'adminPortal');
     const auth = getAuth(app);
     const db = getFirestore(app);
     window._auth = auth; // expose for password change
