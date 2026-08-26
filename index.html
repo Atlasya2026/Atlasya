@@ -5049,6 +5049,9 @@
                 try { weeklyBonus = await window._maybeAwardWeeklyBonus(question.scheduledDate); }
                 catch(e) { console.error('weekly bonus check error:', e); }
             }
+            const d = window._userData || {};
+            const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
+            window._notifyAdminsBot('challenge_answer', { studentName, correct, coinsAwarded, challengeType: question.type });
             return { correct, coinsAwarded, weeklyBonus };
         };
         window._getWeeklyBonusClaim = async (weekStart) => {
@@ -6749,6 +6752,7 @@
                     <p>${attempt.correct
                         ? (isAR?`حصلت على ${attempt.coinsAwarded} عملة 🪙`:`You earned ${attempt.coinsAwarded} coins 🪙`)
                         : (isAR?'حظ أوفر في التحدي القادم! 🍀':'Better luck in the next challenge! 🍀')}</p>
+                    <p style="margin-top:10px;font-size:12.5px;color:var(--muted);"><i class="fa-solid fa-moon"></i> ${isAR?'خلصت تحدي اليوم — التحدي الجديد هيتجدد بكرة، تعالى تاني! 👋':"You're done for today — a new challenge unlocks tomorrow, see you then! 👋"}</p>
                 </div>`;
                 return;
             }
@@ -6776,6 +6780,65 @@
                 <button class="ch-lock-btn" id="${containerId}LockBtn" disabled onclick="dcLockAnswer()">${isAR?'تأكيد الإجابة':'Lock In Answer'}</button>
             </div>`;
         }
+
+        /* ─── CELEBRATION EFFECT (confetti + balloons from both sides) ───
+           Pure CSS/JS, no external library. Fires for ~5s then removes itself.
+           Used when a student answers today's daily challenge correctly. */
+        window._fireCelebration = function() {
+            if (document.getElementById('celebrateOverlay')) return; // avoid stacking
+            if (!document.getElementById('celebrateStyleTag')) {
+                const style = document.createElement('style');
+                style.id = 'celebrateStyleTag';
+                style.textContent = `
+                #celebrateOverlay { position: fixed; inset: 0; pointer-events: none; z-index: 99999; overflow: hidden; }
+                .confetti-piece {
+                    position: absolute; top: -20px; width: 9px; height: 14px; opacity: 0.95;
+                    animation: confettiFall 3.2s ease-in forwards;
+                }
+                @keyframes confettiFall {
+                    0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 1; }
+                    100% { transform: translateY(110vh) translateX(var(--drift,0px)) rotate(720deg); opacity: 0; }
+                }
+                .balloon-piece {
+                    position: absolute; bottom: -80px; font-size: 34px;
+                    animation: balloonRise 4.6s ease-out forwards;
+                }
+                @keyframes balloonRise {
+                    0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 1; }
+                    100% { transform: translateY(-115vh) translateX(var(--drift,0px)) rotate(var(--rot,10deg)); opacity: 0; }
+                }`;
+                document.head.appendChild(style);
+            }
+            const overlay = document.createElement('div');
+            overlay.id = 'celebrateOverlay';
+            document.body.appendChild(overlay);
+
+            const colors = ['#27a346','#d4a017','#f0c040','#e74c3c','#3498db','#9b59b6','#f39c12'];
+            for (let i = 0; i < 60; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                const fromLeft = i % 2 === 0;
+                piece.style.left = (fromLeft ? (Math.random()*18) : (82 + Math.random()*18)) + 'vw';
+                piece.style.background = colors[Math.floor(Math.random()*colors.length)];
+                piece.style.setProperty('--drift', ((Math.random()*160)-80)+'px');
+                piece.style.animationDelay = (Math.random()*0.8) + 's';
+                piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                overlay.appendChild(piece);
+            }
+            const balloonEmojis = ['🎈','🎉','🎊'];
+            for (let i = 0; i < 14; i++) {
+                const b = document.createElement('div');
+                b.className = 'balloon-piece';
+                const fromLeft = i % 2 === 0;
+                b.style.left = (fromLeft ? (Math.random()*15) : (85 + Math.random()*15)) + 'vw';
+                b.textContent = balloonEmojis[Math.floor(Math.random()*balloonEmojis.length)];
+                b.style.setProperty('--drift', ((fromLeft?1:-1) * (40+Math.random()*100))+'px');
+                b.style.setProperty('--rot', ((Math.random()*40)-20)+'deg');
+                b.style.animationDelay = (Math.random()*0.6) + 's';
+                overlay.appendChild(b);
+            }
+            setTimeout(() => overlay.remove(), 5000);
+        };
 
         window.dcSelectOption = function(i) {
             const st = _dcState;
@@ -6816,6 +6879,9 @@
                 return;
             }
             _dcAttemptsCache[q.id] = { correct: result.correct, coinsAwarded: result.coinsAwarded };
+            if (result.correct && !st.inModal) {
+                window._fireCelebration();
+            }
             showToast(result.correct
                 ? (isAR?`🎉 إجابة صحيحة! حصلت على ${result.coinsAwarded} عملة`:`🎉 Correct! You earned ${result.coinsAwarded} coins`)
                 : (isAR?'❌ إجابة غير صحيحة. حظ أوفر في التحدي القادم! 🍀':'❌ Incorrect. Better luck in the next challenge! 🍀'));
@@ -6827,7 +6893,9 @@
                 const area = document.getElementById('contentArea');
                 if (area && window._currentPage === 'dailychallenge') dcRenderPage(area);
             } else {
-                dcRenderDailyCard(q);
+                // Let the confetti/balloons play (~5s) before flipping to the
+                // "you're done for today, come back tomorrow" summary card.
+                setTimeout(() => dcRenderDailyCard(q), result.correct ? 5000 : 0);
             }
         };
 
