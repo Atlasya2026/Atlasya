@@ -180,6 +180,164 @@
     .log{ text-align:right; }
     .log-row{ font-size:11.5px; }
   }
+
+  /* ---------- زرار اللعبة ---------- */
+  .play-btn{
+    font-family:'Tajawal', sans-serif;
+    font-weight:700;
+    font-size:14.5px;
+    color:var(--ink);
+    background:var(--beacon);
+    border:none;
+    border-radius:30px;
+    padding:13px 26px;
+    margin-top:30px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    transition:transform .15s ease, box-shadow .15s ease;
+    box-shadow:0 0 0 0 rgba(232,163,61,.4);
+  }
+  .play-btn:hover{ transform:translateY(-2px); box-shadow:0 8px 20px -6px rgba(232,163,61,.5); }
+  .play-btn:active{ transform:translateY(0); }
+
+  /* ---------- المودال ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:10;
+    background:rgba(6,13,17,.86);
+    backdrop-filter:blur(3px);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+  }
+  .modal-overlay.open{ display:flex; }
+
+  .modal{
+    background:linear-gradient(180deg, var(--ink-2), var(--ink));
+    border:1px solid rgba(237,230,214,.14);
+    border-radius:16px;
+    width:100%;
+    max-width:460px;
+    padding:20px;
+    position:relative;
+  }
+  .modal-close{
+    position:absolute; top:14px; left:14px;
+    width:30px; height:30px;
+    border-radius:50%;
+    border:1px solid rgba(237,230,214,.2);
+    background:transparent;
+    color:var(--paper-dim);
+    font-size:16px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .modal-close:hover{ color:var(--paper); border-color:var(--paper-dim); }
+
+  .modal-title{
+    font-family:'Big Shoulders Display', sans-serif;
+    font-weight:800;
+    font-size:22px;
+    text-align:center;
+    margin:0 0 4px;
+  }
+  .modal-sub{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px;
+    color:var(--paper-dim);
+    text-align:center;
+    letter-spacing:.05em;
+    margin-bottom:16px;
+  }
+
+  .hud{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-family:'JetBrains Mono', monospace;
+    font-size:13px;
+    color:var(--paper);
+    margin-bottom:10px;
+    padding:0 2px;
+  }
+  .hud .chip{
+    background:rgba(237,230,214,.06);
+    border:1px solid rgba(237,230,214,.12);
+    border-radius:8px;
+    padding:5px 10px;
+  }
+  .hud .chip.beacon-color{ color:var(--beacon); }
+
+  .game-wrap{
+    position:relative;
+    width:100%;
+    aspect-ratio:3/4;
+    max-height:60vh;
+    border-radius:12px;
+    overflow:hidden;
+    border:1px solid rgba(237,230,214,.14);
+    background:radial-gradient(ellipse at 50% 0%, #10262f, #081319 80%);
+    touch-action:none;
+  }
+  #gameCanvas{ width:100%; height:100%; display:block; }
+
+  .game-overlay-msg{
+    position:absolute; inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    text-align:center;
+    padding:20px;
+    background:rgba(6,13,17,.72);
+  }
+  .game-overlay-msg.hidden{ display:none; }
+  .game-overlay-msg h3{
+    font-family:'Big Shoulders Display', sans-serif;
+    font-size:26px;
+    margin:0;
+    color:var(--paper);
+  }
+  .game-overlay-msg p{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    color:var(--paper-dim);
+    margin:0;
+    max-width:280px;
+    line-height:1.7;
+  }
+  .game-btn{
+    font-family:'Tajawal', sans-serif;
+    font-weight:700;
+    font-size:14px;
+    color:var(--ink);
+    background:var(--beacon);
+    border:none;
+    border-radius:24px;
+    padding:10px 22px;
+    cursor:pointer;
+  }
+
+  .modal-note{
+    font-size:11.5px;
+    color:var(--paper-dim);
+    text-align:center;
+    margin-top:12px;
+    line-height:1.7;
+  }
+
+  .hint-row{
+    display:flex;
+    justify-content:center;
+    gap:16px;
+    margin-top:10px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px;
+    color:var(--grid);
+  }
 </style>
 </head>
 <body>
@@ -217,7 +375,7 @@
       </svg>
     </div>
 
-    <h1>يتم إصلاح بعض مشاكل <span>المنصة</span><br>بمجرد حل المشاكل وتطويرها هيتم رجوع المنصة للعمل مرة أخري </h1>
+    <h1>يتم مراجعة المنصة <span>وحل بعض المشاكل بها</span><br>شوية وهنرجع</h1>
     <p class="lead">
       المنصة متوقفة مؤقتًا عشان بنشتغل على تحديثات وإصلاحات مهمة.
       البيانات والحسابات كلها في أمان، وهنرجع بمجرد ما نخلص.
@@ -239,7 +397,51 @@
     </div>
 
     <div class="coords" id="coordTicker">30.0444° N · 31.2357° E</div>
+
+    <button class="play-btn" id="openGameBtn" type="button">
+      🛰️ سلّي وقتك لحد ما نرجع
+    </button>
   </main>
+
+  <div class="modal-overlay" id="gameOverlay">
+    <div class="modal">
+      <button class="modal-close" id="closeGameBtn" aria-label="إغلاق">✕</button>
+      <div class="modal-title">صياد الإشارات</div>
+      <div class="modal-sub">SIGNAL HUNTER — لعبة تسلية بس</div>
+
+      <div class="hud">
+        <span class="chip beacon-color" id="hudScore">الإشارات: 0</span>
+        <span class="chip" id="hudTime">⏱ 45</span>
+        <span class="chip" id="hudLives">♥ ♥ ♥</span>
+      </div>
+
+      <div class="game-wrap">
+        <canvas id="gameCanvas"></canvas>
+
+        <div class="game-overlay-msg" id="startMsg">
+          <h3>جاهز تصطاد إشارات؟</h3>
+          <p>حرّك الجهاز يمين وشمال والقط النقط الصفراء، وابعد عن التشويش الأحمر.</p>
+          <button class="game-btn" id="startBtn">ابدأ</button>
+        </div>
+
+        <div class="game-overlay-msg hidden" id="endMsg">
+          <h3 id="endTitle">خلصت الجولة!</h3>
+          <p id="endScoreText">جمّعت 0 إشارة</p>
+          <button class="game-btn" id="retryBtn">جولة تانية</button>
+        </div>
+      </div>
+
+      <div class="hint-row">
+        <span>← → أو A / D</span>
+        <span>أو اسحب بإصبعك</span>
+      </div>
+
+      <p class="modal-note">
+        النقط دي لعبة تسلية بس أثناء انتظار عودة المنصة — ملهاش أي علاقة
+        بكوينز حسابك أو رصيدك على ATLASYA، ومش بتتسجل في أي مكان.
+      </p>
+    </div>
+  </div>
 
 <script>
   // تذبذب بسيط جدًا في رقم الإحداثيات لإحساس "لايف" — تجميلي بحت وبدون أي اتصال بالسيرفر
@@ -252,6 +454,247 @@
       var lng = (baseLng + (Math.random() - 0.5) * 0.002).toFixed(4);
       el.textContent = lat + '° N · ' + lng + '° E';
     }, 2200);
+  })();
+</script>
+
+<script>
+  /* =====================================================================
+     "صياد الإشارات" — لعبة تسلية بسيطة، كل حاجة تعيش في الذاكرة بس
+     (مفيش أي حفظ دائم ومفيش أي اتصال بأي سيرفر أو Firestore)
+     ===================================================================== */
+  (function(){
+    var overlay   = document.getElementById('gameOverlay');
+    var openBtn   = document.getElementById('openGameBtn');
+    var closeBtn  = document.getElementById('closeGameBtn');
+    var startMsg  = document.getElementById('startMsg');
+    var endMsg    = document.getElementById('endMsg');
+    var startBtn  = document.getElementById('startBtn');
+    var retryBtn  = document.getElementById('retryBtn');
+    var endTitle  = document.getElementById('endTitle');
+    var endScoreText = document.getElementById('endScoreText');
+    var hudScore  = document.getElementById('hudScore');
+    var hudTime   = document.getElementById('hudTime');
+    var hudLives  = document.getElementById('hudLives');
+    var canvas    = document.getElementById('gameCanvas');
+    var ctx       = canvas.getContext('2d');
+
+    var W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var running = false, rafId = null;
+    var sessionBest = 0; // في الذاكرة بس — بيتصفّر لما الصفحة تتحدّث
+
+    var receiver, drops, score, lives, timeLeft, lastTick, spawnEvery, spawnTimer, dropSpeed;
+
+    function resizeCanvas(){
+      var rect = canvas.getBoundingClientRect();
+      W = rect.width; H = rect.height;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (receiver) receiver.y = H - 34;
+    }
+
+    function resetState(){
+      receiver = { x: W / 2, y: H - 34, w: 46, targetX: W / 2 };
+      drops = [];
+      score = 0;
+      lives = 3;
+      timeLeft = 45;
+      dropSpeed = 1.6;
+      spawnEvery = 900;
+      spawnTimer = 0;
+      lastTick = null;
+      updateHud();
+    }
+
+    function updateHud(){
+      hudScore.textContent = 'الإشارات: ' + score;
+      hudTime.textContent = '⏱ ' + Math.max(0, Math.ceil(timeLeft));
+      hudLives.textContent = '♥ '.repeat(Math.max(0, lives)).trim() || '—';
+    }
+
+    function openModal(){
+      overlay.classList.add('open');
+      resizeCanvas();
+      showStart();
+    }
+    function closeModal(){
+      overlay.classList.remove('open');
+      stopLoop();
+    }
+    function showStart(){
+      startMsg.classList.remove('hidden');
+      endMsg.classList.add('hidden');
+    }
+    function showEnd(reason){
+      if (score > sessionBest) sessionBest = score;
+      endTitle.textContent = reason === 'lives' ? 'خلصت قلوبك!' : 'خلصت الجولة!';
+      endScoreText.textContent = 'جمّعت ' + score + ' إشارة  ·  أفضل نتيجة في الجلسة: ' + sessionBest;
+      endMsg.classList.remove('hidden');
+      startMsg.classList.add('hidden');
+    }
+
+    function startGame(){
+      resizeCanvas();
+      resetState();
+      startMsg.classList.add('hidden');
+      endMsg.classList.add('hidden');
+      running = true;
+      lastTick = performance.now();
+      loop(lastTick);
+    }
+    function stopLoop(){
+      running = false;
+      if (rafId) cancelAnimationFrame(rafId);
+    }
+
+    function spawnDrop(){
+      var isBad = Math.random() < 0.24;
+      drops.push({
+        x: 20 + Math.random() * (W - 40),
+        y: -12,
+        r: isBad ? 8 : 7,
+        bad: isBad,
+        speed: dropSpeed + Math.random() * 0.6
+      });
+    }
+
+    function loop(now){
+      if (!running) return;
+      var dt = Math.min(now - lastTick, 50);
+      lastTick = now;
+
+      timeLeft -= dt / 1000;
+      spawnTimer += dt;
+      if (spawnTimer > spawnEvery){
+        spawnTimer = 0;
+        spawnDrop();
+        dropSpeed = Math.min(dropSpeed + 0.03, 4.2);
+        spawnEvery = Math.max(420, spawnEvery - 4);
+      }
+
+      // حركة سلسة للجهاز نحو الهدف
+      receiver.x += (receiver.targetX - receiver.x) * 0.18;
+      receiver.x = Math.max(receiver.w / 2, Math.min(W - receiver.w / 2, receiver.x));
+
+      for (var i = drops.length - 1; i >= 0; i--){
+        var d = drops[i];
+        d.y += d.speed * (dt / 16.6);
+
+        var caught = d.y > receiver.y - 10 && d.y < receiver.y + 12 &&
+                     Math.abs(d.x - receiver.x) < receiver.w / 2 + d.r;
+
+        if (caught){
+          drops.splice(i, 1);
+          if (d.bad){
+            lives -= 1;
+          } else {
+            score += 1;
+          }
+          updateHud();
+          if (lives <= 0){ endRound('lives'); return; }
+          continue;
+        }
+        if (d.y > H + 20){
+          drops.splice(i, 1);
+        }
+      }
+
+      if (timeLeft <= 0){ endRound('time'); return; }
+      updateHud();
+
+      draw();
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function endRound(reason){
+      running = false;
+      if (rafId) cancelAnimationFrame(rafId);
+      showEnd(reason);
+    }
+
+    function draw(){
+      ctx.clearRect(0, 0, W, H);
+
+      // خطوط شبكة خفيفة تحاكي شبكة إحداثيات
+      ctx.strokeStyle = 'rgba(237,230,214,0.05)';
+      ctx.lineWidth = 1;
+      var step = 28;
+      for (var gx = 0; gx < W; gx += step){
+        ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
+      }
+      for (var gy = 0; gy < H; gy += step){
+        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+      }
+
+      // النقاط الساقطة
+      for (var i = 0; i < drops.length; i++){
+        var d = drops[i];
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        if (d.bad){
+          ctx.fillStyle = '#c65b45';
+          ctx.shadowColor = 'rgba(198,91,69,0.6)';
+        } else {
+          ctx.fillStyle = '#e8a33d';
+          ctx.shadowColor = 'rgba(232,163,61,0.6)';
+        }
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      // الجهاز (المستقبِل)
+      ctx.save();
+      ctx.translate(receiver.x, receiver.y);
+      ctx.strokeStyle = '#ede6d6';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-receiver.w / 2, 10);
+      ctx.lineTo(0, -12);
+      ctx.lineTo(receiver.w / 2, 10);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, -12, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#e8a33d';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // ---------- تحكّم ----------
+    function setTargetFromClientX(clientX){
+      var rect = canvas.getBoundingClientRect();
+      receiver.targetX = clientX - rect.left;
+    }
+    canvas.addEventListener('mousemove', function(e){ setTargetFromClientX(e.clientX); });
+    canvas.addEventListener('touchmove', function(e){
+      if (e.touches[0]) setTargetFromClientX(e.touches[0].clientX);
+      e.preventDefault();
+    }, { passive: false });
+
+    var keys = {};
+    window.addEventListener('keydown', function(e){
+      if (!running) return;
+      if (['ArrowLeft','ArrowRight','a','d','A','D'].indexOf(e.key) !== -1){
+        keys[e.key] = true;
+        e.preventDefault();
+      }
+    });
+    window.addEventListener('keyup', function(e){ keys[e.key] = false; });
+    setInterval(function(){
+      if (!running || !receiver) return;
+      var step = 9;
+      if (keys['ArrowLeft'] || keys['a'] || keys['A']) receiver.targetX -= step;
+      if (keys['ArrowRight'] || keys['d'] || keys['D']) receiver.targetX += step;
+      receiver.targetX = Math.max(0, Math.min(W, receiver.targetX));
+    }, 16);
+
+    // ---------- فتح/قفل المودال ----------
+    openBtn.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', function(e){ if (e.target === overlay) closeModal(); });
+    startBtn.addEventListener('click', startGame);
+    retryBtn.addEventListener('click', startGame);
+    window.addEventListener('resize', function(){ if (overlay.classList.contains('open')) resizeCanvas(); });
   })();
 </script>
 </body>
