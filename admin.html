@@ -2798,10 +2798,10 @@
             <h2>تسجيل دخول الأدمن</h2>
             <p class="auth-sub">منطقة مقيدة — للمستخدمين المصرح لهم فقط</p>
             <div class="field">
-                <label>اسم المستخدم</label>
+                <label>البريد الإلكتروني</label>
                 <div class="field-inner">
                     <i class="fa-regular fa-user-shield"></i>
-                    <input type="text" id="adminEmail" placeholder="أدخل اسم المستخدم">
+                    <input type="email" id="adminEmail" placeholder="admin@example.com">
                 </div>
             </div>
             <div class="field">
@@ -3207,17 +3207,6 @@
     const db = getFirestore(app);
     window._auth = auth; // expose for password change
     window._signOutAuth = () => signOut(auth);
-
-    /* ─── تحويل اسم المستخدم لإيميل داخلي وهمي ───
-       Firebase Auth تقنيًا محتاج صيغة إيميل، فبنولّد واحد ثابت من اليوزرنيم
-       نفسه — الأدمن أبدًا مش هيشوف أو يكتب الإيميل ده، بس هو اللي بيتخزن فعليًا
-       في Firebase Auth من تحت. لازم يفضل نفس التحويل ثابت في كل مكان بيتستخدم
-       فيه (تسجيل الدخول + إنشاء عضو فريق) عشان يرجعوا لنفس الحساب. */
-    function usernameToAuthEmail(username) {
-        const clean = (username || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
-        return clean + '@team.atlasya-admin.com';
-    }
-    window._usernameToAuthEmail = usernameToAuthEmail;
 
     let currentUid = null;
     window._base64Img = "";
@@ -3939,16 +3928,14 @@
         const tempApp = initializeApp(firebaseConfig, 'tempTeamCreate_' + Date.now());
         const tempAuth = getAuth(tempApp);
         try {
-            const authEmail = usernameToAuthEmail(data.username);
-            const cred = await createUserWithEmailAndPassword(tempAuth, authEmail, data.password);
+            const cred = await createUserWithEmailAndPassword(tempAuth, data.email, data.password);
             const newUid = cred.user.uid;
             await setDoc(doc(db, 'admins', newUid), {
                 role: 'admin',
                 name: data.displayName,
                 firstName: data.firstName,
                 lastName: data.lastName,
-                username: data.username,
-                authEmail,
+                email: data.email,
                 permissions: data.permissions || [],
                 org: data.org || '',
                 createdAt: serverTimestamp(),
@@ -11109,8 +11096,8 @@
                         <input type="text" id="teamLastName" placeholder="${isAR?'الاسم الأخير':'Last name'}">
                     </div>
                     <div class="form-group">
-                        <label>${isAR?'اسم المستخدم':'Username'}</label>
-                        <input type="text" id="teamUsername" placeholder="${isAR?'اسم المستخدم':'Username'}">
+                        <label>${isAR?'البريد الإلكتروني':'Email'}</label>
+                        <input type="email" id="teamEmail" placeholder="name@example.com">
                     </div>
                     <div class="form-group">
                         <label>${isAR?'كلمة المرور':'Password'}</label>
@@ -11361,12 +11348,12 @@
         const isAR = lang === 'AR';
         const firstName = document.getElementById('teamFirstName').value.trim();
         const lastName  = document.getElementById('teamLastName').value.trim();
-        const username  = document.getElementById('teamUsername').value.trim();
+        const email     = document.getElementById('teamEmail').value.trim();
         const password  = document.getElementById('teamPassword').value.trim();
         const org       = document.getElementById('teamOrg').value;
         const permissions = Array.from(document.querySelectorAll('.teamPermCheck:checked')).map(c => c.value);
 
-        if (!firstName || !lastName || !username || !password) {
+        if (!firstName || !lastName || !email || !password) {
             showToast(isAR ? 'من فضلك أكمل جميع الحقول' : 'Please fill in all fields', true);
             return;
         }
@@ -11374,24 +11361,19 @@
             showToast(isAR ? 'كلمة المرور قصيرة جداً (6 أحرف على الأقل)' : 'Password too short (min 6 chars)', true);
             return;
         }
-        if (!/[a-zA-Z0-9]/.test(username)) {
-            showToast(isAR ? 'اسم المستخدم لازم يحتوي على حروف أو أرقام إنجليزية' : 'Username must contain English letters or digits', true);
-            return;
-        }
 
         const btn = document.getElementById('teamCreateBtn');
         if (btn) btn.disabled = true;
         try {
-            // Firebase Auth بيرفض تلقائيًا أي إيميل داخلي متولّد مكرر (يعني
-            // أي يوزرنيم اتاخد قبل كده، حتى لو مكتوب بحروف كبيرة/صغيرة مختلفة)
+            // Firebase Auth بيرفض تلقائيًا أي إيميل مسجل قبل كده
             await window._createTeamAccount({
-                firstName, lastName, username, password,
+                firstName, lastName, email, password,
                 displayName: firstName + ' ' + lastName,
                 permissions,
                 org,
             });
             showToast(isAR ? 'تم إنشاء الحساب بنجاح' : 'Account created successfully');
-            ['teamFirstName','teamLastName','teamUsername','teamPassword'].forEach(id => {
+            ['teamFirstName','teamLastName','teamEmail','teamPassword'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
@@ -11400,7 +11382,9 @@
             adminLoadTeamAccounts();
         } catch(e) {
             const msg = (e.code === 'auth/email-already-in-use')
-                ? (isAR ? 'اسم المستخدم ده مستخدم بالفعل' : 'Username already taken')
+                ? (isAR ? 'الإيميل ده مستخدم بالفعل' : 'Email already in use')
+                : (e.code === 'auth/invalid-email')
+                ? (isAR ? 'صيغة الإيميل غير صحيحة' : 'Invalid email format')
                 : (isAR ? 'حدث خطأ أثناء إنشاء الحساب' : 'Error creating account');
             showToast(msg, true);
         } finally {
@@ -11434,7 +11418,7 @@
                             ${isSuper ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.3);color:#2ecc71;">${isAR?'مشرف كامل':'Super Admin'}</span>` : ''}
                             ${isSelf ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,0.08);color:var(--muted);">${isAR?'أنت':'You'}</span>` : ''}
                         </div>
-                        <div style="font-size:12px;color:var(--muted);">@${a.username || ''}</div>
+                        <div style="font-size:12px;color:var(--muted);">${a.email || ''}</div>
                         <div style="font-size:11px;color:var(--muted);margin-top:4px;">${isSuper ? (isAR?'كل الصلاحيات':'All sections') : (permLabels.length ? permLabels.join(' · ') : (isAR?'بدون صلاحيات':'No permissions'))}</div>
                     </div>
                     ${isSelf ? '' : `
@@ -13126,17 +13110,17 @@
         showToast('Welcome, ' + matched.displayName + ' — Admin mode active ✓');
     }
 
-    async function buildAdminMatchFromUid(uid, fallbackUsername) {
+    async function buildAdminMatchFromUid(uid, fallbackEmail) {
         const adminSnap = await getDoc(doc(db, 'admins', uid));
         if (!adminSnap.exists()) return null;
         const data = adminSnap.data() || {};
         const isSuper = data.permissions === 'all' || data.role === 'superadmin';
         const permissions = isSuper ? 'all' : (Array.isArray(data.permissions) ? data.permissions : []);
-        const displayUsername = data.username || fallbackUsername || 'Admin';
-        const nameParts = (data.name || displayUsername).trim().split(' ');
+        const displayEmail = data.email || fallbackEmail || 'Admin';
+        const nameParts = (data.name || displayEmail).trim().split(' ');
         const matched = {
-            username: displayUsername,
-            displayName: data.name || displayUsername,
+            username: displayEmail,
+            displayName: data.name || displayEmail,
             firstName: data.firstName || nameParts[0] || 'Admin',
             lastName: data.lastName || nameParts.slice(1).join(' '),
         };
@@ -13163,19 +13147,18 @@
     });
 
     async function doAdminLogin() {
-        const username = document.getElementById('adminEmail').value.trim();
+        const email = document.getElementById('adminEmail').value.trim();
         const pass  = document.getElementById('adminPassword').value;
 
-        if (!username || !pass) {
-            showToast('اكتب اسم المستخدم وكلمة المرور', true);
+        if (!email || !pass) {
+            showToast('اكتب البريد الإلكتروني وكلمة المرور', true);
             return;
         }
 
         let matched = null, isSuper = false, permissions = [];
         try {
-            const authEmail = usernameToAuthEmail(username);
-            const cred = await signInWithEmailAndPassword(auth, authEmail, pass);
-            const result = await buildAdminMatchFromUid(cred.user.uid, username);
+            const cred = await signInWithEmailAndPassword(auth, email, pass);
+            const result = await buildAdminMatchFromUid(cred.user.uid, email);
 
             if (!result) {
                 // الحساب ده حقيقي على Firebase Auth، لكنه مش عضو فريق مسجّل
