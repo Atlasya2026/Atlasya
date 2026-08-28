@@ -3173,7 +3173,7 @@
 
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import {
         getAuth, createUserWithEmailAndPassword,
         signInWithEmailAndPassword, signOut,
@@ -3200,11 +3200,24 @@
        app), so it never inherits a student's already-logged-in session on this
        device/browser — the admin has to submit the login form every time,
        and student.html's session is never touched by anything here either. */
-    const app = initializeApp(firebaseConfig, 'adminPortal');
+    // نفس الـ app الافتراضي المستخدم في student.html (بدون اسم) — عشان جلسة
+    // تسجيل الدخول تتشارك تلقائيًا بين الصفحتين من غير ما المستخدم يسجل دخول مرتين
+    const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
     window._auth = auth; // expose for password change
     window._signOutAuth = () => signOut(auth);
+
+    /* ─── تحويل اسم المستخدم لإيميل داخلي وهمي ───
+       Firebase Auth تقنيًا محتاج صيغة إيميل، فبنولّد واحد ثابت من اليوزرنيم
+       نفسه — الأدمن أبدًا مش هيشوف أو يكتب الإيميل ده، بس هو اللي بيتخزن فعليًا
+       في Firebase Auth من تحت. لازم يفضل نفس التحويل ثابت في كل مكان بيتستخدم
+       فيه (تسجيل الدخول + إنشاء عضو فريق) عشان يرجعوا لنفس الحساب. */
+    function usernameToAuthEmail(username) {
+        const clean = (username || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+        return clean + '@team.atlasya-admin.com';
+    }
+    window._usernameToAuthEmail = usernameToAuthEmail;
 
     let currentUid = null;
     window._base64Img = "";
@@ -3915,26 +3928,55 @@
         await updateDoc(doc(db, 'job_posts', jobId), { status, reviewedAt: serverTimestamp() });
     };
 
-    /* ─── ADMIN TEAM ACCOUNTS (Firestore) ─── */
+    /* ─── ADMIN TEAM ACCOUNTS (Firebase Auth + admins/{uid}) ───
+       إنشاء عضو فريق بيعمل حساب Firebase Auth حقيقي عن طريق تطبيق فرعي مؤقت
+       (temp secondary app) — بالظبط زي فكرة companyAuth — عشان إنشاء الحساب
+       الجديد ميعملش تسجيل خروج للأدمن الحالي (createUserWithEmailAndPassword
+       بيسجل دخول تلقائي على أي auth instance بيتنفذ عليه). بعد ما ناخد الـ uid
+       بتاع الحساب الجديد، نسيب التطبيق المؤقت ونمسحه، ونكتب صلاحياته في
+       admins/{uid} على التطبيق الرئيسي. */
     window._createTeamAccount = async (data) => {
-        return await addDoc(collection(db, 'admin_team'), { ...data, createdAt: serverTimestamp() });
+        const tempApp = initializeApp(firebaseConfig, 'tempTeamCreate_' + Date.now());
+        const tempAuth = getAuth(tempApp);
+        try {
+            const authEmail = usernameToAuthEmail(data.username);
+            const cred = await createUserWithEmailAndPassword(tempAuth, authEmail, data.password);
+            const newUid = cred.user.uid;
+            await setDoc(doc(db, 'admins', newUid), {
+                role: 'admin',
+                name: data.displayName,
+                firstName: data.firstName,
+                lastName: data.lastName,
+                username: data.username,
+                authEmail,
+                permissions: data.permissions || [],
+                org: data.org || '',
+                createdAt: serverTimestamp(),
+                createdBy: window._adminProfile ? window._adminProfile.username : '',
+            });
+            return { id: newUid };
+        } finally {
+            try { await signOut(tempAuth); } catch (e) {}
+            try { await deleteApp(tempApp); } catch (e) {}
+        }
     };
+
     window._loadTeamAccounts = async () => {
-        const q = query(collection(db, 'admin_team'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const snap = await getDocs(collection(db, 'admins'));
+        return snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     };
-    window._findTeamAccount = async (username, password) => {
-        const q = query(collection(db, 'admin_team'), where('username', '==', username));
-        const snap = await getDocs(q);
-        const match = snap.docs.find(d => d.data().password === password);
-        return match ? { id: match.id, ...match.data() } : null;
-    };
+
+    // ⚠️ ده بيشيل صلاحية الأدمن بمسح مستند admins/{uid} — الحساب يقف عن
+    // العمل كأدمن فورًا. لكن حساب Firebase Auth بتاعه نفسه بيفضل موجود
+    // (حذف حساب مستخدم تاني فعليًا محتاج Admin SDK من سيرفر، مش client SDK).
+    // لو عايز حذف كامل، ضيفلي endpoint على Vercel زي اللي عملناه للعجلة.
     window._deleteTeamAccount = async (id) => {
-        await deleteDoc(doc(db, 'admin_team', id));
+        await deleteDoc(doc(db, 'admins', id));
     };
     window._updateTeamPermissions = async (id, permissions) => {
-        await updateDoc(doc(db, 'admin_team', id), { permissions });
+        await updateDoc(doc(db, 'admins', id), { permissions });
     };
 
     /* ─── CV BUILDER (Pro feature, Firestore) ─── */
@@ -11332,19 +11374,16 @@
             showToast(isAR ? 'كلمة المرور قصيرة جداً (6 أحرف على الأقل)' : 'Password too short (min 6 chars)', true);
             return;
         }
-        if (ADMINS.some(a => a.username === username)) {
-            showToast(isAR ? 'اسم المستخدم غير متاح' : 'Username not available', true);
+        if (!/[a-zA-Z0-9]/.test(username)) {
+            showToast(isAR ? 'اسم المستخدم لازم يحتوي على حروف أو أرقام إنجليزية' : 'Username must contain English letters or digits', true);
             return;
         }
 
         const btn = document.getElementById('teamCreateBtn');
         if (btn) btn.disabled = true;
         try {
-            const existing = await window._loadTeamAccounts();
-            if (existing.some(t => t.username === username)) {
-                showToast(isAR ? 'اسم المستخدم مستخدم بالفعل' : 'Username already taken', true);
-                return;
-            }
+            // Firebase Auth بيرفض تلقائيًا أي إيميل داخلي متولّد مكرر (يعني
+            // أي يوزرنيم اتاخد قبل كده، حتى لو مكتوب بحروف كبيرة/صغيرة مختلفة)
             await window._createTeamAccount({
                 firstName, lastName, username, password,
                 displayName: firstName + ' ' + lastName,
@@ -11360,7 +11399,10 @@
             document.querySelectorAll('.teamPermCheck').forEach(c => c.checked = false);
             adminLoadTeamAccounts();
         } catch(e) {
-            showToast(isAR ? 'حدث خطأ أثناء إنشاء الحساب' : 'Error creating account', true);
+            const msg = (e.code === 'auth/email-already-in-use')
+                ? (isAR ? 'اسم المستخدم ده مستخدم بالفعل' : 'Username already taken')
+                : (isAR ? 'حدث خطأ أثناء إنشاء الحساب' : 'Error creating account');
+            showToast(msg, true);
         } finally {
             if (btn) btn.disabled = false;
         }
@@ -11380,6 +11422,8 @@
                 const perms = Array.isArray(a.permissions) ? a.permissions : [];
                 const permLabels = ADMIN_PERMISSION_LIST.filter(p => perms.includes(p.key)).map(p => isAR ? p.labelAR : p.labelEN);
                 const orgLabel = a.org === 'terrascope' ? 'TerraScope' : 'GIS Explorer';
+                const isSelf = a.id === (auth.currentUser && auth.currentUser.uid);
+                const isSuper = a.permissions === 'all' || a.role === 'superadmin';
                 return `
                 <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;">
                     <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold3),var(--gold2));display:flex;align-items:center;justify-content:center;color:#0a0a0e;font-weight:800;flex-shrink:0;">${(a.firstName||'?')[0].toUpperCase()}</div>
@@ -11387,13 +11431,16 @@
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <div style="font-weight:700;font-size:14px;">${a.displayName || ((a.firstName||'')+' '+(a.lastName||''))}</div>
                             <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);color:var(--gold3);">${orgLabel}</span>
+                            ${isSuper ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.3);color:#2ecc71;">${isAR?'مشرف كامل':'Super Admin'}</span>` : ''}
+                            ${isSelf ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,0.08);color:var(--muted);">${isAR?'أنت':'You'}</span>` : ''}
                         </div>
-                        <div style="font-size:12px;color:var(--muted);">@${a.username}</div>
-                        <div style="font-size:11px;color:var(--muted);margin-top:4px;">${permLabels.length ? permLabels.join(' · ') : (isAR?'بدون صلاحيات':'No permissions')}</div>
+                        <div style="font-size:12px;color:var(--muted);">@${a.username || ''}</div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:4px;">${isSuper ? (isAR?'كل الصلاحيات':'All sections') : (permLabels.length ? permLabels.join(' · ') : (isAR?'بدون صلاحيات':'No permissions'))}</div>
                     </div>
+                    ${isSelf ? '' : `
                     <button onclick="deleteTeamMember('${a.id}')" style="padding:7px 12px;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);border-radius:8px;color:#e74c3c;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
                         <i class="fa-solid fa-trash-can"></i> ${isAR?'حذف':'Delete'}
-                    </button>
+                    </button>`}
                 </div>`;
             }).join('');
         } catch(e) {
@@ -11403,10 +11450,13 @@
 
     window.deleteTeamMember = async function(id) {
         const isAR = lang === 'AR';
-        if (!window.confirm(isAR ? 'هل أنت متأكد من حذف هذا الحساب؟' : 'Are you sure you want to delete this account?')) return;
+        const warnMsg = isAR
+            ? 'هيتشال من لوحة الأدمن فورًا. حساب الدخول بتاعه هيفضل موجود على Firebase لكن من غير أي صلاحية أدمن. متأكد؟'
+            : 'They will lose admin access immediately. Their login account itself stays on Firebase but with no admin rights. Continue?';
+        if (!window.confirm(warnMsg)) return;
         try {
             await window._deleteTeamAccount(id);
-            showToast(isAR ? 'تم حذف الحساب' : 'Account deleted');
+            showToast(isAR ? 'تم حذف صلاحية الأدمن' : 'Admin access removed');
             adminLoadTeamAccounts();
         } catch(e) {
             showToast(isAR ? 'حدث خطأ أثناء الحذف' : 'Error deleting account', true);
@@ -12936,11 +12986,14 @@
         if (iconMob) iconMob.className = iconClass;
     }
 
-    /* ─── ADMIN CREDENTIALS ─── */
-    const ADMINS = [
-        { username: 'Z31',  password: 'AT26', displayName: 'Zeyad Ahmed',  firstName: 'Zeyad',  lastName: 'Ahmed'  },
-        { username: 'M49', password: 'AT26', displayName: 'Marwan Mohamed', firstName: 'Marwan', lastName: 'Mohamed' },
-    ];
+    /* ─── ADMIN CREDENTIALS ───
+       الباسوردات النص الصريح القديمة اتشالت خالص من هنا (كانت ظاهرة لأي حد
+       يعمل View Source للصفحة). الدخول دلوقتي حقيقي عبر Firebase Auth، وصلاحية
+       الأدمن بتتأكد من وجود مستند admins/{uid} في Firestore — شوف doAdminLogin
+       تحت. عشان تضيف عضو فريق جديد: اعمله حساب من Firebase Console →
+       Authentication → Add user، وبعدين أنشئ مستند admins/{ذاك الـ UID}
+       بمحتوى زي: { "role": "admin", "name": "...", "permissions": ["courses", ...] }
+       أو { "role": "admin", "permissions": "all" } لصلاحيات كاملة. */
 
     // Sections a team member's access can be limited to
     const ADMIN_PERMISSION_LIST = [
@@ -13026,73 +13079,120 @@
         if (el) el.classList.remove('hidden');
     }
 
+    // بيفعّل واجهة الأدمن بعد التأكد من الهوية — مستخدمة من doAdminLogin
+    // (تسجيل دخول يدوي) ومن auto-login (لو المستخدم جه أصلاً من student.html
+    // بسيشن مسجّل دخوله بالفعل)
+    function activateAdminSession(matched, isSuper, permissions) {
+        window._isAdmin = true;
+        window._adminProfile = matched;
+        window._adminIsSuper = isSuper;
+        window._adminPermissions = permissions;
+        const savedImg = localStorage.getItem('adminImg_' + matched.username) || '';
+        window._base64Img = savedImg;
+
+        document.getElementById('authBox').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'flex';
+
+        const editBtn = document.getElementById('adminEditBtn');
+        if (editBtn) editBtn.style.display = 'flex';
+
+        if (window._updateSidebarUser) {
+            window._updateSidebarUser(matched.firstName, matched.lastName, savedImg);
+        }
+
+        loadAdminNotifCount();
+
+        const menuExpertBtn = document.getElementById('menuExpert');
+        if (menuExpertBtn) menuExpertBtn.style.display = '';
+
+        ['menuAdminMembers','menuAdminReferrals','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminMentorship'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = '';
+        });
+
+        const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuCourse','menuConnect','menuCV','menuPortfolio'];
+        adminHideItems.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        document.querySelectorAll('.nav-section').forEach(sec => {
+            const visibleItems = sec.querySelectorAll('.nav-item:not([style*="display: none"])');
+            const label = sec.querySelector('.nav-label');
+            if (visibleItems.length === 0 && label) label.style.display = 'none';
+        });
+
+        navigate('dashboard', document.getElementById('menuDash'));
+        applyAdminPermissions();
+        showToast('Welcome, ' + matched.displayName + ' — Admin mode active ✓');
+    }
+
+    async function buildAdminMatchFromUid(uid, fallbackUsername) {
+        const adminSnap = await getDoc(doc(db, 'admins', uid));
+        if (!adminSnap.exists()) return null;
+        const data = adminSnap.data() || {};
+        const isSuper = data.permissions === 'all' || data.role === 'superadmin';
+        const permissions = isSuper ? 'all' : (Array.isArray(data.permissions) ? data.permissions : []);
+        const displayUsername = data.username || fallbackUsername || 'Admin';
+        const nameParts = (data.name || displayUsername).trim().split(' ');
+        const matched = {
+            username: displayUsername,
+            displayName: data.name || displayUsername,
+            firstName: data.firstName || nameParts[0] || 'Admin',
+            lastName: data.lastName || nameParts.slice(1).join(' '),
+        };
+        return { matched, isSuper, permissions };
+    }
+
+    // لو المستخدم جه من student.html وهو مسجّل دخول بالفعل بنفس السيشن
+    // (نفس default app)، ندخله على طول من غير ما يكتب يوزرنيم/باسورد تاني.
+    // ولو دخل هنا مباشرة وهو مش أدمن (طالب عادي)، نرجّعه لصفحته العادية.
+    onAuthStateChanged(auth, async (user) => {
+        if (window._isAdmin) return; // already handled via manual login
+        if (!user) return;
+        try {
+            const result = await buildAdminMatchFromUid(user.uid);
+            if (result) {
+                activateAdminSession(result.matched, result.isSuper, result.permissions);
+            } else {
+                // حساب حقيقي بس مش أدمن — على الأغلب طالب جه للرابط ده بالغلط
+                window.location.href = 'student.html';
+            }
+        } catch (e) {
+            // مشكلة شبكة أو قراءة — سيبه في شاشة تسجيل الدخول العادية
+        }
+    });
+
     async function doAdminLogin() {
         const username = document.getElementById('adminEmail').value.trim();
-        const pass     = document.getElementById('adminPassword').value;
-        let matched  = ADMINS.find(a => a.username === username && a.password === pass);
-        let isSuper = true;
-        let permissions = 'all';
-        if (!matched) {
-            try {
-                const teamMatch = await window._findTeamAccount(username, pass);
-                if (teamMatch) {
-                    matched = teamMatch;
-                    isSuper = false;
-                    permissions = Array.isArray(teamMatch.permissions) ? teamMatch.permissions : [];
-                }
-            } catch(e) { /* ignore lookup errors — falls through to invalid credentials */ }
+        const pass  = document.getElementById('adminPassword').value;
+
+        if (!username || !pass) {
+            showToast('اكتب اسم المستخدم وكلمة المرور', true);
+            return;
         }
-        if (matched) {
-            window._isAdmin = true;
-            window._adminProfile = matched;
-            window._adminIsSuper = isSuper;
-            window._adminPermissions = permissions;
-            // Load saved admin photo from localStorage if exists
-            const savedImg = localStorage.getItem('adminImg_' + username) || '';
-            window._base64Img = savedImg;
 
-            document.getElementById('authBox').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'flex';
+        let matched = null, isSuper = false, permissions = [];
+        try {
+            const authEmail = usernameToAuthEmail(username);
+            const cred = await signInWithEmailAndPassword(auth, authEmail, pass);
+            const result = await buildAdminMatchFromUid(cred.user.uid, username);
 
-            // Show Edit Mode button in topbar (hidden initially)
-            const editBtn = document.getElementById('adminEditBtn');
-            if (editBtn) editBtn.style.display = 'flex';
-
-            // Update topbar and sidebar with real admin name + photo
-            if (window._updateSidebarUser) {
-                window._updateSidebarUser(matched.firstName, matched.lastName, savedImg);
+            if (!result) {
+                // الحساب ده حقيقي على Firebase Auth، لكنه مش عضو فريق مسجّل
+                await signOut(auth);
+                showToast('الحساب ده مش مصرح له بالدخول كأدمن', true);
+                return;
             }
+            matched = result.matched;
+            isSuper = result.isSuper;
+            permissions = result.permissions;
+        } catch (e) {
+            // بيانات دخول غلط أو مشكلة في الشبكة — في الحالتين نرفض بأمان
+            matched = null;
+        }
 
-            // Load notification count
-            loadAdminNotifCount();
-
-            // Show "Technical Support" sidebar item for admin (student chats)
-            const menuExpertBtn = document.getElementById('menuExpert');
-            if (menuExpertBtn) menuExpertBtn.style.display = '';
-
-            // Show admin-only sidebar items (desktop/laptop)
-            ['menuAdminMembers','menuAdminReferrals','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminMentorship'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = '';
-            });
-
-            // Hide nav items not relevant for admin
-            const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuCourse','menuConnect','menuCV','menuPortfolio'];
-            adminHideItems.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-                // also hide parent nav-section label if all items hidden
-            });
-            // Hide nav-section labels that become empty
-            document.querySelectorAll('.nav-section').forEach(sec => {
-                const visibleItems = sec.querySelectorAll('.nav-item:not([style*="display: none"])');
-                const label = sec.querySelector('.nav-label');
-                if (visibleItems.length === 0 && label) label.style.display = 'none';
-            });
-
-            navigate('dashboard', document.getElementById('menuDash'));
-            applyAdminPermissions();
-            showToast('Welcome, ' + matched.displayName + ' — Admin mode active ✓');
+        if (matched) {
+            activateAdminSession(matched, isSuper, permissions);
         } else {
             showToast('Invalid admin credentials', true);
         }
