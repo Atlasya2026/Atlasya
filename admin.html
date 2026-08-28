@@ -3200,9 +3200,7 @@
        app), so it never inherits a student's already-logged-in session on this
        device/browser — the admin has to submit the login form every time,
        and student.html's session is never touched by anything here either. */
-    // نفس الـ app الافتراضي المستخدم في student.html (بدون اسم) — عشان جلسة
-    // تسجيل الدخول تتشارك تلقائيًا بين الصفحتين من غير ما المستخدم يسجل دخول مرتين
-    const app = initializeApp(firebaseConfig);
+    const app = initializeApp(firebaseConfig, 'adminPortal');
     const auth = getAuth(app);
     const db = getFirestore(app);
     window._auth = auth; // expose for password change
@@ -13079,89 +13077,6 @@
         if (el) el.classList.remove('hidden');
     }
 
-    // بيفعّل واجهة الأدمن بعد التأكد من الهوية — مستخدمة من doAdminLogin
-    // (تسجيل دخول يدوي) ومن auto-login (لو المستخدم جه أصلاً من student.html
-    // بسيشن مسجّل دخوله بالفعل)
-    function activateAdminSession(matched, isSuper, permissions) {
-        window._isAdmin = true;
-        window._adminProfile = matched;
-        window._adminIsSuper = isSuper;
-        window._adminPermissions = permissions;
-        const savedImg = localStorage.getItem('adminImg_' + matched.username) || '';
-        window._base64Img = savedImg;
-
-        document.getElementById('authBox').style.display = 'none';
-        document.getElementById('mainApp').style.display = 'flex';
-
-        const editBtn = document.getElementById('adminEditBtn');
-        if (editBtn) editBtn.style.display = 'flex';
-
-        if (window._updateSidebarUser) {
-            window._updateSidebarUser(matched.firstName, matched.lastName, savedImg);
-        }
-
-        loadAdminNotifCount();
-
-        const menuExpertBtn = document.getElementById('menuExpert');
-        if (menuExpertBtn) menuExpertBtn.style.display = '';
-
-        ['menuAdminMembers','menuAdminReferrals','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminMentorship'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = '';
-        });
-
-        const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuCourse','menuConnect','menuCV','menuPortfolio'];
-        adminHideItems.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = 'none';
-        });
-        document.querySelectorAll('.nav-section').forEach(sec => {
-            const visibleItems = sec.querySelectorAll('.nav-item:not([style*="display: none"])');
-            const label = sec.querySelector('.nav-label');
-            if (visibleItems.length === 0 && label) label.style.display = 'none';
-        });
-
-        navigate('dashboard', document.getElementById('menuDash'));
-        applyAdminPermissions();
-        showToast('Welcome, ' + matched.displayName + ' — Admin mode active ✓');
-    }
-
-    async function buildAdminMatchFromUid(uid, fallbackUsername) {
-        const adminSnap = await getDoc(doc(db, 'admins', uid));
-        if (!adminSnap.exists()) return null;
-        const data = adminSnap.data() || {};
-        const isSuper = data.permissions === 'all' || data.role === 'superadmin';
-        const permissions = isSuper ? 'all' : (Array.isArray(data.permissions) ? data.permissions : []);
-        const displayUsername = data.username || fallbackUsername || 'Admin';
-        const nameParts = (data.name || displayUsername).trim().split(' ');
-        const matched = {
-            username: displayUsername,
-            displayName: data.name || displayUsername,
-            firstName: data.firstName || nameParts[0] || 'Admin',
-            lastName: data.lastName || nameParts.slice(1).join(' '),
-        };
-        return { matched, isSuper, permissions };
-    }
-
-    // لو المستخدم جه من student.html وهو مسجّل دخول بالفعل بنفس السيشن
-    // (نفس default app)، ندخله على طول من غير ما يكتب يوزرنيم/باسورد تاني.
-    // ولو دخل هنا مباشرة وهو مش أدمن (طالب عادي)، نرجّعه لصفحته العادية.
-    onAuthStateChanged(auth, async (user) => {
-        if (window._isAdmin) return; // already handled via manual login
-        if (!user) return;
-        try {
-            const result = await buildAdminMatchFromUid(user.uid);
-            if (result) {
-                activateAdminSession(result.matched, result.isSuper, result.permissions);
-            } else {
-                // حساب حقيقي بس مش أدمن — على الأغلب طالب جه للرابط ده بالغلط
-                window.location.href = 'student.html';
-            }
-        } catch (e) {
-            // مشكلة شبكة أو قراءة — سيبه في شاشة تسجيل الدخول العادية
-        }
-    });
-
     async function doAdminLogin() {
         const username = document.getElementById('adminEmail').value.trim();
         const pass  = document.getElementById('adminPassword').value;
@@ -13175,24 +13090,82 @@
         try {
             const authEmail = usernameToAuthEmail(username);
             const cred = await signInWithEmailAndPassword(auth, authEmail, pass);
-            const result = await buildAdminMatchFromUid(cred.user.uid, username);
+            const adminSnap = await getDoc(doc(db, 'admins', cred.user.uid));
 
-            if (!result) {
+            if (!adminSnap.exists()) {
                 // الحساب ده حقيقي على Firebase Auth، لكنه مش عضو فريق مسجّل
                 await signOut(auth);
                 showToast('الحساب ده مش مصرح له بالدخول كأدمن', true);
                 return;
             }
-            matched = result.matched;
-            isSuper = result.isSuper;
-            permissions = result.permissions;
+
+            const data = adminSnap.data() || {};
+            isSuper = data.permissions === 'all' || data.role === 'superadmin';
+            permissions = isSuper ? 'all' : (Array.isArray(data.permissions) ? data.permissions : []);
+            const displayUsername = data.username || username;
+            const nameParts = (data.name || displayUsername).trim().split(' ');
+            matched = {
+                username: displayUsername,
+                displayName: data.name || displayUsername,
+                firstName: data.firstName || nameParts[0] || 'Admin',
+                lastName: data.lastName || nameParts.slice(1).join(' '),
+            };
         } catch (e) {
             // بيانات دخول غلط أو مشكلة في الشبكة — في الحالتين نرفض بأمان
             matched = null;
         }
 
         if (matched) {
-            activateAdminSession(matched, isSuper, permissions);
+            window._isAdmin = true;
+            window._adminProfile = matched;
+            window._adminIsSuper = isSuper;
+            window._adminPermissions = permissions;
+            // Load saved admin photo from localStorage if exists
+            const savedImg = localStorage.getItem('adminImg_' + matched.username) || '';
+            window._base64Img = savedImg;
+
+            document.getElementById('authBox').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'flex';
+
+            // Show Edit Mode button in topbar (hidden initially)
+            const editBtn = document.getElementById('adminEditBtn');
+            if (editBtn) editBtn.style.display = 'flex';
+
+            // Update topbar and sidebar with real admin name + photo
+            if (window._updateSidebarUser) {
+                window._updateSidebarUser(matched.firstName, matched.lastName, savedImg);
+            }
+
+            // Load notification count
+            loadAdminNotifCount();
+
+            // Show "Technical Support" sidebar item for admin (student chats)
+            const menuExpertBtn = document.getElementById('menuExpert');
+            if (menuExpertBtn) menuExpertBtn.style.display = '';
+
+            // Show admin-only sidebar items (desktop/laptop)
+            ['menuAdminMembers','menuAdminReferrals','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminMentorship'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = '';
+            });
+
+            // Hide nav items not relevant for admin
+            const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuCourse','menuConnect','menuCV','menuPortfolio'];
+            adminHideItems.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+                // also hide parent nav-section label if all items hidden
+            });
+            // Hide nav-section labels that become empty
+            document.querySelectorAll('.nav-section').forEach(sec => {
+                const visibleItems = sec.querySelectorAll('.nav-item:not([style*="display: none"])');
+                const label = sec.querySelector('.nav-label');
+                if (visibleItems.length === 0 && label) label.style.display = 'none';
+            });
+
+            navigate('dashboard', document.getElementById('menuDash'));
+            applyAdminPermissions();
+            showToast('Welcome, ' + matched.displayName + ' — Admin mode active ✓');
         } else {
             showToast('Invalid admin credentials', true);
         }
