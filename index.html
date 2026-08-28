@@ -3970,16 +3970,16 @@
         window._doLogin = async (email, pass) => {
             const cred = await signInWithEmailAndPassword(auth, email, pass);
             // نفس مجموعة حسابات Firebase Auth مستخدمة في admin.html، فلو الحساب
-            // ده عضو فريق (admins/{uid} موجود)، نرفضه من هنا ونوجّهه للوحة الأدمن
+            // ده عضو فريق (admins/{uid} موجود)، نوجّهه للوحة الأدمن تلقائيًا —
+            // السيشن بتفضل شغالة هناك (نفس default app) فمش هيحتاج يسجل تاني.
             try {
                 const adminSnap = await getDoc(doc(db, 'admins', cred.user.uid));
                 if (adminSnap.exists()) {
-                    await signOut(auth);
-                    throw new Error('ده حساب فريق عمل — سجّل دخولك من لوحة التحكم بدل كده');
+                    window.location.href = 'admin.html';
+                    return 'redirecting-to-admin';
                 }
             } catch (e) {
-                if (e.message && e.message.includes('لوحة التحكم')) throw e;
-                // أي خطأ تاني في فحص admins (مثلاً مشكلة شبكة) مش لازم يمنع طالب عادي من الدخول
+                // مشكلة شبكة في فحص admins مش لازم تمنع طالب عادي من الدخول
             }
         };
         window._doSignUp = async (fName, lName, phone, email, pass, affiliate, referredBy) => {
@@ -4022,8 +4022,8 @@
             const user = result.user;
             const adminSnap = await getDoc(doc(db, 'admins', user.uid));
             if (adminSnap.exists()) {
-                await signOut(auth);
-                throw new Error('ده حساب فريق عمل — سجّل دخولك من لوحة التحكم بدل كده');
+                window.location.href = 'admin.html';
+                return 'redirecting-to-admin';
             }
             // Create a user profile doc if this is the user's first sign-in
             const snap = await getDoc(doc(db, "users", user.uid));
@@ -5546,6 +5546,18 @@
                 // If admin already logged in via local credentials, don't interfere
                 if (window._isAdmin) return;
 
+                // لو ده سيشن أدمن (اتسجل دخوله من هنا أو من admin.html)، رجّعه
+                // للوحة الأدمن بدل ما نحاول نحمّله بيانات طالب مش موجودة
+                try {
+                    const adminSnap = await getDoc(doc(db, 'admins', user.uid));
+                    if (adminSnap.exists()) {
+                        window.location.href = 'admin.html';
+                        return;
+                    }
+                } catch (e) {
+                    // مشكلة شبكة — كمّل عادي كطالب، محاولة القراءة التالية هتفشل برضو لو فعلاً في مشكلة
+                }
+
                 // Require verified email before granting access
                 if (!user.emailVerified) {
                     currentUid = null;
@@ -6013,7 +6025,8 @@
             btn.innerHTML = '<div class="spinner"></div>';
             btn.disabled = true;
             try {
-                await window._doLogin(email, pass);
+                const result = await window._doLogin(email, pass);
+                if (result === 'redirecting-to-admin') return; // الصفحة بتتغيّر، مفيش داعي نكمل إعداد واجهة الطالب
                 // Handle Remember Me
                 const remember = document.getElementById('rememberMe')?.checked;
                 if (remember) {
@@ -13934,7 +13947,8 @@
         async function socialAuth(provider) {
             const isAR = lang === 'AR';
             try {
-                await window._socialSignIn(provider);
+                const result = await window._socialSignIn(provider);
+                if (result === 'redirecting-to-admin') return;
                 showToast(isAR ? '✓ تم تسجيل الدخول بنجاح' : '✓ Signed in successfully');
             } catch(e) {
                 console.error('socialAuth error:', e);
@@ -15429,4 +15443,3 @@
     </script>
     </body>
     </html>
-                            
