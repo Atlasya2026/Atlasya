@@ -4977,7 +4977,10 @@
 
     async function doLogout() {
         if (window._isAdmin) {
-            // Admin logout — not Firebase-based
+            // Admin logout — لازم نمسح سيشن Firebase الحقيقية كمان، وإلا
+            // student.html هيلاقيها لسه شغالة ويرجّعنا للوحة الأدمن تلقائيًا
+            try { await window._signOutAuth(); } catch (e) {}
+
             window._isAdmin = false;
             window._adminProfile = null;
             window._adminIsSuper = null;
