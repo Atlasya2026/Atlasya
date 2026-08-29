@@ -13105,8 +13105,12 @@
             if (visibleItems.length === 0 && label) label.style.display = 'none';
         });
 
-        navigate('dashboard', document.getElementById('menuDash'));
-        applyAdminPermissions();
+        try {
+            navigate('dashboard', document.getElementById('menuDash'));
+            applyAdminPermissions();
+        } catch (e) {
+            console.error('activateAdminSession: navigate/applyAdminPermissions failed:', e);
+        }
         showToast('Welcome, ' + matched.displayName + ' — Admin mode active ✓');
     }
 
@@ -13142,7 +13146,8 @@
                 window.location.href = 'student.html';
             }
         } catch (e) {
-            // مشكلة شبكة أو قراءة — سيبه في شاشة تسجيل الدخول العادية
+            console.error('Auto admin-login failed:', e);
+            showToast('حصلت مشكلة أثناء تحميل لوحة الأدمن — افتح الـ Console (F12) وشوف الخطأ', true);
         }
     });
 
