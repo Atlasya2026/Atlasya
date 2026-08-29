@@ -4402,25 +4402,33 @@
             // If admin already logged in via local credentials, don't interfere
             if (window._isAdmin) return;
 
-            // لو الحساب ده عضو فريق (admins/{uid} موجود) — سواء جه من صفحة
-            // الطالب بنفس السيشن أو فتح admin.html مباشرة وهو مسجّل دخوله من
-            // قبل — فعّل جلسة الأدمن على طول وماتكملش فحوصات حساب الطالب تحت
+            // لو الحساب ده عضو فريق (admins/{uid} موجود)، أوقف هنا في كل
+            // الأحوال — عشان ما نكملش على فحوصات حساب طالب (تحت) اللي هتبوّظ
+            // الشاشة. بس الدخول التلقائي الفعلي بيحصل مرة واحدة بس، لما يكون
+            // جاي فعلاً من صفحة الطالب (علامة atlasya_admin_handoff) — أي فتح
+            // مباشر أو تحديث لـ admin.html بعد كده محتاج ضغط زرار الدخول يدويًا.
             try {
                 const adminData = await window._getAdminDoc(user.uid);
                 if (adminData) {
-                    const isSuper = adminData.permissions === 'all' || adminData.role === 'superadmin';
-                    const permissions = isSuper ? 'all' : (Array.isArray(adminData.permissions) ? adminData.permissions : []);
-                    const displayEmail = adminData.email || user.email || 'Admin';
-                    const nameParts = (adminData.name || displayEmail).trim().split(' ');
-                    const matched = {
-                        username: displayEmail,
-                        displayName: adminData.name || displayEmail,
-                        firstName: adminData.firstName || nameParts[0] || 'Admin',
-                        lastName: adminData.lastName || nameParts.slice(1).join(' '),
-                    };
-                    if (window._activateAdminSession) {
-                        window._activateAdminSession(matched, isSuper, permissions);
+                    const isHandoff = sessionStorage.getItem('atlasya_admin_handoff') === '1';
+                    sessionStorage.removeItem('atlasya_admin_handoff'); // استخدام مرة واحدة بس
+                    if (isHandoff) {
+                        const isSuper = adminData.permissions === 'all' || adminData.role === 'superadmin';
+                        const permissions = isSuper ? 'all' : (Array.isArray(adminData.permissions) ? adminData.permissions : []);
+                        const displayEmail = adminData.email || user.email || 'Admin';
+                        const nameParts = (adminData.name || displayEmail).trim().split(' ');
+                        const matched = {
+                            username: displayEmail,
+                            displayName: adminData.name || displayEmail,
+                            firstName: adminData.firstName || nameParts[0] || 'Admin',
+                            lastName: adminData.lastName || nameParts.slice(1).join(' '),
+                        };
+                        if (window._activateAdminSession) {
+                            window._activateAdminSession(matched, isSuper, permissions);
+                        }
                     }
+                    // سواء اتفعّلت الجلسة أو لأ، الحساب ده أدمن ومش لازم يكمل
+                    // على فحوصات حساب الطالب تحت — يفضل واقف على شاشة الدخول
                     return;
                 }
             } catch (e) {
