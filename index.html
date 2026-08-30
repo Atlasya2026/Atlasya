@@ -3861,7 +3861,7 @@
 
         // ⚠️ بعد ما تعمل deploy على Vercel، بدّل السطر ده بالرابط اللي هيديهولك
         // (زي https://atlasya-secure-api.vercel.app) — من غير / في الآخر
-        const SECURE_API_BASE = 'https://YOUR-VERCEL-URL.vercel.app';
+        const SECURE_API_BASE = 'https://atlasya-secure-api.vercel.app';
 
         async function callSecureApi(path, body) {
             const idToken = await auth.currentUser.getIdToken();
