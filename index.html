@@ -3996,6 +3996,7 @@
             try {
                 const adminSnap = await getDoc(doc(db, 'admins', cred.user.uid));
                 if (adminSnap.exists()) {
+                    sessionStorage.setItem('atlasya_admin_handoff', '1');
                     window.location.href = 'admin.html';
                     return 'redirecting-to-admin';
                 }
@@ -4043,6 +4044,7 @@
             const user = result.user;
             const adminSnap = await getDoc(doc(db, 'admins', user.uid));
             if (adminSnap.exists()) {
+                sessionStorage.setItem('atlasya_admin_handoff', '1');
                 window.location.href = 'admin.html';
                 return 'redirecting-to-admin';
             }
