@@ -3208,6 +3208,17 @@
     window._auth = auth; // expose for password change
     window._signOutAuth = () => signOut(auth);
 
+    // جسور لتسجيل دخول الأدمن — الكود اللي بعد الـ module script (سكريبت
+    // عادي) مايقدرش يشوف auth/signInWithEmailAndPassword/getDoc مباشرة،
+    // فلازم يمر من هنا زي باقي دوال window._xxx في الملف ده
+    window._adminSignIn = (email, pass) =>
+        signInWithEmailAndPassword(auth, email, pass).then(cred => cred.user.uid);
+
+    window._getAdminDoc = async (uid) => {
+        const snap = await getDoc(doc(db, 'admins', uid));
+        return snap.exists() ? snap.data() : null;
+    };
+
     let currentUid = null;
     window._base64Img = "";
 
@@ -4406,6 +4417,37 @@
         if (user) {
             // If admin already logged in via local credentials, don't interfere
             if (window._isAdmin) return;
+
+            // لو الحساب ده عضو فريق (admins/{uid} موجود)، أوقف هنا في كل
+            // الأحوال — عشان ما نكملش على فحوصات حساب طالب (تحت) اللي هتبوّظ
+            // الشاشة. بس الدخول التلقائي الفعلي بيحصل مرة واحدة بس، لما يكون
+            // جاي فعلاً من صفحة الطالب (علامة atlasya_admin_handoff) — أي فتح
+            // مباشر أو تحديث لـ admin.html بعد كده محتاج ضغط زرار الدخول يدويًا.
+            try {
+                const adminData = await window._getAdminDoc(user.uid);
+                if (adminData) {
+                    const isHandoff = sessionStorage.getItem('atlasya_admin_handoff') === '1';
+                    sessionStorage.removeItem('atlasya_admin_handoff'); // استخدام مرة واحدة بس
+                    if (isHandoff) {
+                        const isSuper = adminData.permissions === 'all' || adminData.role === 'superadmin';
+                        const permissions = isSuper ? 'all' : (Array.isArray(adminData.permissions) ? adminData.permissions : []);
+                        const displayEmail = adminData.email || user.email || 'Admin';
+                        const nameParts = (adminData.name || displayEmail).trim().split(' ');
+                        const matched = {
+                            username: displayEmail,
+                            displayName: adminData.name || displayEmail,
+                            firstName: adminData.firstName || nameParts[0] || 'Admin',
+                            lastName: adminData.lastName || nameParts.slice(1).join(' '),
+                        };
+                        if (window._activateAdminSession) {
+                            window._activateAdminSession(matched, isSuper, permissions);
+                        }
+                    }
+                    return;
+                }
+            } catch (e) {
+                console.error('Admin auto-detect failed:', e);
+            }
 
             // Require verified email before granting access
             if (!user.emailVerified) {
@@ -13129,11 +13171,15 @@
         }
         showToast('Welcome, ' + matched.displayName + ' — Admin mode active ✓');
     }
+    // بيتنادى من داخل الـ module script (فوق، في onAuthStateChanged) لما
+    // يكتشف سيشن أدمن جاهزة — التعيين ده مجرد تخزين مرجع، آمن حتى لو حصل
+    // قبل ما الـ module يخلص شغله، لأنه مش بينادي على window._xxx تاني
+    window._activateAdminSession = activateAdminSession;
 
-    async function buildAdminMatchFromUid(uid, fallbackEmail) {
-        const adminSnap = await getDoc(doc(db, 'admins', uid));
-        if (!adminSnap.exists()) return null;
-        const data = adminSnap.data() || {};
+    // بيبني بيانات العرض من محتوى مستند admins/{uid} الخام (بدون أي اتصال
+    // مباشر بـ Firebase — آمن هنا لأنه مجرد تحويل بيانات عادي)
+    function buildAdminMatchFromData(data, fallbackEmail) {
+        if (!data) return null;
         const isSuper = data.permissions === 'all' || data.role === 'superadmin';
         const permissions = isSuper ? 'all' : (Array.isArray(data.permissions) ? data.permissions : []);
         const displayEmail = data.email || fallbackEmail || 'Admin';
@@ -13147,26 +13193,6 @@
         return { matched, isSuper, permissions };
     }
 
-    // لو المستخدم جه من student.html وهو مسجّل دخول بالفعل بنفس السيشن
-    // (نفس default app)، ندخله على طول من غير ما يكتب يوزرنيم/باسورد تاني.
-    // ولو دخل هنا مباشرة وهو مش أدمن (طالب عادي)، نرجّعه لصفحته العادية.
-    onAuthStateChanged(auth, async (user) => {
-        if (window._isAdmin) return; // already handled via manual login
-        if (!user) return;
-        try {
-            const result = await buildAdminMatchFromUid(user.uid);
-            if (result) {
-                activateAdminSession(result.matched, result.isSuper, result.permissions);
-            } else {
-                // حساب حقيقي بس مش أدمن — على الأغلب طالب جه للرابط ده بالغلط
-                window.location.href = 'student.html';
-            }
-        } catch (e) {
-            console.error('Auto admin-login failed:', e);
-            showToast('حصلت مشكلة أثناء تحميل لوحة الأدمن — افتح الـ Console (F12) وشوف الخطأ', true);
-        }
-    });
-
     async function doAdminLogin() {
         const email = document.getElementById('adminEmail').value.trim();
         const pass  = document.getElementById('adminPassword').value;
@@ -13178,12 +13204,13 @@
 
         let matched = null, isSuper = false, permissions = [];
         try {
-            const cred = await signInWithEmailAndPassword(auth, email, pass);
-            const result = await buildAdminMatchFromUid(cred.user.uid, email);
+            const uid = await window._adminSignIn(email, pass);
+            const data = await window._getAdminDoc(uid);
+            const result = buildAdminMatchFromData(data, email);
 
             if (!result) {
                 // الحساب ده حقيقي على Firebase Auth، لكنه مش عضو فريق مسجّل
-                await signOut(auth);
+                await window._signOutAuth();
                 showToast('الحساب ده مش مصرح له بالدخول كأدمن', true);
                 return;
             }
@@ -13192,6 +13219,7 @@
             permissions = result.permissions;
         } catch (e) {
             // بيانات دخول غلط أو مشكلة في الشبكة — في الحالتين نرفض بأمان
+            console.error('doAdminLogin failed:', e);
             matched = null;
         }
 
