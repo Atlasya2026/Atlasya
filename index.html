@@ -3840,7 +3840,8 @@
             signInWithEmailAndPassword, signOut,
             onAuthStateChanged, deleteUser, sendPasswordResetEmail,
             sendEmailVerification,
-            GoogleAuthProvider, FacebookAuthProvider, signInWithPopup
+            GoogleAuthProvider, FacebookAuthProvider, signInWithPopup,
+            setPersistence, browserSessionPersistence
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import {
             getFirestore, doc, setDoc, getDoc, deleteDoc,
@@ -3880,6 +3881,13 @@
             return data;
         }
         const auth = getAuth(app);
+        // مايستخدمش localStorage (اللي بتفضل شغالة أيام/شهور وبتتشارك مع admin.html
+        // على نفس الدومين) — ده كان سبب إن الطالب أحيانًا يدخل الصفحة يلاقي نفسه
+        // مسجّل دخول تلقائيًا من غير ما يدوس حاجة، أو يتحول لصفحة الأدمن لو آخر
+        // حساب اتسجل بيه على الجهاز ده كان حساب أدمن. دلوقتي السيشن بتفضل شغالة
+        // في نفس التاب بس (عشان الـ handoff بين student/admin لسه شغال)، وبتتمسح
+        // لما يقفل المتصفح أو يفتح تاب جديد، فلازم يسجل دخول يدوي كل مرة.
+        setPersistence(auth, browserSessionPersistence).catch(e => console.error('setPersistence failed:', e));
         const db = getFirestore(app);
         window._auth = auth; // expose for password change
         window._signOutAuth = () => signOut(auth);
