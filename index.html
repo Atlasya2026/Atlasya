@@ -3846,7 +3846,8 @@
         import {
             getFirestore, doc, setDoc, getDoc, deleteDoc,
             collection, addDoc, getDocs, orderBy, query, serverTimestamp, updateDoc,
-            onSnapshot, limit, where, Timestamp, arrayUnion, arrayRemove, increment
+            onSnapshot, limit, where, Timestamp, arrayUnion, arrayRemove, increment,
+            runTransaction
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -3859,27 +3860,6 @@
         };
 
         const app = initializeApp(firebaseConfig);
-
-        // ⚠️ بعد ما تعمل deploy على Vercel، بدّل السطر ده بالرابط اللي هيديهولك
-        // (زي https://atlasya-secure-api.vercel.app) — من غير / في الآخر
-        const SECURE_API_BASE = 'https://atlasya-secure-api.vercel.app';
-
-        async function callSecureApi(path, body) {
-            const idToken = await auth.currentUser.getIdToken();
-            const res = await fetch(SECURE_API_BASE + path, {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + idToken,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(body || {}),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                throw new Error(data.error || ('HTTP ' + res.status));
-            }
-            return data;
-        }
         const auth = getAuth(app);
         // مايستخدمش localStorage (اللي بتفضل شغالة أيام/شهور وبتتشارك مع admin.html
         // على نفس الدومين) — ده كان سبب إن الطالب أحيانًا يدخل الصفحة يلاقي نفسه
@@ -4698,13 +4678,34 @@
         };
 
         /* One-time free trial: instantly grants 1 month of Pro, starting now, with
-           no payment/review step. Verified and blocked server-side (Vercel) — الطالب
-           مايقدرش يعدّل freeTrialUsed أو plan من عنده حتى لو فتح الـ Console. */
+           no payment/review step. اتنقلت من Vercel للعميل مباشرة — الـ transaction بتاعة
+           Firestore بتمنع إنه ياخد الفترة مرتين حتى لو دبّس الزرار بسرعة أو فتح تابين،
+           لكن لازم قواعد Firestore (firestore.rules) تمنع الطالب إنه يعدّل freeTrialUsed
+           بنفسه مباشرة من الـ Console من غير ما يعدي بالفانكشن دي. */
         window._claimFreeTrial = async () => {
             if (!currentUid) throw new Error('Not logged in');
+            const userRef = doc(db, 'users', currentUid);
             let result;
             try {
-                result = await callSecureApi('/api/claimFreeTrial');
+                result = await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(userRef);
+                    const data = snap.data() || {};
+                    if (data.freeTrialUsed) {
+                        const err = new Error('استخدمت الفترة التجريبية قبل كده');
+                        err.status = 409;
+                        throw err;
+                    }
+                    const expiry = new Date();
+                    expiry.setMonth(expiry.getMonth() + 1);
+                    tx.update(userRef, {
+                        plan: 'pro',
+                        proStartAt: serverTimestamp(),
+                        proExpiresAt: Timestamp.fromDate(expiry),
+                        freeTrialUsed: true,
+                        freeTrialClaimedAt: serverTimestamp(),
+                    });
+                    return { plan: 'pro', proExpiresAt: expiry.toISOString() };
+                });
             } catch (e) {
                 if (e.message && e.message.includes('قبل كده')) {
                     const err = new Error('trial-used');
@@ -5063,16 +5064,71 @@
         };
         // Records the student's one-time answer for a scheduled question, awards coins on a
         // correct answer, and (for weekly questions) checks whether that unlocks the weekly bonus.
+        // اتنقلت من Vercel للعميل — ⚠️ فرق مهم عن النسخة اللي كانت على السيرفر: هنا لازم
+        // قواعد Firestore تسمح للطالب المسجّل دخوله يقرأ daily_challenges_answers/{questionId}
+        // (كانت ممنوعة القراءة خالص قبل كده). ده معناه إن طالب فاتح الـ DevTools يقدر يشوف
+        // الإجابة الصحيحة قبل ما يجاوب لو فتح الـ Network/Console. لو ده مقلقك قولي.
         window._submitDailyChallengeAnswer = async (question, selectedIndex) => {
             if (!currentUid) throw new Error('Not logged in');
-            let apiResult;
+            const questionId = question.id;
+
+            const answerSnap = await getDoc(doc(db, 'daily_challenges_answers', questionId));
+            if (!answerSnap.exists()) { const e = new Error('السؤال غير موجود'); e.status = 404; throw e; }
+            const answerData = answerSnap.data();
+
+            const attemptRef = doc(db, 'daily_challenge_attempts', `${currentUid}_${questionId}`);
+            const userRef = doc(db, 'users', currentUid);
+
+            let txResult;
             try {
-                apiResult = await callSecureApi('/api/answerChallenge', { questionId: question.id, selectedIndex });
+                txResult = await runTransaction(db, async (tx) => {
+                    const existing = await tx.get(attemptRef);
+                    if (existing.exists()) {
+                        const err = new Error('اتجاوبت قبل كده');
+                        err.status = 409;
+                        throw err;
+                    }
+                    const userSnap = await tx.get(userRef);
+                    const userData = userSnap.data() || {};
+
+                    const isCorrect = selectedIndex === answerData.correctIndex;
+                    const reward = isCorrect ? Math.round((answerData.coins || 0) * window._activeBoostMultiplier(userData)) : 0;
+
+                    tx.set(attemptRef, {
+                        userId: currentUid, questionId, type: question.type,
+                        scheduledDate: question.scheduledDate, correct: isCorrect, coinsAwarded: reward,
+                        answeredAt: serverTimestamp(),
+                    });
+
+                    if (reward > 0) {
+                        tx.update(userRef, {
+                            coins: increment(reward),
+                            coinsEarnedTotal: increment(reward),
+                        });
+                        const txRef = doc(collection(db, 'coin_transactions'));
+                        const reasonAR = question.type === 'weekly' ? 'إجابة صحيحة في التحدي الأسبوعي' : 'إجابة صحيحة في التحدي اليومي';
+                        const reasonEN = question.type === 'weekly' ? 'Correct answer in the weekly challenge' : 'Correct answer in the daily challenge';
+                        tx.set(txRef, {
+                            userId: currentUid, type: 'earn', amount: reward, reasonAR, reasonEN,
+                            createdAt: serverTimestamp(),
+                        });
+                    }
+
+                    return { correct: isCorrect, coinsAwarded: reward };
+                });
             } catch (e) {
                 if (e.message && e.message.includes('اتجاوبت قبل كده')) { const err = new Error('Already answered'); err.code = 'already'; throw err; }
                 throw e;
             }
-            const { correct, coinsAwarded, weeklyBonus, correctIndex } = apiResult;
+
+            let weeklyBonus = null;
+            if (question.type === 'weekly' && txResult.correct) {
+                try {
+                    weeklyBonus = await window._maybeAwardWeeklyBonus(question.scheduledDate);
+                } catch (e) { console.error('weekly bonus error:', e); }
+            }
+
+            const { correct, coinsAwarded } = txResult;
             if (window._userData) {
                 const total = coinsAwarded + (weeklyBonus?.coinsAwarded || 0);
                 if (total) {
@@ -5083,7 +5139,49 @@
             const d = window._userData || {};
             const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
             window._notifyAdminsBot('challenge_answer', { studentName, correct, coinsAwarded, challengeType: question.type });
-            return { correct, coinsAwarded, weeklyBonus, correctIndex };
+            return { correct, coinsAwarded, weeklyBonus, correctIndex: answerData.correctIndex };
+        };
+        // Weekly bonus: if all weekly questions for the calendar week containing dateStr have
+        // been answered correctly, grants a one-time bonus for that week (idempotent per week).
+        window._maybeAwardWeeklyBonus = async (dateStr) => {
+            const weekStart = window._dcWeekStartOf(dateStr);
+            const claimRef = doc(db, 'weekly_challenge_claims', `${currentUid}_${weekStart}`);
+            const already = await getDoc(claimRef);
+            if (already.exists()) return null;
+
+            const settings = await window._loadWeeklyChallengeSettings();
+            if (!settings.enabled) return null;
+
+            const allQ = await window._loadDailyChallengeQs();
+            const weekQs = allQ.filter(q => q.type === 'weekly' && window._dcWeekStartOf(q.scheduledDate) === weekStart);
+            if (!weekQs.length) return null;
+
+            const attempts = await Promise.all(
+                weekQs.map(q => getDoc(doc(db, 'daily_challenge_attempts', `${currentUid}_${q.id}`)))
+            );
+            const allCorrect = attempts.every(a => a.exists() && a.data().correct);
+            if (!allCorrect) return null;
+
+            const userRef = doc(db, 'users', currentUid);
+            const userSnap = await getDoc(userRef);
+            const bonus = Math.round((settings.bonusCoins || 0) * window._activeBoostMultiplier(userSnap.exists() ? userSnap.data() : {}));
+
+            if (bonus > 0) {
+                await updateDoc(userRef, {
+                    coins: increment(bonus),
+                    coinsEarnedTotal: increment(bonus),
+                });
+                await addDoc(collection(db, 'coin_transactions'), {
+                    userId: currentUid, type: 'earn', amount: bonus,
+                    reasonAR: 'مكافأة إكمال التحدي الأسبوعي', reasonEN: 'Weekly challenge completion bonus',
+                    createdAt: serverTimestamp(),
+                });
+            }
+            await setDoc(claimRef, {
+                userId: currentUid, weekStartDate: weekStart, coinsAwarded: bonus,
+                claimedAt: serverTimestamp(),
+            });
+            return { coinsAwarded: bonus };
         };
         window._getWeeklyBonusClaim = async (weekStart) => {
             if (!currentUid) return null;
@@ -5241,13 +5339,79 @@
         };
 
         // Spins the basic wheel. usingExtraSpin=true consumes a banked extra spin instead of
-        // the daily attempt. الحساب والكول داون ومنح الكوينز كله بيحصل على السيرفر دلوقتي —
-        // الكود هنا بس بيستدعي الـ endpoint وبيحدّث الكاش المحلي بالنتيجة.
+        // the daily attempt. اتنقلت من Vercel للعميل — نفس منطق الكول داون والاختيار العشوائي
+        // ومنح الكوينز بالظبط، بس شغال جوه Firestore transaction عشان الطالب مايقدرش يلف
+        // مرتين في نفس اللحظة (double-submit) أو يفوّت الكول داون بفتح تابين مع بعض.
         window._spinBasicWheel = async (usingExtraSpin) => {
             if (!currentUid) throw new Error('Not logged in');
+            const userRef = doc(db, 'users', currentUid);
+            const config = await window._loadWheelConfig();
+            if (config.enabled === false) { const e = new Error('wheel-disabled'); e.code = 'disabled'; throw e; }
+            const cooldownHours = config.cooldownHours || 24;
+            const basicConfig = config.basic;
+            const bypassCooldown = config.testModeEnabled === true && config.testModeUid && config.testModeUid === currentUid;
+
             let result;
             try {
-                result = await callSecureApi('/api/spinWheel', { usingExtraSpin: !!usingExtraSpin });
+                result = await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(userRef);
+                    const userData = snap.data() || {};
+
+                    const cooldownMs = cooldownHours * 3600000;
+                    const lastSpin = userData.wheelLastSpinAt ? userData.wheelLastSpinAt.toDate() : null;
+                    const nextAt = lastSpin ? new Date(lastSpin.getTime() + cooldownMs) : null;
+                    const dailyReady = bypassCooldown || !nextAt || nextAt <= new Date();
+
+                    if (usingExtraSpin) {
+                        if (!(userData.wheelExtraSpins > 0)) {
+                            const err = new Error('مفيش عندك سبنات إضافية');
+                            err.status = 400;
+                            throw err;
+                        }
+                    } else if (!dailyReady) {
+                        const err = new Error('ممكن تلف العجلة تاني بعد ' + Math.ceil((nextAt - new Date()) / 3600000) + ' ساعة');
+                        err.status = 429;
+                        throw err;
+                    }
+
+                    const slotKey = window._pickWeighted(basicConfig);
+                    const slot = basicConfig[slotKey] || {};
+                    const resultOut = { type: slotKey, coinsAwarded: 0, opensGift: false };
+                    let extraSpinDelta = usingExtraSpin ? -1 : 0;
+
+                    const updatePayload = {};
+                    if (!usingExtraSpin) updatePayload.wheelLastSpinAt = serverTimestamp();
+
+                    if (slotKey === 'coin1' || slotKey === 'coin2' || slotKey === 'coin3') {
+                        const boosted = Math.round((slot.amount || 0) * window._activeBoostMultiplier(userData));
+                        resultOut.coinsAwarded = boosted;
+                        updatePayload.coins = increment(boosted);
+                        updatePayload.coinsEarnedTotal = increment(boosted);
+                    } else if (slotKey === 'extraSpin') {
+                        extraSpinDelta += 1;
+                    } else if (slotKey === 'gift') {
+                        resultOut.opensGift = true;
+                    }
+                    if (extraSpinDelta !== 0) updatePayload.wheelExtraSpins = increment(extraSpinDelta);
+
+                    if (Object.keys(updatePayload).length) tx.update(userRef, updatePayload);
+
+                    if (resultOut.coinsAwarded) {
+                        const txRef = doc(collection(db, 'coin_transactions'));
+                        tx.set(txRef, {
+                            userId: currentUid, type: 'earn', amount: resultOut.coinsAwarded,
+                            reasonAR: 'مكافأة عجلة الحظ', reasonEN: 'Fortune wheel reward',
+                            createdAt: serverTimestamp(),
+                        });
+                    }
+                    const spinRef = doc(collection(db, 'wheel_spins'));
+                    tx.set(spinRef, {
+                        userId: currentUid, wheelType: 'basic', resultType: slotKey,
+                        coinsAwarded: resultOut.coinsAwarded, createdAt: serverTimestamp(),
+                    });
+
+                    return resultOut;
+                });
             } catch (e) {
                 if (e.message && e.message.includes('سبنات إضافية')) { const err = new Error('No extra spins'); err.code = 'no-extra'; throw err; }
                 if (e.message && e.message.includes('ساعة')) { const err = new Error('Cooldown'); err.code = 'cooldown'; throw err; }
@@ -5275,7 +5439,67 @@
         // Spins the gift wheel — only reachable right after landing on 🎁 on the basic wheel.
         window._spinGiftWheel = async () => {
             if (!currentUid) throw new Error('Not logged in');
-            const result = await callSecureApi('/api/spinGiftWheel');
+            const userRef = doc(db, 'users', currentUid);
+            const config = await window._loadWheelConfig();
+            const giftConfig = config.gift;
+
+            const slotKey = window._pickWeighted(giftConfig);
+            const slot = giftConfig[slotKey] || {};
+            const result = { type: slotKey };
+
+            if (slotKey === 'promonth') {
+                const months = slot.months || 1;
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(userRef);
+                    const data = snap.data() || {};
+                    let base = new Date();
+                    if (data.plan === 'pro' && data.proExpiresAt) {
+                        const cur = data.proExpiresAt.toDate();
+                        if (cur > base) base = cur;
+                    }
+                    const newExpiry = new Date(base);
+                    newExpiry.setMonth(newExpiry.getMonth() + months);
+                    const payload = { plan: 'pro', proExpiresAt: Timestamp.fromDate(newExpiry) };
+                    if (data.plan !== 'pro') payload.proStartAt = serverTimestamp();
+                    tx.update(userRef, payload);
+                });
+                result.months = months;
+
+            } else if (slotKey === 'tempfeature') {
+                const hours = slot.hours || 24;
+                const expiresAt = new Date(Date.now() + hours * 3600000);
+                await updateDoc(userRef, {
+                    tempProFeature: {
+                        featureAR: slot.featureAR || '', featureEN: slot.featureEN || '',
+                        expiresAt: Timestamp.fromDate(expiresAt),
+                    },
+                });
+                result.featureAR = slot.featureAR; result.featureEN = slot.featureEN; result.hours = hours;
+
+            } else if (slotKey === 'discount') {
+                const code = window._generateDiscountCode();
+                const expiresAt = new Date(Date.now() + (slot.validDays || 14) * 86400000);
+                await setDoc(doc(db, 'discount_codes', code), {
+                    code, userId: currentUid, percent: slot.percent || 10, requiredMonths: slot.requiredMonths || 6,
+                    createdAt: serverTimestamp(),
+                    expiresAt: Timestamp.fromDate(expiresAt), used: false,
+                });
+                result.code = code; result.percent = slot.percent || 10;
+                result.requiredMonths = slot.requiredMonths || 6; result.expiresAt = expiresAt.toISOString();
+
+            } else if (slotKey === 'boost') {
+                const hours = slot.hours || 24;
+                const expiresAt = new Date(Date.now() + hours * 3600000);
+                await updateDoc(userRef, {
+                    coinBoost: { multiplier: slot.multiplier || 2, expiresAt: Timestamp.fromDate(expiresAt) },
+                });
+                result.multiplier = slot.multiplier || 2; result.hours = hours;
+            }
+
+            await addDoc(collection(db, 'wheel_spins'), {
+                userId: currentUid, wheelType: 'gift', resultType: slotKey, extra: result,
+                createdAt: serverTimestamp(),
+            });
 
             // مزامنة الكاش المحلي بالنتيجة عشان الواجهة تتحدث فورًا
             if (window._userData) {
