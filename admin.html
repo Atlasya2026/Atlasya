@@ -3179,7 +3179,8 @@
         signInWithEmailAndPassword, signOut,
         onAuthStateChanged, deleteUser, sendPasswordResetEmail,
         sendEmailVerification,
-        GoogleAuthProvider, FacebookAuthProvider, signInWithPopup
+        GoogleAuthProvider, FacebookAuthProvider, signInWithPopup,
+        setPersistence, browserSessionPersistence
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import {
         getFirestore, doc, setDoc, getDoc, deleteDoc,
@@ -3204,6 +3205,10 @@
     // تسجيل الدخول تتشارك تلقائيًا بين الصفحتين من غير ما المستخدم يسجل دخول مرتين
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    // نفس التعديل اللي في student.html: السيشن بتفضل شغالة في نفس التاب بس
+    // (مش أيام/شهور عبر localStorage)، عشان الـ handoff بين الصفحتين يفضل شغال
+    // من غير ما يفضل حساب أدمن قديم "عالق" لفترة طويلة على الجهاز.
+    setPersistence(auth, browserSessionPersistence).catch(e => console.error('setPersistence failed:', e));
     const db = getFirestore(app);
     window._auth = auth; // expose for password change
     window._signOutAuth = () => signOut(auth);
