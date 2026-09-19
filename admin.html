@@ -75,6 +75,67 @@
             overflow-x: hidden;
         }
 
+        /* ═══════════════════════════════════════════════════════════
+           GLOBAL MICRO-INTERACTIONS — every button gets a press/hover
+           feel, every card/grid item fades & lifts in. Runs off
+           attribute selectors so it applies to existing AND future
+           buttons/cards without touching their individual rules. Any
+           more specific selector further down the sheet still wins
+           for colors/transforms it defines itself.
+           ═══════════════════════════════════════════════════════════ */
+        @keyframes atlasyaFadeInUp { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+        @keyframes atlasyaPop { 0% { transform:scale(.9); opacity:0; } 60% { transform:scale(1.03); opacity:1; } 100% { transform:scale(1); } }
+
+        button, .btn, a.btn, [class*="-btn"], [class*="btn-"], [class*="_btn"] {
+            transition: transform .16s cubic-bezier(.34,1.56,.64,1), filter .16s ease, box-shadow .2s ease;
+        }
+        button:not(:disabled):hover, .btn:not(:disabled):hover, a.btn:hover,
+        [class*="-btn"]:not(:disabled):hover, [class*="btn-"]:not(:disabled):hover {
+            transform: translateY(-2px);
+            filter: brightness(1.07);
+        }
+        button:not(:disabled):active, .btn:not(:disabled):active, a.btn:active,
+        [class*="-btn"]:not(:disabled):active, [class*="btn-"]:not(:disabled):active {
+            transform: scale(.93);
+            filter: brightness(.95);
+            transition-duration: .08s;
+        }
+        button:disabled, .btn:disabled { transform: none !important; }
+
+        /* Clickable card-style elements (onclick divs act as buttons too) */
+        [onclick]:not(button):not(.nav-item):not([class*="btn"]) {
+            transition: transform .18s ease;
+        }
+
+        /* Cards / grid tiles: gentle hover lift + entrance animation */
+        [class*="card"], [class*="-tile"] {
+            animation: atlasyaFadeInUp .45s cubic-bezier(.22,1,.36,1) both;
+            transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s ease;
+        }
+        [class*="card"]:hover { transform: translateY(-4px); }
+
+        /* Staggered entrance for items inside any *-grid container */
+        [class*="grid"] > *:nth-child(1)  { animation-delay: .02s; }
+        [class*="grid"] > *:nth-child(2)  { animation-delay: .06s; }
+        [class*="grid"] > *:nth-child(3)  { animation-delay: .10s; }
+        [class*="grid"] > *:nth-child(4)  { animation-delay: .14s; }
+        [class*="grid"] > *:nth-child(5)  { animation-delay: .18s; }
+        [class*="grid"] > *:nth-child(6)  { animation-delay: .22s; }
+        [class*="grid"] > *:nth-child(7)  { animation-delay: .26s; }
+        [class*="grid"] > *:nth-child(8)  { animation-delay: .30s; }
+        [class*="grid"] > *:nth-child(n+9) { animation-delay: .34s; }
+        [class*="grid"] > * { animation-name: atlasyaFadeInUp; animation-duration: .45s; animation-timing-function: cubic-bezier(.22,1,.36,1); animation-fill-mode: both; }
+
+        /* Toggle-style icon buttons (heart / bookmark) get a little pop when switched on */
+        .active i.fa-heart, .active i.fa-bookmark, .saved i.fa-bookmark, .liked i.fa-heart,
+        i.fa-solid.fa-heart, i.fa-solid.fa-bookmark {
+            animation: atlasyaPop .35s ease;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+        }
+
         /* ─── SCROLLBAR ─── */
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: var(--bg2); }
