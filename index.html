@@ -4103,7 +4103,10 @@
            Blocks the right-click/long-press menu on download cards (so "Copy Link"
            never has a real file URL to grab — see the javascript:void(0) hrefs) and
            logs each attempt against the user, so repeat offenders are visible to
-           admins even though the block itself is silent to the student. */
+           admins even though the block itself is silent to the student.
+           Actual quota-charging for a blocked attempt lives in _chargeCopyAttempt
+           below (called separately from the global contextmenu listener, since
+           that's the listener that actually fires — see its comment). */
         window._blockCopyAttempt = function(ev) {
             try {
                 if (currentUid) {
@@ -4117,6 +4120,29 @@
                 }
             } catch (e) {}
             return false; // still blocks the native context menu either way
+        };
+
+        /* Counts a right-click/copy-link attempt on an actual download card against
+           the daily quota. Called only from cards that expose/trigger a real file
+           download (not plain "open details" navigation cards). */
+        window._chargeCopyAttempt = function(comboKey) {
+            try {
+                const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
+                const isAdmin = window._isAdmin === true;
+                if (isAdmin || isPro) return; // unlimited — nothing to charge
+                if (comboKey) {
+                    const key = `atlasya_combo_${comboKey}_${new Date().toDateString()}`;
+                    if (localStorage.getItem(key) === '1') return; // pair already used today
+                    const count = window._getDailyDownloadCount ? window._getDailyDownloadCount() : 0;
+                    if (count >= 3) return; // already maxed out
+                    window._incrementDailyDownload().catch(() => {});
+                    localStorage.setItem(key, '1');
+                } else {
+                    const count = window._getDailyDownloadCount ? window._getDailyDownloadCount() : 0;
+                    if (count >= 3) return;
+                    window._incrementDailyDownload().catch(() => {});
+                }
+            } catch (e) {}
         };
 
         /* ─── SOFTWARE TOOLS (read) ─── */
@@ -8004,7 +8030,7 @@
         /* ─── GIS SOFTWARE TOOLS ─── */
         function dsCardWrap(icon, title, badge, url) {
             return `
-            <a href="javascript:void(0)" onclick="handleFileDownload('${url.replace(/'/g,"&#39;")}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card">
+            <a href="javascript:void(0)" onclick="handleFileDownload('${url.replace(/'/g,"&#39;")}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card" data-dl="1">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${icon}"></i></div>
                     <span class="ds-badge">${badge}</span>
@@ -8018,7 +8044,7 @@
         only ever consume ONE slot from the daily download quota */
         function dsCardSplit(icon, title, badge, note, comboId, item1, item2) {
             return `
-            <div class="dataset-card split" oncontextmenu="return window._blockCopyAttempt(event);">
+            <div class="dataset-card split" oncontextmenu="return window._blockCopyAttempt(event);" data-dl-combo="${comboId}">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${icon}"></i></div>
                     <span class="ds-badge">${badge}</span>
@@ -8744,12 +8770,21 @@
             localStorage.setItem(comboKey, '1');
         };
 
-        // ── Prevent right-click on dataset/tool cards ──
+        // ── Prevent right-click on dataset/tool cards, and charge a download
+        //    attempt if the card is a real download (not a plain nav card).
+        //    This runs in the capture phase, so it fires BEFORE each card's own
+        //    oncontextmenu attribute — which is why the quota charge lives here.
         document.addEventListener('contextmenu', function(e) {
             const card = e.target.closest('.dataset-card');
             if (card) {
                 e.preventDefault();
                 e.stopPropagation();
+                window._blockCopyAttempt(e);
+                if (card.hasAttribute('data-dl')) {
+                    window._chargeCopyAttempt();
+                } else if (card.hasAttribute('data-dl-combo')) {
+                    window._chargeCopyAttempt(card.getAttribute('data-dl-combo'));
+                }
                 return false;
             }
         }, true);
@@ -8773,7 +8808,7 @@
         function toolCardHTML(t, isAR) {
             const cat = scFindToolCat(t.category);
             return `
-            <a href="javascript:void(0)" onclick="handleToolDownload('${t.id}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card">
+            <a href="javascript:void(0)" onclick="handleToolDownload('${t.id}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card" data-dl="1">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${t.icon || (cat?cat.icon:'fa-download')}"></i></div>
                     <span class="ds-badge">${escapeHtml(t.version||'')}</span>
@@ -8788,7 +8823,7 @@
 
         function toolCardSplitHTML(t, isAR) {
             return `
-            <div class="dataset-card split" oncontextmenu="return window._blockCopyAttempt(event);">
+            <div class="dataset-card split" oncontextmenu="return window._blockCopyAttempt(event);" data-dl-combo="tool_${t.id}">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${t.icon || 'fa-circle-down'}"></i></div>
                     <span class="ds-badge">${escapeHtml(t.version||'')}</span>
