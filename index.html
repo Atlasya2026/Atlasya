@@ -4407,14 +4407,21 @@
             window._notifyAdminsBot('support_ticket', { studentName, ticketType: data.type, message: data.message });
         };
         // Real-time listener for student's own tickets
-        window._subscribeMyTickets = (callback) => {
+        window._subscribeMyTickets = (callback, onError) => {
             if (!currentUid) return () => {};
-            const q = query(collection(db, 'support_tickets'), orderBy('createdAt', 'desc'));
+            // الاستعلام لازم يتقيّد بـ uid الطالب نفسه في Firestore (مش فلترة في المتصفح):
+            // قواعد الأمان بترفض أي listener ممكن يرجّع تذاكر ناس تانية، فالاستعلام
+            // القديم (كل التذاكر + فلترة محلية) كان بيتقفل بـ permission-denied.
+            // من غير orderBy عشان ما نحتاجش composite index — الترتيب بيتم هنا.
+            const q = query(collection(db, 'support_tickets'), where('uid', '==', currentUid));
             return onSnapshot(q, snap => {
-                const tickets = snap.docs
-                    .filter(d => d.data().uid === currentUid)
-                    .map(d => ({ id: d.id, ...d.data() }));
+                const tickets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const ms = t => (t.createdAt && t.createdAt.toMillis) ? t.createdAt.toMillis() : Date.now();
+                tickets.sort((a, b) => ms(b) - ms(a));
                 callback(tickets);
+            }, err => {
+                console.error('support_tickets listener error:', err);
+                if (onError) onError(err);
             });
         };
         // Real-time listener for admin: all tickets from all students
@@ -4422,7 +4429,7 @@
             const q = query(collection(db, 'support_tickets'), orderBy('createdAt', 'desc'));
             return onSnapshot(q, snap => {
                 callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            });
+            }, err => console.error('support_tickets (admin) listener error:', err));
         };
         window._loadAllTickets = async () => {
             const q = query(collection(db, 'support_tickets'), orderBy('createdAt', 'desc'));
@@ -5154,9 +5161,14 @@
         window._getMyChallengeAttempts = async (n) => {
             if (!currentUid) return [];
             try {
-                const q = query(collection(db, 'daily_challenge_attempts'), where('userId', '==', currentUid), orderBy('answeredAt', 'desc'), limit(n || 30));
+                // equality على userId بس (من غير orderBy) عشان ما نحتاجش composite index —
+                // الترتيب والـ limit بيتعملوا هنا في المتصفح.
+                const q = query(collection(db, 'daily_challenge_attempts'), where('userId', '==', currentUid));
                 const snap = await getDocs(q);
-                return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const ms = t => (t && t.toMillis) ? t.toMillis() : 0;
+                return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                    .sort((a, b) => ms(b.answeredAt) - ms(a.answeredAt))
+                    .slice(0, n || 30);
             } catch(e) { console.error('getMyChallengeAttempts error:', e); return []; }
         };
         // Awards the one-time weekly completion bonus once every weekly question in the
@@ -5563,12 +5575,18 @@
                 // If admin already logged in via local credentials, don't interfere
                 if (window._isAdmin) return;
 
-                // لو ده سيشن أدمن (اتسجل دخوله من هنا أو من admin.html)، رجّعه
-                // للوحة الأدمن بدل ما نحاول نحمّله بيانات طالب مش موجودة
+                // لو ده سيشن أدمن (السيشن مشتركة مع admin.html لأنهم نفس الـ default app):
+                // ما نحوّلوش تلقائيًا لـ admin.html — ده اللي كان بيمنع فتح صفحة الطالب.
+                // التحويل بيحصل بس لما الأدمن يسجّل دخول صراحةً من فورم الطالب
+                // (_doLogin / _socialSignIn). هنا بنعرض شاشة تسجيل الدخول بدون ما
+                // نعمل signOut، عشان جلسة الأدمن في التاب التاني ماتتأثرش.
                 try {
                     const adminSnap = await getDoc(doc(db, 'admins', user.uid));
                     if (adminSnap.exists()) {
-                        window.location.href = 'admin.html';
+                        currentUid = null;
+                        window._userData = null;
+                        document.getElementById('mainApp').style.display = 'none';
+                        document.getElementById('authBox').style.display = 'flex';
                         return;
                     }
                 } catch (e) {
@@ -14206,7 +14224,13 @@
                 </div>`;
                 _selectedTicketType = '';
                 _ticketScreenshotData = '';
-                _myTicketsUnsub = window._subscribeMyTickets(tickets => renderStudentTicketList(tickets, isAR));
+                _myTicketsUnsub = window._subscribeMyTickets(
+                    tickets => renderStudentTicketList(tickets, isAR),
+                    err => {
+                        const box = document.getElementById('studentTkList');
+                        if (box) box.innerHTML = `<div style="text-align:center;padding:30px;color:#ff6b6b;font-size:13px;">${isAR?'تعذّر تحميل التذاكر':'Could not load tickets'}<br><span style="font-size:11px;opacity:0.7;direction:ltr;display:inline-block;margin-top:6px;">${(err && (err.code || err.message)) || ''}</span></div>`;
+                    }
+                );
             }
         }
 
