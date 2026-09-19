@@ -3245,7 +3245,7 @@
     import {
         getFirestore, doc, setDoc, getDoc, deleteDoc,
         collection, addDoc, getDocs, orderBy, query, serverTimestamp, updateDoc,
-        onSnapshot, limit, where, Timestamp, arrayUnion, arrayRemove, increment
+        onSnapshot, limit, where, Timestamp, arrayUnion, arrayRemove, increment, writeBatch
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -3767,17 +3767,39 @@
     // type must be 'earn' (add) or 'spend' (deduct). Exposed on window since the coin-management
     // UI code lives in a later classic <script> block that can't see these module-scoped consts.
     window._adjustUserCoinsManual = async (uid, amount, type) => {
+        // ١) تأكد إن الحساب المسجّل دخوله على Firebase Auth *دلوقتي* هو فعلاً أدمن.
+        // السيشن مشتركة بين كل تابات نفس المتصفح: لو فتحت student.html وسجّلت
+        // بحساب طالب، تاب الأدمن بيكمّل يشتغل شكلاً لكن الطلبات بتخرج باسم الطالب
+        // فتترفض بـ "Missing or insufficient permissions".
+        const cu = auth.currentUser;
+        if (!cu) throw new Error('انتهت الجلسة — سجّل دخول الأدمن من جديد');
+        let isAdminNow = false;
+        try { isAdminNow = (await getDoc(doc(db, 'admins', cu.uid))).exists(); } catch (e) {}
+        if (!isAdminNow) {
+            console.error('coin adjust blocked: signed-in account is not an admin →', cu.uid, cu.email);
+            throw new Error('الحساب المسجّل حالياً على المتصفح (' + (cu.email || cu.uid) + ') مش حساب أدمن — سجّل خروج وادخل بحساب الأدمن تاني');
+        }
+
+        // ٢) الرصيد والسجل في batch واحد: يا الاتنين يتنفذوا يا ولا واحد،
+        // فمافيش حالة رصيد اتغيّر من غير سجل معاملة.
         const delta = type === 'earn' ? amount : -amount;
-        await updateDoc(doc(db, 'users', uid), {
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'users', uid), {
             coins: increment(delta),
             ...(type === 'earn' ? { coinsEarnedTotal: increment(amount) } : { coinsSpentTotal: increment(amount) })
         });
-        await addDoc(collection(db, 'coin_transactions'), {
+        batch.set(doc(collection(db, 'coin_transactions')), {
             userId: uid, type, amount,
             reasonAR: type === 'earn' ? 'إضافة عملات يدوياً من الإدارة' : 'خصم عملات يدوياً من الإدارة',
             reasonEN: type === 'earn' ? 'Coins added manually by admin' : 'Coins deducted manually by admin',
             createdAt: serverTimestamp()
         });
+        try {
+            await batch.commit();
+        } catch (e) {
+            console.error('coin adjust rejected by Firestore rules (admin uid ' + cu.uid + ') on users/' + uid + ' and/or coin_transactions:', e);
+            throw e;
+        }
     };
 
     window._bookMentorshipSlot = async (slotData) => {
@@ -8558,7 +8580,10 @@
             if (document.getElementById('membersList')) adminLoadMembers();
         } catch(e) {
             console.error('adminApplyCoinAdjustment error:', e);
-            showToast((isAR?'خطأ: ':'Error: ') + (e?.message || e?.code || String(e)), true);
+            const permDenied = e?.code === 'permission-denied';
+            showToast(permDenied
+                ? (isAR ? 'قواعد Firestore رفضت التعديل — لازم تسمح للأدمن بالكتابة على users/coins و coin_transactions (شوف رسالة المحادثة)' : 'Firestore rules rejected the write — admins must be allowed to write users/coins and coin_transactions')
+                : ((isAR?'خطأ: ':'Error: ') + (e?.message || e?.code || String(e))), true);
         }
     };
 
