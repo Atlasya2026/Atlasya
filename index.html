@@ -5854,6 +5854,7 @@
                 menuAdminPortfolioTxt: 'خرائط الطلبة',
                 menuAdminMentorshipTxt: 'حجوزات الاستشارات',
                 menuDailyChallengeTxt: 'التحديات',
+                menuWheelTxt: 'عجلة الحظ',
                 txtTopbarLogout: 'خروج',
                 txtTopbarLogoutDesk: 'خروج',
                 sideUserRole: 'عضو',
@@ -5885,6 +5886,7 @@
                 menuAdminPortfolioTxt: 'Student Maps',
                 menuAdminMentorshipTxt: 'Consultation Bookings',
                 menuDailyChallengeTxt: 'Challenges',
+                menuWheelTxt: 'Fortune Wheel',
                 txtLogout: 'Log Out',
                 txtTopbarLogout: 'Logout',
                 txtTopbarLogoutDesk: 'Logout',
@@ -9917,7 +9919,7 @@
 
         window.plToggleFavorite = async function(id) {
             const isAR = lang === 'AR';
-            if (!currentUid) { showToast(isAR?'سجّل الدخول لإضافة القائمة للمفضلة':'Log in to add to favorites', true); return; }
+            if (!window._currentUid) { showToast(isAR?'سجّل الدخول لإضافة القائمة للمفضلة':'Log in to add to favorites', true); return; }
             const favIds = window._userData?.favoritePlaylists || [];
             const isFav = favIds.includes(id);
             try {
@@ -9930,7 +9932,7 @@
 
         window.plToggleSaved = async function(id) {
             const isAR = lang === 'AR';
-            if (!currentUid) { showToast(isAR?'سجّل الدخول لحفظ القائمة':'Log in to save this playlist', true); return; }
+            if (!window._currentUid) { showToast(isAR?'سجّل الدخول لحفظ القائمة':'Log in to save this playlist', true); return; }
             const savedIds = window._userData?.savedPlaylists || [];
             const isSaved = savedIds.includes(id);
             try {
@@ -10914,7 +10916,7 @@
                 b.ratings[window._currentUid] = value;
                 window.libGo('detail', id);
                 showToast(isAR?'شكراً لتقييمك ⭐':'Thanks for rating ⭐');
-            } catch(e) { showToast(isAR?'حدث خطأ':'An error occurred', true); }
+            } catch(e) { console.error('libRateBook error:', e); showToast(isAR?'حدث خطأ':'An error occurred', true); }
         };
 
         function renderSoon(area, page, title) {
