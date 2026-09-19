@@ -1803,6 +1803,12 @@
             .lib-fav-quick-btn { display:flex; align-items:center; gap:6px; padding:6px 14px; border-radius:99px; background:rgba(255,85,119,0.1); border:1px solid rgba(255,85,119,0.35); font-size:12px; font-weight:800; color:#ff5577; font-family:'Tajawal',sans-serif; cursor:pointer; transition:.2s; }
             .lib-fav-quick-btn:hover { background:rgba(255,85,119,0.2); transform:translateY(-1px); }
             .lib-fav-quick-btn i { color:#ff5577; }
+            .lib-saved-quick-btn { display:flex; align-items:center; gap:6px; padding:6px 14px; border-radius:99px; background:rgba(240,192,64,0.12); border:1px solid var(--gold3); font-size:12px; font-weight:800; color:var(--gold3); font-family:'Tajawal',sans-serif; cursor:pointer; transition:.2s; }
+            .lib-saved-quick-btn:hover { background:rgba(240,192,64,0.22); transform:translateY(-1px); }
+            .lib-saved-quick-btn i { color:var(--gold3); }
+            .pl-filter-banner { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:10px 16px; margin-bottom:16px; font-size:13px; font-weight:700; }
+            .pl-filter-banner button { display:flex; align-items:center; gap:6px; background:none; border:none; color:var(--muted); font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; }
+            .pl-filter-banner button:hover { color:var(--text); }
             .ds-reset-btn { display:flex; align-items:center; gap:7px; padding:9px 16px; border-radius:10px; border:1px solid var(--border2); background:linear-gradient(135deg, rgba(212,160,23,0.14), rgba(212,160,23,0.05)); color:var(--gold3); font-size:12.5px; font-weight:800; font-family:'Tajawal',sans-serif; cursor:pointer; transition:.2s; white-space:nowrap; }
             .ds-reset-btn:hover { background:linear-gradient(135deg, rgba(212,160,23,0.22), rgba(212,160,23,0.08)); border-color:var(--gold3); }
             .ds-reset-btn i { font-size:11px; }
@@ -9710,6 +9716,7 @@
         let _plAll = [];
         let _plStage = { view: 'list', payload: null };
         let _plSearch = '';
+        let _plFilter = '';
         let _plCurrentPlaylist = null;
         let _plCurrentVideos = [];
         let _plCurrentIndex = 0;
@@ -9717,17 +9724,54 @@
         async function renderPlaylists(area) {
             const isAR = lang === 'AR';
             area.innerHTML = `
-            <div class="page-header">
-                <h2>${isAR ? 'قوائم التشغيل' : 'Playlists'}</h2>
-                <p>${isAR ? 'قوائم فيديوهات تعليمية منظمة في نظم المعلومات الجغرافية والمساحة' : 'Organized educational video playlists in GIS and surveying'}</p>
+            <div class="lib-hero">
+                <h2><i class="fa-solid fa-clapperboard"></i> ${isAR?'قوائم تشغيل ATLASYA':'ATLASYA Playlists'}</h2>
+                <p>${isAR?'قوائم فيديوهات تعليمية منظمة في نظم المعلومات الجغرافية والمساحة':'Organized educational video playlists in GIS and surveying'}</p>
+                <div class="lib-search-bar ${isAR?'rtl':''}">
+                    <i class="fa-solid fa-magnifying-glass lib-search-ic"></i>
+                    <input type="text" id="plHeroSearch" placeholder="${isAR?'ابحث باسم القائمة... (مثال: ArcGIS, QGIS, Python)':'Search by playlist name... (e.g. ArcGIS, QGIS, Python)'}" onkeydown="if(event.key==='Enter') plHeroSearchGo()">
+                    <button class="lib-search-go" onclick="plHeroSearchGo()">${isAR?'بحث':'Search'}</button>
+                </div>
+                <div class="lib-quickstats-row">
+                    <button class="lib-fav-quick-btn" onclick="plGoFilter('favorites')"><i class="fa-solid fa-heart"></i> ${isAR?'المفضلة لديّ':'My Favorites'}</button>
+                    <button class="lib-saved-quick-btn" onclick="plGoFilter('saved')"><i class="fa-solid fa-bookmark"></i> ${isAR?'المحفوظة لديّ':'My Saved'}</button>
+                    <div class="lib-quickstats" id="plQuickStats"></div>
+                </div>
             </div>
             <div id="plStage"><div style="text-align:center;padding:60px;"><i class="fa-solid fa-spinner fa-spin" style="font-size:20px;color:var(--muted);"></i></div></div>`;
 
             try { _plAll = await window._loadPlaylists(); } catch(e) { console.error(e); _plAll = []; }
             _plSearch = '';
+            _plFilter = '';
+
+            const stats = document.getElementById('plQuickStats');
+            if (stats) {
+                const totalVideos = _plAll.reduce((s,p) => s + (p.videoCount || 0), 0);
+                stats.innerHTML = `
+                    <div class="lib-stat-pill"><i class="fa-solid fa-clapperboard"></i> ${_plAll.length} ${isAR?'قائمة':'playlists'}</div>
+                    <div class="lib-stat-pill"><i class="fa-solid fa-video"></i> ${totalVideos} ${isAR?'فيديو':'videos'}</div>`;
+            }
             window.plGoList();
         }
         window.renderPlaylists = renderPlaylists;
+
+        window.plHeroSearchGo = function() {
+            _plSearch = document.getElementById('plHeroSearch')?.value.trim().toLowerCase() || '';
+            _plFilter = '';
+            const stage = document.getElementById('plStage');
+            _plRenderList(stage);
+            stage?.scrollIntoView({ behavior:'smooth', block:'start' });
+        };
+
+        window.plGoFilter = function(filter) {
+            _plFilter = filter;
+            _plSearch = '';
+            const heroInput = document.getElementById('plHeroSearch');
+            if (heroInput) heroInput.value = '';
+            const stage = document.getElementById('plStage');
+            _plRenderList(stage);
+            stage?.scrollIntoView({ behavior:'smooth', block:'start' });
+        };
 
         window.plGoList = function() {
             _plStage = { view: 'list', payload: null };
@@ -9762,9 +9806,24 @@
             if (!stage) return;
             const isAR = lang === 'AR';
             let items = [..._plAll];
+
+            if (_plFilter === 'favorites') {
+                const favIds = window._userData?.favoritePlaylists || [];
+                items = items.filter(p => favIds.includes(p.id));
+            } else if (_plFilter === 'saved') {
+                const savedIds = window._userData?.savedPlaylists || [];
+                items = items.filter(p => savedIds.includes(p.id));
+            }
             if (_plSearch) items = items.filter(p => (p.title||'').toLowerCase().includes(_plSearch));
 
+            const filterBanner = _plFilter ? `
+            <div class="pl-filter-banner">
+                <span><i class="fa-solid fa-${_plFilter==='favorites'?'heart':'bookmark'}"></i> ${_plFilter==='favorites'?(isAR?'المفضلة لديك':'Your Favorites'):(isAR?'المحفوظة لديك':'Your Saved Playlists')}</span>
+                <button onclick="plGoFilter('')"><i class="fa-solid fa-xmark"></i> ${isAR?'عرض الكل':'Show All'}</button>
+            </div>` : '';
+
             stage.innerHTML = `
+            ${filterBanner}
             <div class="pl-search-bar">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" id="plSearchInput" placeholder="${isAR?'ابحث باسم القائمة... (مثال: ArcGIS, QGIS, Python)':'Search by playlist name... (e.g. ArcGIS, QGIS, Python)'}" value="${_plSearch}" oninput="plDoSearch()">
@@ -9773,7 +9832,10 @@
 
             const grid = document.getElementById('plGrid');
             if (!items.length) {
-                grid.innerHTML = `<div class="pl-empty" style="grid-column:1/-1;">${isAR?'لا توجد قوائم تشغيل مطابقة':'No matching playlists'}</div>`;
+                const emptyMsg = _plFilter === 'favorites' ? (isAR?'لا توجد قوائم في المفضلة بعد':'No favorite playlists yet')
+                    : _plFilter === 'saved' ? (isAR?'لا توجد قوائم محفوظة بعد':'No saved playlists yet')
+                    : (isAR?'لا توجد قوائم تشغيل مطابقة':'No matching playlists');
+                grid.innerHTML = `<div class="pl-empty" style="grid-column:1/-1;">${emptyMsg}</div>`;
                 return;
             }
             grid.innerHTML = items.map(p => _plCardHTML(p, isAR)).join('');
@@ -9868,7 +9930,7 @@
 
         window.plToggleFavorite = async function(id) {
             const isAR = lang === 'AR';
-            if (!currentUid) { showToast(isAR?'سجّل الدخول لإضافة القائمة للمفضلة':'Log in to add to favorites', true); return; }
+            if (!window._currentUid) { showToast(isAR?'سجّل الدخول لإضافة القائمة للمفضلة':'Log in to add to favorites', true); return; }
             const favIds = window._userData?.favoritePlaylists || [];
             const isFav = favIds.includes(id);
             try {
@@ -9876,12 +9938,12 @@
                 window._userData.favoritePlaylists = isFav ? favIds.filter(x => x !== id) : [...favIds, id];
                 _plRenderDetail(document.getElementById('plStage'));
                 showToast(isFav ? (isAR?'تمت الإزالة من المفضلة':'Removed from favorites') : (isAR?'أُضيف إلى المفضلة ❤️':'Added to favorites ❤️'));
-            } catch(e) { showToast(isAR?'حدث خطأ':'An error occurred', true); }
+            } catch(e) { console.error('plToggleFavorite error:', e); showToast(isAR?'حدث خطأ':'An error occurred', true); }
         };
 
         window.plToggleSaved = async function(id) {
             const isAR = lang === 'AR';
-            if (!currentUid) { showToast(isAR?'سجّل الدخول لحفظ القائمة':'Log in to save this playlist', true); return; }
+            if (!window._currentUid) { showToast(isAR?'سجّل الدخول لحفظ القائمة':'Log in to save this playlist', true); return; }
             const savedIds = window._userData?.savedPlaylists || [];
             const isSaved = savedIds.includes(id);
             try {
@@ -9889,7 +9951,7 @@
                 window._userData.savedPlaylists = isSaved ? savedIds.filter(x => x !== id) : [...savedIds, id];
                 _plRenderDetail(document.getElementById('plStage'));
                 showToast(isSaved ? (isAR?'تم إلغاء الحفظ':'Removed from saved') : (isAR?'تم حفظ القائمة 📌':'Playlist saved 📌'));
-            } catch(e) { showToast(isAR?'حدث خطأ':'An error occurred', true); }
+            } catch(e) { console.error('plToggleSaved error:', e); showToast(isAR?'حدث خطأ':'An error occurred', true); }
         };
 
         window.plShare = function(id) {
