@@ -3858,6 +3858,27 @@
         };
 
         const app = initializeApp(firebaseConfig);
+
+        // ⚠️ بعد ما تعمل deploy على Vercel، بدّل السطر ده بالرابط اللي هيديهولك
+        // (زي https://atlasya-secure-api.vercel.app) — من غير / في الآخر
+        const SECURE_API_BASE = 'https://atlasya-secure-api.vercel.app';
+
+        async function callSecureApi(path, body) {
+            const idToken = await auth.currentUser.getIdToken();
+            const res = await fetch(SECURE_API_BASE + path, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + idToken,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body || {}),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.error || ('HTTP ' + res.status));
+            }
+            return data;
+        }
         const auth = getAuth(app);
         const db = getFirestore(app);
         window._auth = auth; // expose for password change
@@ -4103,10 +4124,7 @@
            Blocks the right-click/long-press menu on download cards (so "Copy Link"
            never has a real file URL to grab — see the javascript:void(0) hrefs) and
            logs each attempt against the user, so repeat offenders are visible to
-           admins even though the block itself is silent to the student.
-           Actual quota-charging for a blocked attempt lives in _chargeCopyAttempt
-           below (called separately from the global contextmenu listener, since
-           that's the listener that actually fires — see its comment). */
+           admins even though the block itself is silent to the student. */
         window._blockCopyAttempt = function(ev) {
             try {
                 if (currentUid) {
@@ -4120,29 +4138,6 @@
                 }
             } catch (e) {}
             return false; // still blocks the native context menu either way
-        };
-
-        /* Counts a right-click/copy-link attempt on an actual download card against
-           the daily quota. Called only from cards that expose/trigger a real file
-           download (not plain "open details" navigation cards). */
-        window._chargeCopyAttempt = function(comboKey) {
-            try {
-                const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
-                const isAdmin = window._isAdmin === true;
-                if (isAdmin || isPro) return; // unlimited — nothing to charge
-                if (comboKey) {
-                    const key = `atlasya_combo_${comboKey}_${new Date().toDateString()}`;
-                    if (localStorage.getItem(key) === '1') return; // pair already used today
-                    const count = window._getDailyDownloadCount ? window._getDailyDownloadCount() : 0;
-                    if (count >= 3) return; // already maxed out
-                    window._incrementDailyDownload().catch(() => {});
-                    localStorage.setItem(key, '1');
-                } else {
-                    const count = window._getDailyDownloadCount ? window._getDailyDownloadCount() : 0;
-                    if (count >= 3) return;
-                    window._incrementDailyDownload().catch(() => {});
-                }
-            } catch (e) {}
         };
 
         /* ─── SOFTWARE TOOLS (read) ─── */
@@ -4695,27 +4690,23 @@
         };
 
         /* One-time free trial: instantly grants 1 month of Pro, starting now, with
-           no payment/review step. Blocked after first use via the freeTrialUsed flag. */
+           no payment/review step. Verified and blocked server-side (Vercel) — الطالب
+           مايقدرش يعدّل freeTrialUsed أو plan من عنده حتى لو فتح الـ Console. */
         window._claimFreeTrial = async () => {
             if (!currentUid) throw new Error('Not logged in');
-            const d = window._userData || {};
-            if (d.freeTrialUsed) {
-                const err = new Error('trial-used');
-                err.code = 'trial-used';
-                throw err;
+            let result;
+            try {
+                result = await callSecureApi('/api/claimFreeTrial');
+            } catch (e) {
+                if (e.message && e.message.includes('قبل كده')) {
+                    const err = new Error('trial-used');
+                    err.code = 'trial-used';
+                    throw err;
+                }
+                throw e;
             }
-            const expiry = new Date();
-            expiry.setMonth(expiry.getMonth() + 1);
-            const payload = {
-                plan: 'pro',
-                proStartAt: serverTimestamp(),
-                proExpiresAt: Timestamp.fromDate(expiry),
-                freeTrialUsed: true,
-                freeTrialClaimedAt: serverTimestamp()
-            };
-            await updateDoc(doc(db, 'users', currentUid), payload);
             // keep local cache in sync so the UI reflects Pro immediately
-            window._userData = { ...(window._userData || {}), plan: 'pro', proExpiresAt: Timestamp.fromDate(expiry), freeTrialUsed: true };
+            window._userData = { ...(window._userData || {}), plan: 'pro', proExpiresAt: Timestamp.fromDate(new Date(result.proExpiresAt)), freeTrialUsed: true };
         };
 
         /* Checks a user's Pro subscription and downgrades to Basic in Firestore + local
@@ -5066,38 +5057,25 @@
         // correct answer, and (for weekly questions) checks whether that unlocks the weekly bonus.
         window._submitDailyChallengeAnswer = async (question, selectedIndex) => {
             if (!currentUid) throw new Error('Not logged in');
-            const attemptRef = doc(db, 'daily_challenge_attempts', `${currentUid}_${question.id}`);
-            const existing = await getDoc(attemptRef);
-            if (existing.exists()) { const e = new Error('Already answered'); e.code = 'already'; throw e; }
-            const correct = selectedIndex === question.correctIndex;
-            const coinsAwarded = correct ? await window._applyCoinBoost(currentUid, question.coins || 0, window._userData) : 0;
-            await setDoc(attemptRef, {
-                userId: currentUid, questionId: question.id, type: question.type,
-                scheduledDate: question.scheduledDate, correct, coinsAwarded,
-                answeredAt: serverTimestamp()
-            });
-            if (coinsAwarded > 0) {
-                await updateDoc(doc(db, 'users', currentUid), {
-                    coins: increment(coinsAwarded), coinsEarnedTotal: increment(coinsAwarded)
-                });
-                if (window._userData) {
-                    window._userData.coins = (window._userData.coins || 0) + coinsAwarded;
-                    window._userData.coinsEarnedTotal = (window._userData.coinsEarnedTotal || 0) + coinsAwarded;
-                }
-                const reasonAR = question.type === 'weekly' ? 'إجابة صحيحة في التحدي الأسبوعي' : 'إجابة صحيحة في التحدي اليومي';
-                const reasonEN = question.type === 'weekly' ? 'Correct answer in the weekly challenge' : 'Correct answer in the daily challenge';
-                try { await window._logCoinTransaction(currentUid, 'earn', coinsAwarded, reasonAR, reasonEN); }
-                catch(e) { console.error('coin tx log error:', e); }
+            let apiResult;
+            try {
+                apiResult = await callSecureApi('/api/answerChallenge', { questionId: question.id, selectedIndex });
+            } catch (e) {
+                if (e.message && e.message.includes('اتجاوبت قبل كده')) { const err = new Error('Already answered'); err.code = 'already'; throw err; }
+                throw e;
             }
-            let weeklyBonus = null;
-            if (question.type === 'weekly' && correct) {
-                try { weeklyBonus = await window._maybeAwardWeeklyBonus(question.scheduledDate); }
-                catch(e) { console.error('weekly bonus check error:', e); }
+            const { correct, coinsAwarded, weeklyBonus, correctIndex } = apiResult;
+            if (window._userData) {
+                const total = coinsAwarded + (weeklyBonus?.coinsAwarded || 0);
+                if (total) {
+                    window._userData.coins = (window._userData.coins || 0) + total;
+                    window._userData.coinsEarnedTotal = (window._userData.coinsEarnedTotal || 0) + total;
+                }
             }
             const d = window._userData || {};
             const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
             window._notifyAdminsBot('challenge_answer', { studentName, correct, coinsAwarded, challengeType: question.type });
-            return { correct, coinsAwarded, weeklyBonus };
+            return { correct, coinsAwarded, weeklyBonus, correctIndex };
         };
         window._getWeeklyBonusClaim = async (weekStart) => {
             if (!currentUid) return null;
@@ -5257,113 +5235,55 @@
         // Spins the basic wheel. usingExtraSpin=true consumes a banked extra spin instead of
         // the daily attempt. الحساب والكول داون ومنح الكوينز كله بيحصل على السيرفر دلوقتي —
         // الكود هنا بس بيستدعي الـ endpoint وبيحدّث الكاش المحلي بالنتيجة.
-        // Spins the basic wheel. usingExtraSpin=true consumes a banked extra spin instead of
-        // the daily attempt, and does NOT reset the 24h daily cooldown (per spec).
         window._spinBasicWheel = async (usingExtraSpin) => {
             if (!currentUid) throw new Error('Not logged in');
-            const config = await window._loadWheelConfig();
-            if (!config.enabled) { const e = new Error('Wheel disabled'); e.code = 'disabled'; throw e; }
-            const userSnap = await getDoc(doc(db, 'users', currentUid));
-            const userData = userSnap.exists() ? userSnap.data() : {};
-            const bypassCooldown = config.testModeEnabled && config.testModeUid && config.testModeUid === currentUid;
-            const cooldownMs = (config.cooldownHours || 24) * 3600000;
-            const lastSpin = userData.wheelLastSpinAt ? (userData.wheelLastSpinAt.toDate ? userData.wheelLastSpinAt.toDate() : new Date(userData.wheelLastSpinAt)) : null;
-            const nextAt = lastSpin ? new Date(lastSpin.getTime() + cooldownMs) : null;
-            const dailyReady = bypassCooldown || !nextAt || nextAt <= new Date();
-
-            if (usingExtraSpin) {
-                if (!(userData.wheelExtraSpins > 0)) { const e = new Error('No extra spins'); e.code = 'no-extra'; throw e; }
-            } else if (!dailyReady) {
-                const e = new Error('Cooldown'); e.code = 'cooldown'; e.nextAt = nextAt; throw e;
+            let result;
+            try {
+                result = await callSecureApi('/api/spinWheel', { usingExtraSpin: !!usingExtraSpin });
+            } catch (e) {
+                if (e.message && e.message.includes('سبنات إضافية')) { const err = new Error('No extra spins'); err.code = 'no-extra'; throw err; }
+                if (e.message && e.message.includes('ساعة')) { const err = new Error('Cooldown'); err.code = 'cooldown'; throw err; }
+                throw e;
             }
-
-            const slotKey = window._pickWeighted(config.basic);
-            const slot = config.basic[slotKey] || {};
-            let result = { type: slotKey, coinsAwarded: 0 };
-            let extraSpinDelta = usingExtraSpin ? -1 : 0;
-
-            const updatePayload = {};
-            if (!usingExtraSpin) updatePayload.wheelLastSpinAt = serverTimestamp();
-
-            if (slotKey === 'coin1' || slotKey === 'coin2' || slotKey === 'coin3') {
-                const boosted = await window._applyCoinBoost(currentUid, slot.amount || 0, userData);
-                result.coinsAwarded = boosted;
-                updatePayload.coins = increment(boosted);
-                updatePayload.coinsEarnedTotal = increment(boosted);
-            } else if (slotKey === 'extraSpin') {
-                extraSpinDelta += 1;
-            } else if (slotKey === 'gift') {
-                result.opensGift = true;
-            }
-            if (extraSpinDelta !== 0) updatePayload.wheelExtraSpins = increment(extraSpinDelta);
-
-            if (Object.keys(updatePayload).length) await updateDoc(doc(db, 'users', currentUid), updatePayload);
             if (window._userData) {
                 if (result.coinsAwarded) {
                     window._userData.coins = (window._userData.coins || 0) + result.coinsAwarded;
                     window._userData.coinsEarnedTotal = (window._userData.coinsEarnedTotal || 0) + result.coinsAwarded;
                 }
-                if (extraSpinDelta !== 0) window._userData.wheelExtraSpins = (window._userData.wheelExtraSpins || 0) + extraSpinDelta;
+                if (result.type === 'extraSpin') {
+                    window._userData.wheelExtraSpins = (window._userData.wheelExtraSpins || 0) + 1;
+                } else if (usingExtraSpin) {
+                    window._userData.wheelExtraSpins = Math.max(0, (window._userData.wheelExtraSpins || 0) - 1);
+                }
             }
-
-            if (result.coinsAwarded) {
-                try { await window._logCoinTransaction(currentUid, 'earn', result.coinsAwarded, 'مكافأة عجلة الحظ', 'Fortune wheel reward'); }
-                catch(e) { console.error('coin tx log error:', e); }
-            }
-            try { await addDoc(collection(db, 'wheel_spins'), { userId: currentUid, wheelType: 'basic', resultType: slotKey, coinsAwarded: result.coinsAwarded || 0, createdAt: serverTimestamp() }); }
-            catch(e) { console.error('wheel spin log error:', e); }
             {
                 const d = window._userData || {};
                 const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
-                window._notifyAdminsBot('wheel_spin', { studentName, wheelType: 'basic', resultType: slotKey, coinsAwarded: result.coinsAwarded || 0 });
+                window._notifyAdminsBot('wheel_spin', { studentName, wheelType: 'basic', resultType: result.type });
             }
-
             return result;
         };
 
         // Spins the gift wheel — only reachable right after landing on 🎁 on the basic wheel.
         window._spinGiftWheel = async () => {
             if (!currentUid) throw new Error('Not logged in');
-            const config = await window._loadWheelConfig();
-            const slotKey = window._pickWeighted(config.gift);
-            const slot = config.gift[slotKey] || {};
-            let result = { type: slotKey };
+            const result = await callSecureApi('/api/spinGiftWheel');
 
-            if (slotKey === 'promonth') {
-                const months = slot.months || 1;
-                await window._grantProMonths(currentUid, months);
-                result.months = months;
-            } else if (slotKey === 'tempfeature') {
-                const hours = slot.hours || 24;
-                const expiresAt = new Date(Date.now() + hours * 3600000);
-                const payload = { featureAR: slot.featureAR || '', featureEN: slot.featureEN || '', expiresAt: Timestamp.fromDate(expiresAt) };
-                await updateDoc(doc(db, 'users', currentUid), { tempProFeature: payload });
-                if (window._userData) window._userData.tempProFeature = payload;
-                result.featureAR = slot.featureAR; result.featureEN = slot.featureEN; result.hours = hours;
-            } else if (slotKey === 'discount') {
-                const code = window._generateDiscountCode();
-                const expiresAt = new Date(Date.now() + (slot.validDays || 14) * 86400000);
-                await setDoc(doc(db, 'discount_codes', code), {
-                    code, userId: currentUid, percent: slot.percent || 10, requiredMonths: slot.requiredMonths || 6,
-                    createdAt: serverTimestamp(), expiresAt: Timestamp.fromDate(expiresAt), used: false
-                });
-                result.code = code; result.percent = slot.percent || 10; result.requiredMonths = slot.requiredMonths || 6; result.expiresAt = expiresAt;
-            } else if (slotKey === 'boost') {
-                const hours = slot.hours || 24;
-                const expiresAt = new Date(Date.now() + hours * 3600000);
-                const payload = { multiplier: slot.multiplier || 2, expiresAt: Timestamp.fromDate(expiresAt) };
-                await updateDoc(doc(db, 'users', currentUid), { coinBoost: payload });
-                if (window._userData) window._userData.coinBoost = payload;
-                result.multiplier = slot.multiplier || 2; result.hours = hours;
+            // مزامنة الكاش المحلي بالنتيجة عشان الواجهة تتحدث فورًا
+            if (window._userData) {
+                if (result.type === 'promonth') {
+                    window._userData.plan = 'pro';
+                } else if (result.type === 'tempfeature') {
+                    window._userData.tempProFeature = { featureAR: result.featureAR, featureEN: result.featureEN, expiresAt: Timestamp.fromDate(new Date(Date.now() + (result.hours||24) * 3600000)) };
+                } else if (result.type === 'boost') {
+                    window._userData.coinBoost = { multiplier: result.multiplier, expiresAt: Timestamp.fromDate(new Date(Date.now() + (result.hours||24) * 3600000)) };
+                }
             }
-
-            try { await addDoc(collection(db, 'wheel_spins'), { userId: currentUid, wheelType: 'gift', resultType: slotKey, extra: result, createdAt: serverTimestamp() }); }
-            catch(e) { console.error('gift wheel spin log error:', e); }
 
             {
                 const d = window._userData || {};
                 const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
-                window._notifyAdminsBot('wheel_spin', { studentName, wheelType: 'gift', resultType: slotKey });
+                window._notifyAdminsBot('wheel_spin', { studentName, wheelType: 'gift', resultType: result.type });
             }
 
             return result;
@@ -5913,7 +5833,6 @@
                 menuAdminMentorshipTxt: 'Consultation Bookings',
                 menuDailyChallengeTxt: 'Challenges',
                 menuWheelTxt: 'Fortune Wheel',
-                txtLogout: 'Log Out',
                 txtTopbarLogout: 'Logout',
                 txtTopbarLogoutDesk: 'Logout',
                 sideUserRole: 'Member',
@@ -6922,10 +6841,8 @@
             const containerId = st.inModal ? 'dcWeeklyModal' : 'dcDailyCard';
             const container = document.getElementById(containerId);
             if (container) {
-                container.querySelectorAll('.ch-opt').forEach((el, idx) => {
+                container.querySelectorAll('.ch-opt').forEach((el) => {
                     el.classList.add('disabled'); el.onclick = null;
-                    if (idx === q.correctIndex) el.classList.add('correct');
-                    else if (idx === st.selected) el.classList.add('wrong');
                 });
             }
             const lockBtn = document.getElementById(containerId + 'LockBtn');
@@ -6941,6 +6858,12 @@
                 return;
             }
             _dcAttemptsCache[q.id] = { correct: result.correct, coinsAwarded: result.coinsAwarded };
+            if (container && typeof result.correctIndex === 'number') {
+                container.querySelectorAll('.ch-opt').forEach((el, idx) => {
+                    if (idx === result.correctIndex) el.classList.add('correct');
+                    else if (idx === st.selected) el.classList.add('wrong');
+                });
+            }
             if (result.correct && !st.inModal) {
                 window._fireCelebration();
             }
@@ -8030,7 +7953,7 @@
         /* ─── GIS SOFTWARE TOOLS ─── */
         function dsCardWrap(icon, title, badge, url) {
             return `
-            <a href="javascript:void(0)" onclick="handleFileDownload('${url.replace(/'/g,"&#39;")}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card" data-dl="1">
+            <a href="javascript:void(0)" onclick="handleFileDownload('${url.replace(/'/g,"&#39;")}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${icon}"></i></div>
                     <span class="ds-badge">${badge}</span>
@@ -8044,7 +7967,7 @@
         only ever consume ONE slot from the daily download quota */
         function dsCardSplit(icon, title, badge, note, comboId, item1, item2) {
             return `
-            <div class="dataset-card split" oncontextmenu="return window._blockCopyAttempt(event);" data-dl-combo="${comboId}">
+            <div class="dataset-card split" oncontextmenu="return window._blockCopyAttempt(event);">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${icon}"></i></div>
                     <span class="ds-badge">${badge}</span>
@@ -8770,21 +8693,12 @@
             localStorage.setItem(comboKey, '1');
         };
 
-        // ── Prevent right-click on dataset/tool cards, and charge a download
-        //    attempt if the card is a real download (not a plain nav card).
-        //    This runs in the capture phase, so it fires BEFORE each card's own
-        //    oncontextmenu attribute — which is why the quota charge lives here.
+        // ── Prevent right-click on dataset/tool cards ──
         document.addEventListener('contextmenu', function(e) {
             const card = e.target.closest('.dataset-card');
             if (card) {
                 e.preventDefault();
                 e.stopPropagation();
-                window._blockCopyAttempt(e);
-                if (card.hasAttribute('data-dl')) {
-                    window._chargeCopyAttempt();
-                } else if (card.hasAttribute('data-dl-combo')) {
-                    window._chargeCopyAttempt(card.getAttribute('data-dl-combo'));
-                }
                 return false;
             }
         }, true);
@@ -8808,7 +8722,7 @@
         function toolCardHTML(t, isAR) {
             const cat = scFindToolCat(t.category);
             return `
-            <a href="javascript:void(0)" onclick="handleToolDownload('${t.id}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card" data-dl="1">
+            <a href="javascript:void(0)" onclick="handleToolDownload('${t.id}')" oncontextmenu="return window._blockCopyAttempt(event);" class="dataset-card">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${t.icon || (cat?cat.icon:'fa-download')}"></i></div>
                     <span class="ds-badge">${escapeHtml(t.version||'')}</span>
@@ -8823,7 +8737,7 @@
 
         function toolCardSplitHTML(t, isAR) {
             return `
-            <div class="dataset-card split" oncontextmenu="return window._blockCopyAttempt(event);" data-dl-combo="tool_${t.id}">
+            <div class="dataset-card split" oncontextmenu="return window._blockCopyAttempt(event);">
                 <div class="ds-top">
                     <div class="ds-icon"><i class="fa-solid ${t.icon || 'fa-circle-down'}"></i></div>
                     <span class="ds-badge">${escapeHtml(t.version||'')}</span>
@@ -9954,7 +9868,7 @@
 
         window.plToggleFavorite = async function(id) {
             const isAR = lang === 'AR';
-            if (!window._currentUid) { showToast(isAR?'سجّل الدخول لإضافة القائمة للمفضلة':'Log in to add to favorites', true); return; }
+            if (!currentUid) { showToast(isAR?'سجّل الدخول لإضافة القائمة للمفضلة':'Log in to add to favorites', true); return; }
             const favIds = window._userData?.favoritePlaylists || [];
             const isFav = favIds.includes(id);
             try {
@@ -9967,7 +9881,7 @@
 
         window.plToggleSaved = async function(id) {
             const isAR = lang === 'AR';
-            if (!window._currentUid) { showToast(isAR?'سجّل الدخول لحفظ القائمة':'Log in to save this playlist', true); return; }
+            if (!currentUid) { showToast(isAR?'سجّل الدخول لحفظ القائمة':'Log in to save this playlist', true); return; }
             const savedIds = window._userData?.savedPlaylists || [];
             const isSaved = savedIds.includes(id);
             try {
@@ -10951,7 +10865,7 @@
                 b.ratings[window._currentUid] = value;
                 window.libGo('detail', id);
                 showToast(isAR?'شكراً لتقييمك ⭐':'Thanks for rating ⭐');
-            } catch(e) { console.error('libRateBook error:', e); showToast(isAR?'حدث خطأ':'An error occurred', true); }
+            } catch(e) { showToast(isAR?'حدث خطأ':'An error occurred', true); }
         };
 
         function renderSoon(area, page, title) {
@@ -15481,17 +15395,6 @@
             if (typeof lang !== 'undefined') window._updatePWALang(lang === 'AR');
         });
     })();
-    </script>
-    <script>
-    /* رادع بسيط بس — مش حماية حقيقية. أي حد عنده معرفة تقنية بسيطة يقدر
-       يتجاوزه (من قائمة المتصفح، إعدادات، أو إضافات). الحماية الحقيقية
-       الوحيدة هي Firestore Security Rules، مش أي حاجة في المتصفح. */
-    document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'F12') { e.preventDefault(); return false; }
-        if (e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'i', 'j', 'c'].includes(e.key)) { e.preventDefault(); return false; }
-        if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) { e.preventDefault(); return false; }
-    });
     </script>
     </body>
     </html>
