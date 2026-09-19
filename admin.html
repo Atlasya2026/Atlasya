@@ -3522,19 +3522,27 @@
     window._loadDailyChallengeQs = async () => {
         const snap = await getDocs(collection(db, 'daily_challenges'));
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // توافق مع أسئلة اتعملت وقت التجربة القديمة (لو كان فيها إجابة في
-        // collection منفصلة) — لو مش موجودة، مش هتأثر على أي حاجة
+        // نجيب الإجابة الصح لكل سؤال من الـ collection المحمية (أدمن بس يقدر يقراها)
         const answers = await Promise.all(list.map(q => getDoc(doc(db, 'daily_challenges_answers', q.id)).catch(() => null)));
         return list.map((q, i) => {
             const a = answers[i];
-            return (a && a.exists() && q.correctIndex === undefined) ? { ...q, ...a.data() } : q;
+            return a && a.exists() ? { ...q, ...a.data() } : q;
         });
     };
+    // الإجابة الصح (correctIndex) والكوينز بيتخزنوا في collection منفصلة
+    // (daily_challenges_answers) ممنوع قراءتها إلا للأدمن أو الـ Vercel
+    // endpoint — عشان طالب فاتح الـ Console ميقدرش يشوف الإجابة قبل ما يجاوب
     window._addDailyChallengeQ = async (data) => {
-        await addDoc(collection(db, 'daily_challenges'), { ...data, createdAt: serverTimestamp() });
+        const { correctIndex, coins, ...publicData } = data;
+        const ref = doc(collection(db, 'daily_challenges'));
+        await setDoc(ref, { ...publicData, createdAt: serverTimestamp() });
+        await setDoc(doc(db, 'daily_challenges_answers', ref.id), { correctIndex, coins });
+        return ref.id;
     };
     window._updateDailyChallengeQ = async (id, data) => {
-        await updateDoc(doc(db, 'daily_challenges', id), data);
+        const { correctIndex, coins, ...publicData } = data;
+        await updateDoc(doc(db, 'daily_challenges', id), publicData);
+        await setDoc(doc(db, 'daily_challenges_answers', id), { correctIndex, coins });
     };
     window._deleteDailyChallengeQ = async (id) => {
         await deleteDoc(doc(db, 'daily_challenges', id));
@@ -13981,17 +13989,6 @@ self.addEventListener('fetch', e => {
         if (typeof lang !== 'undefined') window._updatePWALang(lang === 'AR');
     });
 })();
-</script>
-<script>
-/* رادع بسيط بس — مش حماية حقيقية. أي حد عنده معرفة تقنية بسيطة يقدر
-   يتجاوزه (من قائمة المتصفح، إعدادات، أو إضافات). الحماية الحقيقية
-   الوحيدة هي Firestore Security Rules، مش أي حاجة في المتصفح. */
-document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-document.addEventListener('keydown', function (e) {
-    if (e.key === 'F12') { e.preventDefault(); return false; }
-    if (e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'i', 'j', 'c'].includes(e.key)) { e.preventDefault(); return false; }
-    if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) { e.preventDefault(); return false; }
-});
 </script>
 </body>
 </html>
