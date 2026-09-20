@@ -2835,6 +2835,42 @@
             font-family: 'Tajawal', sans-serif; text-decoration: underline; text-underline-offset: 3px;
         }
         @keyframes absSpin { to { transform: rotate(360deg); } }
+
+        /* ===== PLATFORM ON/OFF — حسابي ← التحكم في المنصة ===== */
+        .pf-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+            padding: 16px 18px; border-radius: 14px;
+            border: 1px solid rgba(39,163,70,0.35); background: rgba(39,163,70,0.07);
+            transition: background .25s ease, border-color .25s ease;
+        }
+        .pf-row.is-off { border-color: rgba(231,76,60,0.4); background: rgba(231,76,60,0.09); }
+        .pf-state { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; }
+        .pf-dot { width: 10px; height: 10px; border-radius: 50%; background: #27a346; box-shadow: 0 0 0 4px rgba(39,163,70,0.18); flex-shrink: 0; }
+        .pf-row.is-off .pf-dot { background: #e74c3c; box-shadow: 0 0 0 4px rgba(231,76,60,0.2); animation: pfPulse 1.4s ease-in-out infinite; }
+        .pf-sub { font-size: 12.5px; color: var(--muted); margin-top: 5px; line-height: 1.6; }
+        .pf-switch { position: relative; display: inline-block; width: 60px; height: 32px; flex-shrink: 0; direction: ltr; }
+        .pf-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .pf-slider { position: absolute; inset: 0; cursor: pointer; background: #e74c3c; border-radius: 99px; transition: background .25s ease; }
+        .pf-slider::before {
+            content: ''; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px;
+            background: #fff; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: transform .25s ease;
+        }
+        .pf-switch input:checked + .pf-slider { background: #27a346; }
+        .pf-switch input:checked + .pf-slider::before { transform: translateX(28px); }
+        .pf-switch input:disabled + .pf-slider { opacity: .5; cursor: not-allowed; }
+        .pf-switch input:focus-visible + .pf-slider { outline: 2px solid var(--gold3); outline-offset: 3px; }
+        @keyframes pfPulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+        /* تذكير عائم: المنصة موقوفة عن الطلاب (بيظهر للمشرف العام بس) */
+        #platformOffPill {
+            display: none; position: fixed; bottom: 18px; left: 18px; z-index: 900;
+            align-items: center; gap: 8px; padding: 10px 16px; border: none; border-radius: 99px; cursor: pointer;
+            background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff;
+            font-family: 'Tajawal', sans-serif; font-size: 13px; font-weight: 700;
+            box-shadow: 0 8px 24px rgba(231,76,60,0.45);
+        }
+        #platformOffPill.show { display: inline-flex; }
+        #platformOffPill i { animation: pfPulse 1.4s ease-in-out infinite; }
     </style>
 </head>
 
@@ -2987,6 +3023,10 @@
     };
 })();
 </script>
+
+<button type="button" id="platformOffPill" onclick="navigate('account', document.getElementById('menuAccount'))">
+    <i class="fa-solid fa-triangle-exclamation"></i> <span id="platformOffPillText">المنصة متوقفة عن الطلاب — اضغط للتشغيل</span>
+</button>
 
 <!-- ===== APP ===== -->
 <div id="mainApp">
@@ -3358,6 +3398,19 @@
         const snap = await getDoc(doc(db, 'admins', uid));
         return snap.exists() ? snap.data() : null;
     };
+
+    // ─── PLATFORM ON/OFF (settings/platformStatus) ───
+    // student.html بيسمع للمستند ده لحظيًا: maintenance:true → بيعرض صفحة "المنصة متوقفة مؤقتًا".
+    window._watchPlatformStatus = (cb) => onSnapshot(
+        doc(db, 'settings', 'platformStatus'),
+        (snap) => cb(snap.exists() ? snap.data() : {}, null),
+        (err) => cb(null, err)
+    );
+    window._setPlatformStatus = (maintenance) => setDoc(doc(db, 'settings', 'platformStatus'), {
+        maintenance: !!maintenance,
+        updatedAt: serverTimestamp(),
+        updatedBy: (window._adminProfile && (window._adminProfile.displayName || window._adminProfile.username)) || ''
+    }, { merge: true });
 
     let currentUid = null;
     window._base64Img = "";
@@ -11234,6 +11287,96 @@
         }
     };
 
+    /* ─── PLATFORM ON/OFF (حسابي ← التحكم في المنصة) ───
+       الحالة في Firestore: settings/platformStatus { maintenance: true|false }.
+       المشرف العام بس هو اللي بيشوف الكارت ده وبيقدر يغيّره. */
+    window._platformState = { loaded: false, maintenance: false, error: '', updatedBy: '', updatedAtMs: 0 };
+    let _platformUnsub = null;
+
+    function startPlatformWatch() {
+        if (_platformUnsub || !window._watchPlatformStatus) return;
+        _platformUnsub = window._watchPlatformStatus((data, err) => {
+            if (err) {
+                _platformUnsub = null; // الـ listener اتقفل بالخطأ — نسمح بإعادة المحاولة
+                window._platformState = { loaded: false, maintenance: false, error: err.code || String(err), updatedBy: '', updatedAtMs: 0 };
+            } else {
+                window._platformState = {
+                    loaded: true, error: '',
+                    maintenance: data.maintenance === true,
+                    updatedBy: data.updatedBy || '',
+                    updatedAtMs: (data.updatedAt && data.updatedAt.toMillis) ? data.updatedAt.toMillis() : 0
+                };
+            }
+            renderPlatformControlUI();
+        });
+    }
+
+    function renderPlatformControlUI() {
+        const st = window._platformState;
+        const isAR = typeof lang === 'undefined' || lang === 'AR';
+        const off = st.loaded && st.maintenance;
+
+        const pill = document.getElementById('platformOffPill');
+        if (pill) {
+            pill.classList.toggle('show', !!off && window._adminIsSuper === true);
+            const pt = document.getElementById('platformOffPillText');
+            if (pt) pt.textContent = isAR ? 'المنصة متوقفة عن الطلاب — اضغط للتشغيل' : 'Platform is stopped for students — click to turn on';
+        }
+
+        const sw = document.getElementById('platformSwitch');
+        if (!sw) return; // كارت "حسابي" مش معروض دلوقتي
+        const row = document.getElementById('platformRow');
+        const text = document.getElementById('platformStateText');
+        const sub = document.getElementById('platformStateSub');
+        if (row) row.classList.toggle('is-off', !!off);
+
+        if (!st.loaded) {
+            sw.disabled = true;
+            if (text) text.textContent = st.error ? (isAR ? 'تعذّر قراءة حالة المنصة' : 'Could not read platform status') : (isAR ? 'جارٍ التحميل...' : 'Loading...');
+            if (sub) sub.textContent = st.error ? (isAR ? 'راجع قواعد Firestore للمستند settings/platformStatus (' + st.error + ')' : 'Check Firestore rules for settings/platformStatus (' + st.error + ')') : '';
+            return;
+        }
+        sw.disabled = false;
+        sw.checked = !off;
+        if (text) text.textContent = off ? (isAR ? 'المنصة متوقفة' : 'Platform is stopped') : (isAR ? 'المنصة تعمل' : 'Platform is running');
+        if (sub) {
+            let line = off
+                ? (isAR ? 'الطلاب بيشوفوا دلوقتي صفحة "المنصة متوقفة مؤقتًا".' : 'Students currently see the "temporarily down" page.')
+                : (isAR ? 'كل الطلاب يقدروا يستخدموا المنصة عادي.' : 'All students can use the platform normally.');
+            if (st.updatedAtMs) {
+                const when = new Date(st.updatedAtMs).toLocaleString(isAR ? 'ar-EG' : 'en-GB');
+                line += (isAR ? '  آخر تغيير: ' : '  Last change: ') + (st.updatedBy ? st.updatedBy + ' — ' : '') + when;
+            }
+            sub.textContent = line;
+        }
+    }
+
+    async function onPlatformSwitch(cb) {
+        const isAR = typeof lang === 'undefined' || lang === 'AR';
+        if (!window._adminIsSuper) { renderPlatformControlUI(); return; }
+        const wantRunning = cb.checked;
+        if (!wantRunning) {
+            const ok = confirm(isAR
+                ? 'هتوقف المنصة عن كل الطلاب دلوقتي، وهيشوفوا صفحة "المنصة متوقفة مؤقتًا". متأكد؟'
+                : 'This will stop the platform for ALL students right now. Continue?');
+            if (!ok) { cb.checked = true; return; }
+        }
+        cb.disabled = true;
+        try {
+            await window._setPlatformStatus(!wantRunning);
+            showToast(wantRunning
+                ? (isAR ? 'تم تشغيل المنصة ✓' : 'Platform is running again ✓')
+                : (isAR ? 'تم إيقاف المنصة — الطلاب هيشوفوا صفحة الصيانة' : 'Platform stopped — students now see the maintenance page'));
+        } catch (e) {
+            console.error('platform toggle failed:', e);
+            showToast(e && e.code === 'permission-denied'
+                ? (isAR ? 'مفيش صلاحية كتابة على settings/platformStatus — راجع قواعد Firestore' : 'No write permission on settings/platformStatus — check Firestore rules')
+                : (isAR ? 'حصلت مشكلة في تغيير حالة المنصة، جرّب تاني' : 'Could not change platform status, try again'), true);
+        } finally {
+            renderPlatformControlUI(); // بيرجّع الزرار لحالته الفعلية من Firestore
+        }
+    }
+
     function renderAccount(area) {
         area = area || document.getElementById('contentArea');
         const isAR = lang === 'AR';
@@ -11296,6 +11439,23 @@
                 </div>
             </div>
             ${window._adminIsSuper ? `
+            <div class="form-card" id="platformControlCard" style="margin-top:24px;">
+                <h3><i class="fa-solid fa-power-off" style="color:var(--gold3);margin-${isAR ? 'left' : 'right'}:8px;"></i>${isAR ? 'التحكم في المنصة' : 'Platform Control'}</h3>
+                <p style="font-size:13px;color:var(--muted);margin:-8px 0 16px;line-height:1.7;">${isAR
+                    ? 'لو حصل أي عطل، أوقف المنصة عن الطلاب: هتظهر لهم صفحة "المنصة متوقفة مؤقتًا" وفيها لعبة تسلية لحد ما ترجع. لوحة الإدارة بتفضل شغالة عادي، وتقدر تشغّل المنصة تاني في أي وقت.'
+                    : 'If something breaks, stop the platform for students: they will see a "temporarily down" page with a small game until you are back. This admin panel keeps working, and you can turn the platform back on any time.'}</p>
+                <div class="pf-row" id="platformRow">
+                    <div>
+                        <div class="pf-state"><span class="pf-dot"></span><span id="platformStateText">${isAR ? 'جارٍ التحميل...' : 'Loading...'}</span></div>
+                        <div class="pf-sub" id="platformStateSub"></div>
+                    </div>
+                    <label class="pf-switch" title="${isAR ? 'تشغيل / إيقاف المنصة' : 'Platform on / off'}">
+                        <input type="checkbox" id="platformSwitch" onchange="onPlatformSwitch(this)" disabled>
+                        <span class="pf-slider"></span>
+                    </label>
+                </div>
+            </div>` : ''}
+            ${window._adminIsSuper ? `
             <div class="form-card" style="margin-top:24px;">
                 <h3>${isAR ? 'إدارة فريق العمل' : 'Team Management'}</h3>
                 <p style="font-size:13px;color:var(--muted);margin:-8px 0 16px;">${isAR ? 'أنشئ حسابات لزملائك في الإدارة وحدد الأقسام المسموح لهم بالدخول إليها.' : 'Create accounts for your teammates and choose which admin sections they can access.'}</p>
@@ -11352,6 +11512,7 @@
                     </div>
                 </div>
             </div>` : ''}`;
+            if (window._adminIsSuper) { startPlatformWatch(); renderPlatformControlUI(); }
             if (window._adminIsSuper) setTimeout(() => adminLoadTeamAccounts(), 100);
             return;
         }
@@ -13327,6 +13488,7 @@
         } catch (e) {
             console.error('activateAdminSession: navigate/applyAdminPermissions failed:', e);
         }
+        if (isSuper) startPlatformWatch();
         if (window._hideAdminBootSplash) window._hideAdminBootSplash();
         showToast('Welcome, ' + matched.displayName + ' — Admin mode active ✓');
     }
