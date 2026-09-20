@@ -278,6 +278,16 @@
                 text-decoration: underline; text-underline-offset: 3px;
             }
 
+            /* ── Supervisors (admin) entry point on the student login screen ── */
+            .sv-entry { margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(128,128,128,0.22); text-align: center; direction: rtl; }
+            .sv-entry a {
+                display: inline-flex; align-items: center; gap: 7px;
+                font-size: 13px; font-weight: 600; color: var(--muted);
+                cursor: pointer; text-decoration: none; transition: color .2s ease;
+            }
+            .sv-entry a i { font-size: 12px; color: var(--gold3); }
+            .sv-entry a:hover, .sv-entry a:focus-visible { color: var(--gold3); text-decoration: underline; text-underline-offset: 3px; outline: none; }
+
     /* ===== APP LAYOUT ===== */
             #mainApp {
                 display: none;
@@ -3462,6 +3472,13 @@
                 <button class="btn-primary" id="loginBtn" onclick="doLogin()">
                     <span id="loginBtnText">تسجيل الدخول</span>
                 </button>
+
+                <!-- Supervisors entry: opens the supervisor login form below (#adminLoginForm) -->
+                <div class="sv-entry">
+                    <a id="supervisorLoginLink" role="button" tabindex="0" onclick="showSupervisorLogin()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showSupervisorLogin();}">
+                        <i class="fa-solid fa-shield-halved"></i> <span>بوابة دخول مشرفي المنصة</span>
+                    </a>
+                </div>
             </div>
 
             <div class="auth-box hidden" id="forgotForm">
@@ -3577,10 +3594,41 @@
                 </p>
             </div>
 
-                    <!-- Hidden placeholder: some shared functions in core.js reference this id
-                        (e.g. showEmailVerifyScreen). The student page has no admin login UI,
-                        this element only exists so those calls don't fail. -->
-                    <div class="auth-box hidden" id="adminLoginForm" aria-hidden="true"></div>
+                    <!-- Supervisor (admin) login. Same Firebase Auth accounts as admin.html; access is
+                        granted only if admins/{uid} exists in Firestore. Shared functions in core.js
+                        (e.g. showEmailVerifyScreen) also reference this id to hide it. -->
+                    <div class="auth-box hidden" id="adminLoginForm">
+                        <div style="text-align:center;margin-bottom:20px;">
+                            <div style="width:52px;height:52px;border-radius:50%;background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:22px;color:var(--gold3);">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <h2 style="font-size:20px;font-weight:700;">دخول مشرفي المنصة</h2>
+                            <p style="font-size:13px;color:var(--muted);margin-top:8px;">منطقة مخصّصة لفريق إدارة المنصة فقط</p>
+                        </div>
+                        <div class="field">
+                            <label>اسم المستخدم (البريد الإلكتروني)</label>
+                            <div class="field-inner">
+                                <i class="fa-regular fa-user"></i>
+                                <input type="email" id="svLoginEmail" placeholder="admin@example.com" autocomplete="username" enterkeyhint="next"
+                                       onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('svLoginPassword').focus();}">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>كلمة المرور</label>
+                            <div class="field-inner" style="position:relative;">
+                                <i class="fa-solid fa-lock"></i>
+                                <input type="password" id="svLoginPassword" placeholder="••••••••" autocomplete="current-password" style="padding-right:40px;padding-left:40px;" enterkeyhint="go"
+                                       onkeydown="if(event.key==='Enter'){event.preventDefault();doSupervisorLogin();}">
+                                <button class="eye-btn" type="button" onclick="toggleEye('svLoginPassword',this)"><i class="fa-regular fa-eye"></i></button>
+                            </div>
+                        </div>
+                        <button class="btn-primary" id="svLoginBtn" onclick="doSupervisorLogin()">
+                            <span id="svLoginBtnText">دخول لوحة الإدارة</span>
+                        </button>
+                        <p class="auth-toggle" style="margin-top:16px;">
+                            <a onclick="showLogin()" style="color:var(--gold3);font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">← العودة لتسجيل دخول الطلاب</a>
+                        </p>
+                    </div>
 
                 </div>
             </div>
@@ -4069,6 +4117,32 @@
                 }
             } catch (e) {
                 // مشكلة شبكة في فحص admins مش لازم تمنع طالب عادي من الدخول
+            }
+        };
+        // Supervisor login (بوابة المشرفين): only accounts that have an admins/{uid} doc get in.
+        // Anyone else is signed out immediately so a student never lands in a half-open session.
+        window._supervisorSignIn = async (email, pass) => {
+            window._supervisorLoginInProgress = true; // tells onAuthStateChanged not to boot the student UI meanwhile
+            let redirecting = false;
+            try {
+                const cred = await signInWithEmailAndPassword(auth, email, pass);
+                let isAdminAccount = false;
+                try {
+                    isAdminAccount = (await getDoc(doc(db, 'admins', cred.user.uid))).exists();
+                } catch (e) {
+                    try { await signOut(auth); } catch (_) {}
+                    throw e;
+                }
+                if (!isAdminAccount) {
+                    try { await signOut(auth); } catch (_) {}
+                    return 'not-admin';
+                }
+                redirecting = true;
+                sessionStorage.setItem('atlasya_admin_handoff', '1');
+                window.location.href = 'admin.html';
+                return 'redirecting-to-admin';
+            } finally {
+                if (!redirecting) window._supervisorLoginInProgress = false;
             }
         };
         window._doSignUp = async (fName, lName, phone, email, pass, affiliate, referredBy) => {
@@ -5574,6 +5648,8 @@
             if (user) {
                 // If admin already logged in via local credentials, don't interfere
                 if (window._isAdmin) return;
+                // بوابة المشرفين لسه بتتحقق من الحساب — ماتفتحش واجهة الطالب في الأثناء
+                if (window._supervisorLoginInProgress) return;
 
                 // لو ده سيشن أدمن (السيشن مشتركة مع admin.html لأنهم نفس الـ default app):
                 // ما نحوّلوش تلقائيًا لـ admin.html — ده اللي كان بيمنع فتح صفحة الطالب.
@@ -5960,12 +6036,23 @@
             document.getElementById('signUpForm').classList.add('hidden');
             document.getElementById('forgotForm').classList.add('hidden');
             document.getElementById('emailVerifyForm').classList.add('hidden');
+            document.getElementById('adminLoginForm').classList.add('hidden');
         }
         function showSignup() {
             document.getElementById('loginForm').classList.add('hidden');
             document.getElementById('signUpForm').classList.remove('hidden');
             document.getElementById('forgotForm').classList.add('hidden');
             document.getElementById('emailVerifyForm').classList.add('hidden');
+            document.getElementById('adminLoginForm').classList.add('hidden');
+        }
+        function showSupervisorLogin() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('signUpForm').classList.add('hidden');
+            document.getElementById('forgotForm').classList.add('hidden');
+            document.getElementById('emailVerifyForm').classList.add('hidden');
+            document.getElementById('adminLoginForm').classList.remove('hidden');
+            const emailEl = document.getElementById('svLoginEmail');
+            if (emailEl) setTimeout(() => emailEl.focus(), 50);
         }
 
         function toggleEye(inputId, btn) {
@@ -6082,6 +6169,37 @@
             } finally {
                 btn.innerHTML = `<span id="loginBtnText">تسجيل الدخول</span>`;
                 btn.disabled = false;
+            }
+        }
+
+        // Supervisor (admin) login from the student page: Firebase Auth email + password,
+        // then admins/{uid} must exist. On success we hand off to admin.html (same session).
+        async function doSupervisorLogin() {
+            const email = document.getElementById('svLoginEmail').value.trim();
+            const pass  = document.getElementById('svLoginPassword').value;
+            if (!email || !pass) { showToast('أدخل اسم المستخدم وكلمة المرور', true); return; }
+            const btn = document.getElementById('svLoginBtn');
+            btn.innerHTML = '<div class="spinner"></div>';
+            btn.disabled = true;
+            let redirecting = false;
+            try {
+                const result = await window._supervisorSignIn(email, pass);
+                if (result === 'redirecting-to-admin') {
+                    redirecting = true;
+                    showToast('تم التحقق ✓ جارٍ فتح لوحة الإدارة...');
+                    return;
+                }
+                showToast('هذا الحساب غير مصرّح له بالدخول كمشرف', true);
+            } catch (e) {
+                const code = (e && e.code) || '';
+                if (code === 'auth/too-many-requests') showToast('محاولات كثيرة — انتظر قليلًا ثم حاول مرة أخرى', true);
+                else if (code === 'auth/network-request-failed') showToast('مشكلة في الاتصال بالإنترنت', true);
+                else showToast('بيانات الدخول غير صحيحة', true);
+            } finally {
+                if (!redirecting) {
+                    btn.innerHTML = '<span id="svLoginBtnText">دخول لوحة الإدارة</span>';
+                    btn.disabled = false;
+                }
             }
         }
 
@@ -14060,6 +14178,7 @@
 
         /* ─── FORGOT PASSWORD ─── */
         function showForgotPassword() {
+            document.getElementById('adminLoginForm').classList.add('hidden');
             document.getElementById('loginForm').classList.add('hidden');
             document.getElementById('signUpForm').classList.add('hidden');
             document.getElementById('forgotForm').classList.remove('hidden');
