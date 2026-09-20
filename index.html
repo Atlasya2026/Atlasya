@@ -6054,6 +6054,18 @@
             const emailEl = document.getElementById('svLoginEmail');
             if (emailEl) setTimeout(() => emailEl.focus(), 50);
         }
+        // student.html?supervisor=1 بيفتح فورم المشرفين على طول (admin.html بيرجّع هنا لو مفيش جلسة)
+        (function () {
+            try {
+                const qs = new URLSearchParams(location.search);
+                if (qs.get('supervisor') === '1') {
+                    showSupervisorLogin();
+                    qs.delete('supervisor');
+                    const rest = qs.toString();
+                    history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+                }
+            } catch (e) {}
+        })();
 
         function toggleEye(inputId, btn) {
             const inp = document.getElementById(inputId);
