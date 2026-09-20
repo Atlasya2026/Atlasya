@@ -2793,12 +2793,63 @@
             vertical-align: middle; margin-right: 4px;
             letter-spacing: 0.3px;
         }
+
+        /* ===== ONE LOGIN FOR EVERYONE =====
+           شاشة دخول الأدمن المنفصلة (#authBox) اتلغت: الدخول بقى من "بوابة دخول مشرفي المنصة"
+           في student.html. الـ !important ضروري لأن الكود القديم لسه بيكتب style.display='flex' عليها. */
+        #authBox { display: none !important; }
+
+        /* Splash بنفس خلفية شاشة دخول الطالب — عشان الانتقال من student.html للوحة الإدارة
+           يبان كأنه صفحة واحدة، ومن غير ما تظهر أي شاشة دخول قديمة في النص. */
+        #adminBootSplash {
+            position: fixed; inset: 0; z-index: 2000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+            padding: 24px; direction: rtl; text-align: center;
+            color: #e8f7f2;
+            background:
+                radial-gradient(900px 900px at 80% 8%, rgba(26,122,110,0.35), transparent 60%),
+                radial-gradient(700px 700px at 15% 95%, rgba(14,77,123,0.45), transparent 65%),
+                linear-gradient(160deg, #030f16 0%, #072538 40%, #0e4d7b 72%, #1a7a6e 100%);
+            transition: opacity .35s ease, visibility .35s ease;
+        }
+        #adminBootSplash::before {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        #adminBootSplash > * { position: relative; }
+        #adminBootSplash.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        #adminBootSplash .abs-logo { width: 72px; height: 72px; object-fit: contain; }
+        #adminBootSplash .abs-logo:not([src]) { display: none; }
+        #adminBootSplash .abs-title { font-family: 'Space Mono', monospace; font-size: 24px; letter-spacing: 1px; }
+        #adminBootSplash .abs-spin {
+            width: 34px; height: 34px; border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.15); border-top-color: #27a346;
+            animation: absSpin .8s linear infinite;
+        }
+        #adminBootSplash .abs-msg { font-size: 14px; color: #a9c7c9; font-family: 'Tajawal', sans-serif; }
+        #adminBootSplash .abs-back {
+            display: none; font-size: 13px; font-weight: 700; color: #6be8d0;
+            font-family: 'Tajawal', sans-serif; text-decoration: underline; text-underline-offset: 3px;
+        }
+        @keyframes absSpin { to { transform: rotate(360deg); } }
     </style>
 </head>
 
 <body id="pageBody" class="light-mode">
 
-<!-- ===== AUTH ===== -->
+<!-- ===== BOOT SPLASH (نفس خلفية دخول الطالب) — بيختفي أول ما لوحة الإدارة تفتح ===== -->
+<div id="adminBootSplash" role="status" aria-live="polite">
+    <img id="adminBootLogo" class="abs-logo" alt="ATLASYA">
+    <div class="abs-title">ATLASYA</div>
+    <div class="abs-spin" aria-hidden="true"></div>
+    <div class="abs-msg" id="adminBootMsg">جارٍ فتح لوحة الإدارة...</div>
+    <a class="abs-back" id="adminBootBack" href="student.html?supervisor=1">← العودة لصفحة الدخول</a>
+</div>
+
+<!-- ===== AUTH (legacy — مخفية، شوف CSS: #authBox { display:none !important }) ===== -->
 <div id="authBox">
 
     <div class="auth-stars" id="authStars"></div>
@@ -2906,6 +2957,34 @@
             starsEl.appendChild(s);
         }
     }
+})();
+</script>
+
+<script>
+(function () {
+    var splash = document.getElementById('adminBootSplash');
+    var logo = document.getElementById('adminBootLogo');
+    var srcLogo = document.querySelector('#authBox .auth-logo img');
+    if (logo && srcLogo && srcLogo.src) logo.src = srcLogo.src;
+
+    // لو التحميل اتأخر (نت ضعيف مثلًا) منسيبش المستخدم على سبنر للأبد
+    var fallbackTimer = setTimeout(function () {
+        if (!splash || splash.classList.contains('is-hidden')) return;
+        var msg = document.getElementById('adminBootMsg');
+        var back = document.getElementById('adminBootBack');
+        if (msg) msg.textContent = 'التحميل أخد وقت أطول من المعتاد.';
+        if (back) back.style.display = 'inline-block';
+    }, 15000);
+
+    window._hideAdminBootSplash = function () {
+        clearTimeout(fallbackTimer);
+        if (splash) splash.classList.add('is-hidden');
+    };
+    window._showAdminBootSplash = function (text) {
+        var msg = document.getElementById('adminBootMsg');
+        if (msg && text) msg.textContent = text;
+        if (splash) splash.classList.remove('is-hidden');
+    };
 })();
 </script>
 
@@ -4509,8 +4588,9 @@
             try {
                 const adminData = await window._getAdminDoc(user.uid);
                 if (adminData) {
+                    // العلامة بتتحط من بوابة المشرفين في student.html وبتفضل طول ما التاب مفتوح
+                    // (فالـ refresh بيفضل جوه لوحة الإدارة)، وبتتمسح عند تسجيل الخروج.
                     const isHandoff = sessionStorage.getItem('atlasya_admin_handoff') === '1';
-                    sessionStorage.removeItem('atlasya_admin_handoff'); // استخدام مرة واحدة بس
                     if (isHandoff) {
                         const isSuper = adminData.permissions === 'all' || adminData.role === 'superadmin';
                         const permissions = isSuper ? 'all' : (Array.isArray(adminData.permissions) ? adminData.permissions : []);
@@ -4525,12 +4605,19 @@
                         if (window._activateAdminSession) {
                             window._activateAdminSession(matched, isSuper, permissions);
                         }
+                    } else {
+                        // حساب أدمن بس مفيش دخول من البوابة في التاب ده — يدخل من صفحة الدخول الموحّدة
+                        window.location.replace('student.html?supervisor=1');
                     }
                     return;
                 }
             } catch (e) {
                 console.error('Admin auto-detect failed:', e);
             }
+            // مش حساب أدمن (أو تعذّر التحقق): لوحة الإدارة مش للطلاب — نرجّعه لصفحة الدخول الموحّدة.
+            // (الكود اللي بعد كده الخاص بحساب الطالب بقى مش بيتنفذ في admin.html)
+            window.location.replace('student.html');
+            return;
 
             // Require verified email before granting access
             if (!user.emailVerified) {
@@ -4661,8 +4748,9 @@
             if (window._isAdmin) return; // admin session — ignore Firebase signout
             currentUid = null;
             window._userData = null;
-            document.getElementById('authBox').style.display = 'flex';
-            document.getElementById('mainApp').style.display = 'none';
+            // مفيش جلسة: مافيش شاشة دخول أدمن منفصلة — الدخول من "بوابة مشرفي المنصة" في student.html
+            try { sessionStorage.removeItem('atlasya_admin_handoff'); } catch (e) {}
+            window.location.replace('student.html?supervisor=1');
         }
     });
 
@@ -5091,38 +5179,11 @@
 
     async function doLogout() {
         if (window._isAdmin) {
-            // Admin logout — not Firebase-based
-            window._isAdmin = false;
-            window._adminProfile = null;
-            window._adminIsSuper = null;
-            window._adminPermissions = null;
-            window._base64Img = '';
-            const editBtn = document.getElementById('adminEditBtn');
-            if (editBtn) editBtn.style.display = 'none';
-
-            // Restore hidden nav items
-            const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuCourse','menuConnect','menuCV','menuPortfolio'];
-            adminHideItems.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = '';
-            });
-            document.querySelectorAll('.nav-label').forEach(lbl => lbl.style.display = '');
-            const menuExpertBtn2 = document.getElementById('menuExpert');
-            if (menuExpertBtn2) menuExpertBtn2.style.display = 'none';
-            // Hide admin-only sidebar items
-            ['menuAdminMembers','menuAdminPro','menuAdminCV','menuAdminReferrals'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-            });
-
-            document.getElementById('mainApp').style.display = 'none';
-            document.getElementById('authBox').style.display = 'flex';
-
-            // Reset admin form
-            document.getElementById('adminEmail').value = '';
-            document.getElementById('adminPassword').value = '';
-            switchAuthTab('admin');
-            showToast(lang==='AR'?'تم تسجيل الخروج':'Logged out successfully');
+            // خروج المشرف: بنقفل جلسة Firebase كمان ونرجع لصفحة الدخول الموحّدة (student.html)
+            try { sessionStorage.removeItem('atlasya_admin_handoff'); } catch (e) {}
+            if (window._showAdminBootSplash) window._showAdminBootSplash('جارٍ تسجيل الخروج...');
+            try { await window._signOutAuth(); } catch (e) { console.error('admin signOut failed:', e); }
+            window.location.replace('student.html');
         } else {
             await window._doLogout();
         }
@@ -13221,6 +13282,8 @@
     // بسيشن مسجّل دخوله بالفعل)
     function activateAdminSession(matched, isSuper, permissions) {
         window._isAdmin = true;
+        // شبكة أمان: حتى لو حصل خطأ في أي خطوة تحت، الـ splash مايفضلش عالق
+        setTimeout(function () { if (window._hideAdminBootSplash) window._hideAdminBootSplash(); }, 3000);
         window._adminProfile = matched;
         window._adminIsSuper = isSuper;
         window._adminPermissions = permissions;
@@ -13264,6 +13327,7 @@
         } catch (e) {
             console.error('activateAdminSession: navigate/applyAdminPermissions failed:', e);
         }
+        if (window._hideAdminBootSplash) window._hideAdminBootSplash();
         showToast('Welcome, ' + matched.displayName + ' — Admin mode active ✓');
     }
     // بيتنادى من داخل الـ module script (فوق، في onAuthStateChanged) لما
