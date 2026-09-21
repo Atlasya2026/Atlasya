@@ -3974,26 +3974,6 @@
 
         const app = initializeApp(firebaseConfig);
 
-        // ⚠️ بعد ما تعمل deploy على Vercel، بدّل السطر ده بالرابط اللي هيديهولك
-        // (زي https://atlasya-secure-api.vercel.app) — من غير / في الآخر
-        const SECURE_API_BASE = 'https://atlasya-secure-api.vercel.app';
-
-        async function callSecureApi(path, body) {
-            const idToken = await auth.currentUser.getIdToken();
-            const res = await fetch(SECURE_API_BASE + path, {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + idToken,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(body || {}),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                throw new Error(data.error || ('HTTP ' + res.status));
-            }
-            return data;
-        }
         const auth = getAuth(app);
         const db = getFirestore(app);
         window._auth = auth; // expose for password change
@@ -4855,23 +4835,31 @@
         };
 
         /* One-time free trial: instantly grants 1 month of Pro, starting now, with
-           no payment/review step. Verified and blocked server-side (Vercel) — الطالب
-           مايقدرش يعدّل freeTrialUsed أو plan من عنده حتى لو فتح الـ Console. */
+           no payment/review step. بيتنفّذ من المتصفح: بنقرا freeTrialUsed من مستند الطالب،
+           ولو لسه ما استخدمهاش بنفعّل الـ PRO ونعلّم freeTrialUsed:true في نفس الكتابة. */
         window._claimFreeTrial = async () => {
             if (!currentUid) throw new Error('Not logged in');
-            let result;
-            try {
-                result = await callSecureApi('/api/claimFreeTrial');
-            } catch (e) {
-                if (e.message && e.message.includes('قبل كده')) {
-                    const err = new Error('trial-used');
-                    err.code = 'trial-used';
-                    throw err;
-                }
-                throw e;
+            const userRef = doc(db, 'users', currentUid);
+            const snap = await getDoc(userRef);
+            const data = snap.exists() ? snap.data() : {};
+            if (data.freeTrialUsed === true) {
+                const err = new Error('trial-used');
+                err.code = 'trial-used';
+                throw err;
             }
+            // لو الطالب أصلًا PRO شغّال، الشهر بيتضاف فوق اشتراكه بدل ما يبدأ من أول
+            let base = new Date();
+            if (data.plan === 'pro' && data.proExpiresAt) {
+                const cur = data.proExpiresAt.toDate ? data.proExpiresAt.toDate() : new Date(data.proExpiresAt);
+                if (cur > base) base = cur;
+            }
+            const expiry = new Date(base);
+            expiry.setMonth(expiry.getMonth() + 1);
+            const payload = { plan: 'pro', proExpiresAt: Timestamp.fromDate(expiry), freeTrialUsed: true };
+            if (data.plan !== 'pro') payload.proStartAt = serverTimestamp();
+            await updateDoc(userRef, payload);
             // keep local cache in sync so the UI reflects Pro immediately
-            window._userData = { ...(window._userData || {}), plan: 'pro', proExpiresAt: Timestamp.fromDate(new Date(result.proExpiresAt)), freeTrialUsed: true };
+            window._userData = { ...(window._userData || {}), plan: 'pro', proExpiresAt: Timestamp.fromDate(expiry), freeTrialUsed: true };
         };
 
         /* Checks a user's Pro subscription and downgrades to Basic in Firestore + local
@@ -5218,29 +5206,61 @@
             const snap = await getDoc(doc(db, 'daily_challenge_attempts', `${currentUid}_${questionId}`));
             return snap.exists() ? snap.data() : null;
         };
+        // بيضيف كوينز (بعد ما المضاعفة اتطبّقت عليها) لحساب الطالب الحالي، ويحدّث الكاش،
+        // ويسجّلها في سجل العملات.
+        async function awardCoinsToMe(finalAmount, reasonAR, reasonEN) {
+            if (!finalAmount || finalAmount <= 0) return;
+            await updateDoc(doc(db, 'users', currentUid), { coins: increment(finalAmount), coinsEarnedTotal: increment(finalAmount) });
+            if (window._userData) {
+                window._userData.coins = (window._userData.coins || 0) + finalAmount;
+                window._userData.coinsEarnedTotal = (window._userData.coinsEarnedTotal || 0) + finalAmount;
+            }
+            try { await window._logCoinTransaction(currentUid, 'earn', finalAmount, reasonAR, reasonEN); }
+            catch (e) { console.error('coin tx log error:', e); }
+        }
+
         // Records the student's one-time answer for a scheduled question, awards coins on a
         // correct answer, and (for weekly questions) checks whether that unlocks the weekly bonus.
+        // الإجابة الصح وقيمة الكوينز بتتقرا من مستند السؤال نفسه (daily_challenges/{id}).
         window._submitDailyChallengeAnswer = async (question, selectedIndex) => {
             if (!currentUid) throw new Error('Not logged in');
-            let apiResult;
-            try {
-                apiResult = await callSecureApi('/api/answerChallenge', { questionId: question.id, selectedIndex });
-            } catch (e) {
-                if (e.message && e.message.includes('اتجاوبت قبل كده')) { const err = new Error('Already answered'); err.code = 'already'; throw err; }
-                throw e;
+            const attemptRef = doc(db, 'daily_challenge_attempts', `${currentUid}_${question.id}`);
+            if ((await getDoc(attemptRef)).exists()) { const err = new Error('Already answered'); err.code = 'already'; throw err; }
+
+            let qData = question;
+            if (typeof qData.correctIndex !== 'number' || typeof qData.coins !== 'number') {
+                const qSnap = await getDoc(doc(db, 'daily_challenges', question.id));
+                if (!qSnap.exists()) throw new Error('Question not found');
+                qData = { ...question, ...qSnap.data() };
             }
-            const { correct, coinsAwarded, weeklyBonus, correctIndex } = apiResult;
-            if (window._userData) {
-                const total = coinsAwarded + (weeklyBonus?.coinsAwarded || 0);
-                if (total) {
-                    window._userData.coins = (window._userData.coins || 0) + total;
-                    window._userData.coinsEarnedTotal = (window._userData.coinsEarnedTotal || 0) + total;
-                }
+            if (typeof qData.correctIndex !== 'number') throw new Error('Question has no answer key — open it in the admin panel and save it again');
+
+            const correct = selectedIndex === qData.correctIndex;
+            const coinsAwarded = correct ? await window._applyCoinBoost(currentUid, qData.coins || 0, window._userData) : 0;
+
+            // المحاولة بتتسجل الأول (id ثابت = uid_questionId) عشان نفس السؤال ما يتجاوبش مرتين
+            await setDoc(attemptRef, {
+                userId: currentUid,
+                questionId: question.id,
+                type: qData.type || 'daily',
+                scheduledDate: qData.scheduledDate || '',
+                selectedIndex,
+                correct,
+                coinsAwarded,
+                answeredAt: serverTimestamp()
+            });
+            await awardCoinsToMe(coinsAwarded, 'إجابة صحيحة في التحدي', 'Correct challenge answer');
+
+            let weeklyBonus = null;
+            if (correct && qData.type === 'weekly') {
+                try { weeklyBonus = await window._maybeAwardWeeklyBonus(qData.scheduledDate); }
+                catch (e) { console.error('weekly bonus error:', e); }
             }
+
             const d = window._userData || {};
             const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
-            window._notifyAdminsBot('challenge_answer', { studentName, correct, coinsAwarded, challengeType: question.type });
-            return { correct, coinsAwarded, weeklyBonus, correctIndex };
+            window._notifyAdminsBot('challenge_answer', { studentName, correct, coinsAwarded, challengeType: qData.type });
+            return { correct, coinsAwarded, weeklyBonus, correctIndex: qData.correctIndex };
         };
         window._getWeeklyBonusClaim = async (weekStart) => {
             if (!currentUid) return null;
@@ -5402,42 +5422,119 @@
             };
         };
 
+        function _currentStudentName() {
+            const d = window._userData || {};
+            return ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || d.email || '';
+        }
+
         // Spins the basic wheel. usingExtraSpin=true consumes a banked extra spin instead of
-        // the daily attempt. الحساب والكول داون ومنح الكوينز كله بيحصل على السيرفر دلوقتي —
-        // الكود هنا بس بيستدعي الـ endpoint وبيحدّث الكاش المحلي بالنتيجة.
+        // the daily attempt. الحساب والكول داون ومنح الكوينز كله بيتنفّذ من المتصفح
+        // (الإعدادات من settings/wheel، والنتيجة بتتسجل في wheel_spins و coin_transactions).
         window._spinBasicWheel = async (usingExtraSpin) => {
             if (!currentUid) throw new Error('Not logged in');
-            let result;
-            try {
-                result = await callSecureApi('/api/spinWheel', { usingExtraSpin: !!usingExtraSpin });
-            } catch (e) {
-                if (e.message && e.message.includes('سبنات إضافية')) { const err = new Error('No extra spins'); err.code = 'no-extra'; throw err; }
-                if (e.message && e.message.includes('ساعة')) { const err = new Error('Cooldown'); err.code = 'cooldown'; throw err; }
-                throw e;
+            const config = await window._loadWheelConfig();
+            if (!config.enabled) { const e = new Error('Wheel disabled'); e.code = 'disabled'; throw e; }
+
+            const userRef = doc(db, 'users', currentUid);
+            const snap = await getDoc(userRef);
+            const ud = snap.exists() ? snap.data() : {};
+
+            if (usingExtraSpin) {
+                if ((ud.wheelExtraSpins || 0) <= 0) { const e = new Error('No extra spins'); e.code = 'no-extra'; throw e; }
+            } else {
+                const bypass = config.testModeEnabled && config.testModeUid && config.testModeUid === currentUid;
+                const last = ud.wheelLastSpinAt ? (ud.wheelLastSpinAt.toDate ? ud.wheelLastSpinAt.toDate() : new Date(ud.wheelLastSpinAt)) : null;
+                const cooldownMs = (config.cooldownHours || 24) * 3600000;
+                if (!bypass && last && (Date.now() - last.getTime()) < cooldownMs) { const e = new Error('Cooldown'); e.code = 'cooldown'; throw e; }
             }
+
+            const type = window._pickWeighted(config.basic);
+            if (!type) throw new Error('Wheel is not configured');
+
+            let coinsAwarded = 0;
+            if (type === 'coin1' || type === 'coin2' || type === 'coin3') {
+                coinsAwarded = await window._applyCoinBoost(currentUid, (config.basic[type] && config.basic[type].amount) || 0, ud);
+            }
+            const extraDelta = (usingExtraSpin ? -1 : 0) + (type === 'extraSpin' ? 1 : 0);
+
+            // كل التغييرات على مستند الطالب في كتابة واحدة (لو فشلت مفيش حاجة بتتمنح)
+            const patch = {};
+            if (!usingExtraSpin) patch.wheelLastSpinAt = serverTimestamp();
+            if (extraDelta !== 0) patch.wheelExtraSpins = increment(extraDelta);
+            if (coinsAwarded > 0) { patch.coins = increment(coinsAwarded); patch.coinsEarnedTotal = increment(coinsAwarded); }
+            await updateDoc(userRef, patch);
+
             if (window._userData) {
-                if (result.coinsAwarded) {
-                    window._userData.coins = (window._userData.coins || 0) + result.coinsAwarded;
-                    window._userData.coinsEarnedTotal = (window._userData.coinsEarnedTotal || 0) + result.coinsAwarded;
+                if (coinsAwarded > 0) {
+                    window._userData.coins = (window._userData.coins || 0) + coinsAwarded;
+                    window._userData.coinsEarnedTotal = (window._userData.coinsEarnedTotal || 0) + coinsAwarded;
                 }
-                if (result.type === 'extraSpin') {
-                    window._userData.wheelExtraSpins = (window._userData.wheelExtraSpins || 0) + 1;
-                } else if (usingExtraSpin) {
-                    window._userData.wheelExtraSpins = Math.max(0, (window._userData.wheelExtraSpins || 0) - 1);
-                }
+                if (extraDelta !== 0) window._userData.wheelExtraSpins = Math.max(0, (window._userData.wheelExtraSpins || 0) + extraDelta);
+                if (!usingExtraSpin) window._userData.wheelLastSpinAt = Timestamp.now();
             }
-            {
-                const d = window._userData || {};
-                const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
-                window._notifyAdminsBot('wheel_spin', { studentName, wheelType: 'basic', resultType: result.type });
+
+            // سجلات (مش حرجة — لو فشلت الجائزة تفضل ممنوحة)
+            if (coinsAwarded > 0) {
+                try { await window._logCoinTransaction(currentUid, 'earn', coinsAwarded, 'ربحت من عجلة الحظ', 'Won from the fortune wheel'); }
+                catch (e) { console.error('coin tx log error:', e); }
             }
-            return result;
+            try {
+                await addDoc(collection(db, 'wheel_spins'), {
+                    userId: currentUid, userName: _currentStudentName(),
+                    wheelType: 'basic', resultType: type, coinsAwarded,
+                    usedExtraSpin: !!usingExtraSpin, createdAt: serverTimestamp()
+                });
+            } catch (e) { console.error('wheel spin log error:', e); }
+
+            if (type === 'gift') window._giftSpinAllowed = true; // بيفتح لفة واحدة في عجلة الهدايا
+
+            window._notifyAdminsBot('wheel_spin', { studentName: _currentStudentName() || 'User', wheelType: 'basic', resultType: type });
+            return { type, coinsAwarded };
         };
 
         // Spins the gift wheel — only reachable right after landing on 🎁 on the basic wheel.
         window._spinGiftWheel = async () => {
             if (!currentUid) throw new Error('Not logged in');
-            const result = await callSecureApi('/api/spinGiftWheel');
+            if (!window._giftSpinAllowed) { const e = new Error('Gift wheel not unlocked'); e.code = 'no-gift'; throw e; }
+
+            const config = await window._loadWheelConfig();
+            const type = window._pickWeighted(config.gift);
+            if (!type) throw new Error('Gift wheel is not configured');
+            const g = config.gift[type] || {};
+            const userRef = doc(db, 'users', currentUid);
+            let result, extra;
+
+            if (type === 'promonth') {
+                const months = g.months || 1;
+                await window._grantProMonths(currentUid, months);
+                result = { type, months };
+                extra = { months };
+            } else if (type === 'tempfeature') {
+                const hours = g.hours || 24;
+                const featureAR = g.featureAR || '', featureEN = g.featureEN || '';
+                await updateDoc(userRef, { tempProFeature: { featureAR, featureEN, expiresAt: Timestamp.fromDate(new Date(Date.now() + hours * 3600000)) } });
+                result = { type, hours, featureAR, featureEN };
+                extra = { hours, featureAR, featureEN };
+            } else if (type === 'discount') {
+                const percent = g.percent || 10, requiredMonths = g.requiredMonths || 6, validDays = g.validDays || 14;
+                const code = window._generateDiscountCode();
+                const expiresAt = new Date(Date.now() + validDays * 86400000);
+                await setDoc(doc(db, 'discount_codes', code), {
+                    code, userId: currentUid, percent, requiredMonths,
+                    used: false, usedAt: null,
+                    createdAt: serverTimestamp(), expiresAt: Timestamp.fromDate(expiresAt)
+                });
+                result = { type, code, percent, requiredMonths, expiresAt };
+                extra = { percent, requiredMonths, validDays, code };
+            } else if (type === 'boost') {
+                const multiplier = g.multiplier || 2, hours = g.hours || 24;
+                await updateDoc(userRef, { coinBoost: { multiplier, expiresAt: Timestamp.fromDate(new Date(Date.now() + hours * 3600000)) } });
+                result = { type, multiplier, hours };
+                extra = { multiplier, hours };
+            } else {
+                throw new Error('Unknown gift type: ' + type);
+            }
+            window._giftSpinAllowed = false; // اللفة استُهلكت
 
             // مزامنة الكاش المحلي بالنتيجة عشان الواجهة تتحدث فورًا
             if (window._userData) {
@@ -5450,12 +5547,14 @@
                 }
             }
 
-            {
-                const d = window._userData || {};
-                const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
-                window._notifyAdminsBot('wheel_spin', { studentName, wheelType: 'gift', resultType: result.type });
-            }
+            try {
+                await addDoc(collection(db, 'wheel_spins'), {
+                    userId: currentUid, userName: _currentStudentName(),
+                    wheelType: 'gift', resultType: type, coinsAwarded: 0, extra, createdAt: serverTimestamp()
+                });
+            } catch (e) { console.error('wheel spin log error:', e); }
 
+            window._notifyAdminsBot('wheel_spin', { studentName: _currentStudentName() || 'User', wheelType: 'gift', resultType: type });
             return result;
         };
 
@@ -6084,6 +6183,19 @@
                 }
             } catch (e) {}
         })();
+
+        /* رسالة خطأ بتقول السبب الحقيقي (بدل "حدث خطأ" وبس) — للعجلة والتحديات */
+        window.explainFirestoreError = function (e, isAR) {
+            const code = (e && e.code) || '';
+            const msg  = (e && e.message) || '';
+            if (code === 'permission-denied' || code === 'firestore/permission-denied')
+                return isAR ? 'قواعد Firestore مانعة العملية دي (permission-denied)' : 'Firestore rules blocked this action (permission-denied)';
+            if (code === 'unavailable' || code === 'firestore/unavailable' || code === 'auth/network-request-failed' || /network|offline/i.test(msg))
+                return isAR ? 'مشكلة في الاتصال بالإنترنت، حاول تاني' : 'Network problem, try again';
+            if (/answer key/i.test(msg))
+                return isAR ? 'السؤال ده لسه مالوش إجابة صحيحة متسجلة — بلّغ الإدارة' : 'This question has no answer key yet — please tell the admins';
+            return isAR ? 'حدث خطأ، حاول تاني' : 'Something went wrong, try again';
+        };
 
         /* ─── PLATFORM ON/OFF — صفحة "المنصة متوقفة مؤقتًا" + لعبة التسلية ───
            الصفحة كاملة (اللي في كود_ايقاف_منصة_مؤقتا) بتتعرض جوه iframe معزول (srcdoc + sandbox)
@@ -7159,7 +7271,7 @@
             try { result = await window._submitDailyChallengeAnswer(q, st.selected); }
             catch(e) {
                 console.error('submitDailyChallengeAnswer error:', e);
-                showToast(isAR?'حدث خطأ، حاول تاني':'Something went wrong, try again', true);
+                showToast(window.explainFirestoreError(e, isAR), true);
                 st.locked = false;
                 if (lockBtn) { lockBtn.disabled = false; lockBtn.innerHTML = isAR?'تأكيد الإجابة':'Lock In Answer'; }
                 return;
@@ -7525,7 +7637,7 @@
                 if (e.code === 'cooldown') showToast(isAR?'المحاولة القادمة لسه ما جتش':'Your next attempt isn\'t ready yet', true);
                 else if (e.code === 'no-extra') showToast(isAR?'مفيش لفات إضافية متاحة':'No extra spins available', true);
                 else if (e.code === 'disabled') showToast(isAR?'العجلة متوقفة مؤقتاً':'The wheel is currently paused', true);
-                else showToast(isAR?'حدث خطأ، حاول تاني':'Something went wrong, try again', true);
+                else { console.error('spinBasicWheel error:', e); showToast(window.explainFirestoreError(e, isAR), true); }
                 return;
             }
             const discEl = document.getElementById('whBasicDisc');
@@ -7619,7 +7731,8 @@
             catch(e) {
                 _wheelSpinning = false;
                 if (hub) hub.classList.remove('disabled');
-                showToast(isAR?'حدث خطأ، حاول تاني':'Something went wrong, try again', true);
+                console.error('spinGiftWheel error:', e);
+                showToast(window.explainFirestoreError(e, isAR), true);
                 return;
             }
             const discEl = document.getElementById('whGiftDisc');
