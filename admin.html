@@ -2882,7 +2882,7 @@
     <div class="abs-title">ATLASYA</div>
     <div class="abs-spin" aria-hidden="true"></div>
     <div class="abs-msg" id="adminBootMsg">جارٍ فتح لوحة الإدارة...</div>
-    <a class="abs-back" id="adminBootBack" href="student.html?supervisor=1">← العودة لصفحة الدخول</a>
+    <a class="abs-back" id="adminBootBack" href="./?supervisor=1">← العودة لصفحة الدخول</a>
 </div>
 
 <!-- ===== AUTH (legacy — مخفية، شوف CSS: #authBox { display:none !important }) ===== -->
@@ -3011,6 +3011,21 @@
         if (msg) msg.textContent = 'التحميل أخد وقت أطول من المعتاد.';
         if (back) back.style.display = 'inline-block';
     }, 15000);
+
+    // العنوان اللي نرجّع له المشرف (صفحة الطالب = صفحة الدخول الموحّدة). مش بنكتب اسم ملف ثابت
+    // (student.html) لأن صفحة الطالب ممكن تكون index.html أو أي اسم تاني على الاستضافة ← كان بيطلع 404.
+    // العنوان الحقيقي بيتسجّل في sessionStorage وقت الدخول من بوابة المشرفين؛ ولو مش موجود
+    // (فتح admin.html مباشرة) بنرجع لجذر المجلد.
+    window._atlasyaStudentPage = function (openSupervisorForm) {
+        var base = './';
+        try {
+            var saved = sessionStorage.getItem('atlasya_student_url');
+            if (saved && /^\/(?!\/)/.test(saved)) base = saved; // مسار من نفس الموقع بس
+        } catch (e) {}
+        return base + (openSupervisorForm ? '?supervisor=1' : '');
+    };
+    var backLink = document.getElementById('adminBootBack');
+    if (backLink) backLink.href = window._atlasyaStudentPage(true);
 
     window._hideAdminBootSplash = function () {
         clearTimeout(fallbackTimer);
@@ -4667,7 +4682,7 @@
                         }
                     } else {
                         // حساب أدمن بس مفيش دخول من البوابة في التاب ده — يدخل من صفحة الدخول الموحّدة
-                        window.location.replace('student.html?supervisor=1');
+                        window.location.replace(window._atlasyaStudentPage(true));
                     }
                     return;
                 }
@@ -4676,7 +4691,7 @@
             }
             // مش حساب أدمن (أو تعذّر التحقق): لوحة الإدارة مش للطلاب — نرجّعه لصفحة الدخول الموحّدة.
             // (الكود اللي بعد كده الخاص بحساب الطالب بقى مش بيتنفذ في admin.html)
-            window.location.replace('student.html');
+            window.location.replace(window._atlasyaStudentPage(false));
             return;
 
             // Require verified email before granting access
@@ -4810,7 +4825,7 @@
             window._userData = null;
             // مفيش جلسة: مافيش شاشة دخول أدمن منفصلة — الدخول من "بوابة مشرفي المنصة" في student.html
             try { sessionStorage.removeItem('atlasya_admin_handoff'); } catch (e) {}
-            window.location.replace('student.html?supervisor=1');
+            window.location.replace(window._atlasyaStudentPage(true));
         }
     });
 
@@ -5243,7 +5258,7 @@
             try { sessionStorage.removeItem('atlasya_admin_handoff'); } catch (e) {}
             if (window._showAdminBootSplash) window._showAdminBootSplash('جارٍ تسجيل الخروج...');
             try { await window._signOutAuth(); } catch (e) { console.error('admin signOut failed:', e); }
-            window.location.replace('student.html');
+            window.location.replace(window._atlasyaStudentPage(false));
         } else {
             await window._doLogout();
         }
