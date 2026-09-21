@@ -3715,27 +3715,34 @@
     window._loadDailyChallengeQs = async () => {
         const snap = await getDocs(collection(db, 'daily_challenges'));
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // نجيب الإجابة الصح لكل سؤال من الـ collection المحمية (أدمن بس يقدر يقراها)
-        const answers = await Promise.all(list.map(q => getDoc(doc(db, 'daily_challenges_answers', q.id)).catch(() => null)));
-        return list.map((q, i) => {
-            const a = answers[i];
-            return a && a.exists() ? { ...q, ...a.data() } : q;
+        // الإجابة الصح (correctIndex) والكوينز جوه مستند السؤال نفسه، وصفحة الطالب بتصحّح منه
+        // في المتصفح من غير أي سيرفر خارجي. أسئلة اتحفظت قبل كده بمفتاح إجابتها في
+        // daily_challenges_answers (تصميم قديم): بنقرا المفتاح من هناك وننسخه جوه السؤال
+        // مرة واحدة، عشان الأسئلة القديمة تشتغل من غير ما تفتحها وتحفظها واحدة واحدة.
+        const needKey = list.filter(q => typeof q.correctIndex !== 'number' || typeof q.coins !== 'number');
+        if (!needKey.length) return list;
+        const olds = await Promise.all(needKey.map(q => getDoc(doc(db, 'daily_challenges_answers', q.id)).catch(() => null)));
+        needKey.forEach((q, i) => {
+            const old = olds[i];
+            if (!old || !old.exists()) return;
+            const k = old.data();
+            const patch = {};
+            if (typeof q.correctIndex !== 'number' && typeof k.correctIndex === 'number') patch.correctIndex = k.correctIndex;
+            if (typeof q.coins !== 'number' && typeof k.coins === 'number') patch.coins = k.coins;
+            if (!Object.keys(patch).length) return;
+            Object.assign(q, patch);
+            updateDoc(doc(db, 'daily_challenges', q.id), patch)
+                .catch(e => console.error('challenge answer-key migration failed for', q.id, e));
         });
+        return list;
     };
-    // الإجابة الصح (correctIndex) والكوينز بيتخزنوا في collection منفصلة
-    // (daily_challenges_answers) ممنوع قراءتها إلا للأدمن أو الـ Vercel
-    // endpoint — عشان طالب فاتح الـ Console ميقدرش يشوف الإجابة قبل ما يجاوب
     window._addDailyChallengeQ = async (data) => {
-        const { correctIndex, coins, ...publicData } = data;
         const ref = doc(collection(db, 'daily_challenges'));
-        await setDoc(ref, { ...publicData, createdAt: serverTimestamp() });
-        await setDoc(doc(db, 'daily_challenges_answers', ref.id), { correctIndex, coins });
+        await setDoc(ref, { ...data, createdAt: serverTimestamp() });
         return ref.id;
     };
     window._updateDailyChallengeQ = async (id, data) => {
-        const { correctIndex, coins, ...publicData } = data;
-        await updateDoc(doc(db, 'daily_challenges', id), publicData);
-        await setDoc(doc(db, 'daily_challenges_answers', id), { correctIndex, coins });
+        await updateDoc(doc(db, 'daily_challenges', id), data);
     };
     window._deleteDailyChallengeQ = async (id) => {
         await deleteDoc(doc(db, 'daily_challenges', id));
@@ -4200,7 +4207,7 @@
     // ⚠️ ده بيشيل صلاحية الأدمن بمسح مستند admins/{uid} — الحساب يقف عن
     // العمل كأدمن فورًا. لكن حساب Firebase Auth بتاعه نفسه بيفضل موجود
     // (حذف حساب مستخدم تاني فعليًا محتاج Admin SDK من سيرفر، مش client SDK).
-    // لو عايز حذف كامل، ضيفلي endpoint على Vercel زي اللي عملناه للعجلة.
+    // لو عايز حذف كامل محتاج Admin SDK على سيرفر خارجي — مش مستخدم في المنصة دلوقتي.
     window._deleteTeamAccount = async (id) => {
         await deleteDoc(doc(db, 'admins', id));
     };
