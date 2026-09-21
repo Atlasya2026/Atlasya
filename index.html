@@ -4135,6 +4135,8 @@
                     return 'not-admin';
                 }
                 redirecting = true;
+                // عنوان صفحة الطالب الحالية — admin.html بيرجّع له المشرف عند تسجيل الخروج
+                try { sessionStorage.setItem('atlasya_student_url', location.pathname); } catch (e) {}
                 sessionStorage.setItem('atlasya_admin_handoff', '1');
                 window.location.href = 'admin.html';
                 return 'redirecting-to-admin';
