@@ -6787,8 +6787,7 @@
         /* Handles the browser Back/Forward buttons: re-renders the page encoded
            in the URL without pushing a new (duplicate) history entry. */
         window.addEventListener('popstate', () => {
-            const page = getPageFromUrl();
-            if (!page) return;
+            const page = getPageFromUrl() || 'dashboard';
             const navEl = PAGE_NAV_ID_MAP[page] ? document.getElementById(PAGE_NAV_ID_MAP[page]) : null;
             navigate(page, navEl, false, true);
         });
