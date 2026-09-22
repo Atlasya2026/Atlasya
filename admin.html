@@ -11803,7 +11803,7 @@
                 const perms = Array.isArray(a.permissions) ? a.permissions : [];
                 const permLabels = ADMIN_PERMISSION_LIST.filter(p => perms.includes(p.key)).map(p => isAR ? p.labelAR : p.labelEN);
                 const orgLabel = a.org === 'terrascope' ? 'TerraScope' : 'GIS Explorer';
-                const isSelf = a.id === (auth.currentUser && auth.currentUser.uid);
+                const isSelf = a.id === (window._auth?.currentUser && window._auth.currentUser.uid);
                 const isSuper = a.permissions === 'all' || a.role === 'superadmin';
                 return `
                 <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;">
