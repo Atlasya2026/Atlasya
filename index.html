@@ -6143,6 +6143,356 @@
             }
         }
         window._applyTheme = applyTheme;
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           🔥 DAILY STREAK SYSTEM — Backend (Firestore)          [ADDITIVE BLOCK]
+           ───────────────────────────────────────────────────────────────────────
+           • بلوك مُضاف فقط: بيستخدم collection جديدة اسمها user_streaks، وبيقرأ/بيلفّ
+             الدوال الموجودة من غير ما يعدّل أي سطر فيها.
+           • التاريخ مأخوذ من سيرفر Firestore (serverTimestamp) وبتوقيت Africa/Cairo،
+             فتغيير تاريخ الجهاز أو إعادة تحميل الصفحة ما بيأثرش على الـ Streak.
+           • تسجيل اليوم + منح المكافأة + سجل العملات = Firestore Transaction واحدة
+             (ما يتمنحش مرتين حتى لو فتح الطالب تابين).
+           • المكافآت بتحترم settings/coins.dailyMax، والزيادة بتروح Pending Rewards.
+           ═══════════════════════════════════════════════════════════════════════ */
+        (function () {
+            'use strict';
+            const FS_URL = 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+            const COL = 'user_streaks';
+
+            /*STREAK_CORE_START*/
+            const core = (function () {
+                const TZ = 'Africa/Cairo';
+                const KEEP_DATES = 60;
+                // مكافآت الـ Milestones — تُمنح مرة واحدة فقط لكل Milestone
+                const MILESTONES = [
+                    { days: 3,  coins: 10,  badge: null },
+                    { days: 7,  coins: 30,  badge: null },
+                    { days: 14, coins: 75,  badge: null },
+                    { days: 30, coins: 150, badge: 'streak_30' }
+                ];
+                const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+                const _fmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+                // YYYY-MM-DD حسب توقيت القاهرة (بيتعامل مع التوقيت الصيفي تلقائيًا)
+                function cairoDateKey(ms) {
+                    const p = {};
+                    _fmt.formatToParts(new Date(ms)).forEach(x => { p[x.type] = x.value; });
+                    return p.year + '-' + p.month + '-' + p.day;
+                }
+                function dayNum(key) {
+                    const a = key.split('-').map(Number);
+                    return Math.round(Date.UTC(a[0], a[1] - 1, a[2]) / 86400000);
+                }
+                function keyFromDayNum(n) { return new Date(n * 86400000).toISOString().slice(0, 10); }
+                function num(v) { v = Number(v); return (isFinite(v) && v > 0) ? Math.floor(v) : 0; }
+                function validKey(k) { return typeof k === 'string' && DATE_RE.test(k); }
+
+                function normalizeState(raw) {
+                    raw = raw || {};
+                    return {
+                        currentStreak: num(raw.currentStreak),
+                        longestStreak: num(raw.longestStreak),
+                        lastActiveDate: validKey(raw.lastActiveDate) ? raw.lastActiveDate : null,
+                        totalActiveDays: num(raw.totalActiveDays),
+                        activeDates: Array.isArray(raw.activeDates) ? raw.activeDates.filter(validKey).slice(-KEEP_DATES) : [],
+                        claimedMilestones: Array.isArray(raw.claimedMilestones)
+                            ? raw.claimedMilestones.map(Number).filter(n => MILESTONES.some(m => m.days === n)) : [],
+                        badges: Array.isArray(raw.badges)
+                            ? raw.badges.filter(b => b && b.id).map(b => ({ id: String(b.id), earnedDate: String(b.earnedDate || '') })) : [],
+                        pendingRewards: Array.isArray(raw.pendingRewards)
+                            ? raw.pendingRewards.filter(p => p && num(p.coins) > 0).map(p => ({
+                                id: String(p.id || ('m' + num(p.milestone))),
+                                milestone: num(p.milestone),
+                                coins: num(p.coins),
+                                createdDate: validKey(p.createdDate) ? p.createdDate : '0000-00-00'
+                            })) : []
+                    };
+                }
+
+                // الـ Streak اللي يُعرض فعليًا: لو فات أكثر من يوم كامل بدون نشاط يبقى 0
+                function effectiveStreak(st, today) {
+                    if (!st.lastActiveDate || !st.currentStreak) return 0;
+                    return (dayNum(today) - dayNum(st.lastActiveDate)) <= 1 ? st.currentStreak : 0;
+                }
+                function isBroken(st, today) {
+                    return !!st.lastActiveDate && st.currentStreak > 0 && (dayNum(today) - dayNum(st.lastActiveDate)) > 1;
+                }
+
+                // تسجيل يوم جديد (Pure — بدون أي I/O). لو اليوم اتسجّل قبل كده → no-op.
+                function computeDayUpdate(raw, today) {
+                    const s = normalizeState(raw);
+                    const out = { state: s, isNewDay: false, streakBroken: false, newMilestones: [] };
+                    if (s.lastActiveDate) {
+                        const diff = dayNum(today) - dayNum(s.lastActiveDate);
+                        if (diff <= 0) return out;                  // نفس اليوم (أو ساعة رجعت لورا) → مفيش تغيير
+                        if (diff === 1) { s.currentStreak += 1; }
+                        else { out.streakBroken = s.currentStreak > 0; s.currentStreak = 1; }   // يوم كامل فات → يبدأ من جديد
+                    } else {
+                        s.currentStreak = 1;
+                    }
+                    out.isNewDay = true;
+                    s.lastActiveDate = today;
+                    s.totalActiveDays += 1;
+                    s.longestStreak = Math.max(s.longestStreak, s.currentStreak);
+                    if (s.activeDates.indexOf(today) === -1) s.activeDates.push(today);
+                    s.activeDates = s.activeDates.slice(-KEEP_DATES);
+                    MILESTONES.forEach(m => {
+                        if (s.currentStreak >= m.days && s.claimedMilestones.indexOf(m.days) === -1) out.newMilestones.push(m);
+                    });
+                    return out;
+                }
+
+                // توزيع المكافآت مع احترام الحد اليومي للعملات (cap = Infinity لو مفيش حد).
+                // القديمة المؤجلة (createdDate < today) الأول، بعدين الجديدة. اللي مايتمنحش يفضل Pending.
+                function settleRewards(pending, newItems, today, cap) {
+                    let remaining = (cap === Infinity) ? Infinity : Math.max(0, cap);
+                    const results = [], nextPending = [];
+                    const take = (item, fromPending) => {
+                        const give = Math.min(item.coins, remaining);
+                        if (remaining !== Infinity) remaining -= give;
+                        const left = item.coins - give;
+                        results.push({ id: item.id, milestone: item.milestone, granted: give, left, fromPending });
+                        if (left > 0) nextPending.push({ id: item.id, milestone: item.milestone, coins: left, createdDate: item.createdDate });
+                    };
+                    pending.forEach(p => { if (p.createdDate < today) take(p, true); else nextPending.push(p); });
+                    newItems.forEach(n => take(n, false));
+                    return { results, nextPending };
+                }
+
+                // 7 خلايا للأسبوع الحالي (الأحد → السبت) زي نظام التحديات الأسبوعية
+                function weekCells(st, today) {
+                    const t = dayNum(today);
+                    const start = t - new Date(t * 86400000).getUTCDay();
+                    const done = new Set(st.activeDates);
+                    const cells = [];
+                    for (let i = 0; i < 7; i++) {
+                        const n = start + i, key = keyFromDayNum(n);
+                        cells.push({ key, dow: i, isToday: n === t, status: n > t ? 'future' : (done.has(key) ? 'done' : 'empty') });
+                    }
+                    return cells;
+                }
+
+                function arDaysWord(n) {
+                    if (n === 1) return 'يوم واحد';
+                    if (n === 2) return 'يومين';
+                    return n <= 10 ? (n + ' أيام') : (n + ' يومًا');
+                }
+
+                return { TZ, MILESTONES, cairoDateKey, dayNum, keyFromDayNum, normalizeState, effectiveStreak,
+                         isBroken, computeDayUpdate, settleRewards, weekCells, arDaysWord };
+            })();
+            /*STREAK_CORE_END*/
+            window._streakCore = core;
+
+            /* ─── حالة الجلسة (في الذاكرة فقط — مش مصدر الحقيقة، مصدرها Firestore) ─── */
+            let _clock = null;          // { serverMs, perfMs } — ساعة السيرفر + عدّاد متصفح لا يتأثر بتغيير تاريخ الجهاز
+            let _state = null, _stateUid = null, _status = 'loading';
+            let _initPromise = null, _inflight = null;
+
+            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+            const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('streak-timeout')), ms))]);
+            const nowMs = () => _clock ? _clock.serverMs + (performance.now() - _clock.perfMs) : null;
+            const todayKey = () => { const n = nowMs(); return n == null ? null : core.cairoDateKey(n); };
+            const curUid = () => (auth.currentUser && auth.currentUser.uid) || null;
+            const hasDue = (st, today) => st.pendingRewards.some(p => p.createdDate < today);
+
+            // بيجيب وقت السيرفر الحقيقي: كتابة serverTimestamp ثم قراءتها. لو فشل → ما بنسجّل (fail-closed).
+            async function syncClock(uid, force) {
+                if (!force && _clock && (performance.now() - _clock.perfMs) < 15 * 60 * 1000) return;
+                const ref = doc(db, COL, uid);
+                const t0 = performance.now();
+                await withTimeout(setDoc(ref, { serverPing: serverTimestamp() }, { merge: true }), 10000);
+                const snap = await withTimeout(getDoc(ref), 10000);
+                const ts = snap.exists() ? snap.data().serverPing : null;
+                const ms = ts && ts.toMillis ? ts.toMillis() : null;
+                if (!ms) throw new Error('streak: no server time');
+                const t1 = performance.now();
+                _clock = { serverMs: ms + (t1 - t0) / 2, perfMs: t1 };
+            }
+
+            // كام عملة لسه متاحة النهارده حسب settings/coins.dailyMax (Infinity = مفيش حد)
+            async function getRemainingCap(uid, today) {
+                let max = 0;
+                try {
+                    const s = await window._loadCoinSettings();
+                    max = Number(s && s.dailyMax) || 0;
+                } catch (e) { return 0; }                          // مش عارفين الإعداد → نأجّل بدل ما نتجاوز الحد
+                if (max <= 0) return Infinity;
+                try {
+                    const rows = await window._loadCoinTransactions(uid, 300);
+                    const earned = rows.filter(r => r.type === 'earn' && r.createdAt && r.createdAt.toMillis
+                        && core.cairoDateKey(r.createdAt.toMillis()) === today)
+                        .reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+                    return Math.max(0, max - earned);
+                } catch (e) { return 0; }
+            }
+
+            // Transaction واحدة: (تسجيل يوم جديد اختياريًا) + تسوية المكافآت + خصم/إضافة العملات + سجل العملات
+            async function commit(uid, today, cap, countDay) {
+                const { runTransaction } = await import(FS_URL);
+                const sRef = doc(db, COL, uid), uRef = doc(db, 'users', uid);
+                return runTransaction(db, async (tx) => {
+                    const snap = await tx.get(sRef);
+                    const raw = snap.exists() ? snap.data() : {};
+                    let upd;
+                    if (countDay) upd = core.computeDayUpdate(raw, today);
+                    else upd = { state: core.normalizeState(raw), isNewDay: false, streakBroken: false, newMilestones: [] };
+                    const st = upd.state;
+                    const broken = !countDay && core.isBroken(st, today);
+                    const due = hasDue(st, today);
+                    if (!upd.isNewDay && !broken && !due) return { isNewDay: false, state: st, milestones: [], payouts: [], totalGranted: 0, wrote: false };
+                    if (broken) st.currentStreak = 0;
+
+                    const newItems = upd.newMilestones.map(m => ({ id: 'm' + m.days, milestone: m.days, coins: m.coins, createdDate: today }));
+                    const settled = core.settleRewards(st.pendingRewards, newItems, today, cap);
+                    st.pendingRewards = settled.nextPending;
+                    upd.newMilestones.forEach(m => {
+                        st.claimedMilestones.push(m.days);                                   // مرة واحدة فقط لكل Milestone
+                        if (m.badge && !st.badges.some(b => b.id === m.badge)) st.badges.push({ id: m.badge, earnedDate: today });
+                    });
+
+                    tx.set(sRef, {
+                        currentStreak: st.currentStreak, longestStreak: st.longestStreak,
+                        lastActiveDate: st.lastActiveDate, totalActiveDays: st.totalActiveDays,
+                        activeDates: st.activeDates, claimedMilestones: st.claimedMilestones,
+                        badges: st.badges, pendingRewards: st.pendingRewards,
+                        updatedAt: serverTimestamp()
+                    }, { merge: true });
+
+                    const totalGranted = settled.results.reduce((s, r) => s + r.granted, 0);
+                    if (totalGranted > 0) {
+                        tx.update(uRef, { coins: increment(totalGranted), coinsEarnedTotal: increment(totalGranted) });
+                        settled.results.filter(r => r.granted > 0).forEach(r => {
+                            const dAR = core.arDaysWord(r.milestone), dEN = r.milestone + ' days';
+                            tx.set(doc(collection(db, 'coin_transactions')), {
+                                userId: uid, type: 'earn', amount: r.granted,
+                                reasonAR: r.fromPending ? ('صرف مكافأة Daily Streak المؤجلة (' + dAR + ')') : ('مكافأة Daily Streak — ' + dAR + ' متتالية'),
+                                reasonEN: r.fromPending ? ('Deferred Daily Streak reward paid out (' + dEN + ')') : ('Daily Streak reward — ' + dEN + ' in a row'),
+                                source: 'streak', milestone: r.milestone,
+                                createdAt: serverTimestamp()
+                            });
+                        });
+                    }
+                    const milestones = settled.results.filter(r => !r.fromPending).map(r => {
+                        const m = core.MILESTONES.find(x => x.days === r.milestone) || {};
+                        return { days: r.milestone, coins: r.granted + r.left, granted: r.granted, left: r.left, badge: m.badge || null };
+                    });
+                    const payouts = settled.results.filter(r => r.fromPending && r.granted > 0);
+                    return { isNewDay: upd.isNewDay, streakBroken: upd.streakBroken, state: st, milestones, payouts, totalGranted, wrote: true };
+                });
+            }
+
+            function applyResult(res) {
+                _state = res.state;
+                if (res.totalGranted > 0 && window._userData) {
+                    window._userData.coins = (window._userData.coins || 0) + res.totalGranted;
+                    window._userData.coinsEarnedTotal = (window._userData.coinsEarnedTotal || 0) + res.totalGranted;
+                }
+            }
+
+            function emit(kind, extra) {
+                try { window.dispatchEvent(new CustomEvent('atlasya:streak', { detail: Object.assign({ kind }, extra || {}) })); } catch (e) {}
+            }
+
+            window._streakGetView = function () {
+                const today = todayKey();
+                const st = _state || core.normalizeState({});
+                const ready = !!_state && !!today;
+                const eff = ready ? core.effectiveStreak(st, today) : 0;
+                return {
+                    ready, status: _status, today, state: st,
+                    currentStreak: eff,
+                    longestStreak: Math.max(st.longestStreak, eff),
+                    totalActiveDays: st.totalActiveDays,
+                    doneToday: ready && st.lastActiveDate === today,
+                    week: ready ? core.weekCells(st, today) : [],
+                    milestones: core.MILESTONES.map(m => ({
+                        days: m.days, coins: m.coins, badge: m.badge,
+                        claimed: st.claimedMilestones.indexOf(m.days) !== -1,
+                        pending: st.pendingRewards.filter(p => p.milestone === m.days).reduce((s, p) => s + p.coins, 0)
+                    })),
+                    badges: st.badges,
+                    pendingTotal: st.pendingRewards.reduce((s, p) => s + p.coins, 0)
+                };
+            };
+
+            async function waitForStudent(uid) {
+                for (let i = 0; i < 50; i++) {
+                    if (curUid() !== uid) return false;
+                    if (window._isAdmin) return false;              // جلسة أدمن → لا Streak
+                    if (window._userData) return true;
+                    await sleep(300);
+                }
+                return false;
+            }
+
+            // بيتنادى عند تسجيل دخول الطالب: يقرأ الحالة، يكسر الـ Streak لو فات يوم كامل، ويصرف المؤجل
+            async function init(uid) {
+                try {
+                    if (!(await waitForStudent(uid))) { _status = 'off'; emit('state'); return; }
+                    await syncClock(uid, true);
+                    const snap = await withTimeout(getDoc(doc(db, COL, uid)), 10000);
+                    if (curUid() !== uid) return;
+                    _state = core.normalizeState(snap.exists() ? snap.data() : {});
+                    _stateUid = uid; _status = 'ready';
+                    emit('state');
+                    const today = todayKey();
+                    if (core.isBroken(_state, today) || hasDue(_state, today)) {
+                        const cap = hasDue(_state, today) ? await getRemainingCap(uid, today) : Infinity;
+                        const res = await commit(uid, today, cap, false);
+                        if (res.wrote) { applyResult(res); emit('state', { payouts: res.payouts, totalGranted: res.totalGranted }); }
+                    }
+                } catch (e) {
+                    _status = 'error';
+                    console.warn('[streak] init failed — تأكد من إضافة قواعد Firestore لـ user_streaks (شوف firestore.rules.streak.txt):', e);
+                    emit('state');
+                }
+            }
+
+            // نقطة التسجيل الوحيدة: بتتنادى من أي نشاط حقيقي. مرة واحدة فقط في اليوم لكل مستخدم.
+            window._streakRecordActivity = function (type) {
+                if (_inflight) return _inflight;
+                const uid = curUid();
+                if (!uid || window._isAdmin || !window._userData) return Promise.resolve(null);
+                _inflight = (async () => {
+                    try {
+                        if (_initPromise) { try { await _initPromise; } catch (e) {} }
+                        if (curUid() !== uid) return null;
+                        await syncClock(uid, false);
+                        const today = todayKey();
+                        // مسار سريع: اليوم متسجّل فعلًا ومفيش مؤجل مستحق → مفيش أي قراءة/كتابة
+                        if (_state && _stateUid === uid && _state.lastActiveDate === today && !hasDue(_state, today)) return null;
+                        const cap = await getRemainingCap(uid, today);
+                        const res = await commit(uid, today, cap, true);
+                        if (!res.wrote) { _state = res.state; _stateUid = uid; emit('state'); return res; }
+                        applyResult(res); _stateUid = uid; _status = 'ready';
+                        emit(res.isNewDay ? 'day' : 'state', { type, milestones: res.milestones, payouts: res.payouts, totalGranted: res.totalGranted, streak: res.state.currentStreak });
+                        return res;
+                    } catch (e) {
+                        console.warn('[streak] record failed:', e);
+                        return null;
+                    } finally { _inflight = null; }
+                })();
+                return _inflight;
+            };
+
+            onAuthStateChanged(auth, (user) => {
+                _clock = null; _state = null; _stateUid = null; _inflight = null; _initPromise = null; _status = 'loading';
+                emit('reset');
+                if (user) _initPromise = init(user.uid);
+            });
+
+            /* ─── ربط التحدي اليومي (دالة موجودة) — بنلفّها فقط ولا نعدّل جسمها ─── */
+            const _origSubmit = window._submitDailyChallengeAnswer;
+            if (typeof _origSubmit === 'function') {
+                window._submitDailyChallengeAnswer = async function () {
+                    const r = await _origSubmit.apply(this, arguments);      // لو رمت خطأ (already/…) يفضل يترمي زي ما هو ومش بيتسجل
+                    try { window._streakRecordActivity('challenge'); } catch (e) {}
+                    return r;
+                };
+            }
+        })();
     </script>
 
     <script>
@@ -15974,6 +16324,411 @@
         // Init labels after DOM ready
         window.addEventListener('DOMContentLoaded', () => {
             if (typeof lang !== 'undefined') window._updatePWALang(lang === 'AR');
+        });
+    })();
+    </script>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         🔥 DAILY STREAK — Frontend (styles + UI)                 [ADDITIVE BLOCK]
+         بلوك مُضاف فقط: لا يعدّل أي دالة/تصميم موجود — بيلفّ renderDashboard و renderAccount
+         ودوال الأنشطة (فيديو/مرجع/Dataset) عشان يضيف الكارت والتبويب ويسجّل النشاط.
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <style id="atlasyaStreakCSS">
+        .atl-st-card {
+            position: relative; overflow: hidden; margin: 18px 0; padding: 20px 22px;
+            border-radius: 18px; border: 1px solid var(--border); color: var(--text);
+            background: linear-gradient(135deg, rgba(240,192,64,0.16), rgba(39,163,70,0.08));
+        }
+        .atl-st-card::after {
+            content: '🔥'; position: absolute; inset-inline-end: -8px; top: -14px; font-size: 92px;
+            opacity: 0.07; pointer-events: none; transform: rotate(-12deg);
+        }
+        .atl-st-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .atl-st-title { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 800; letter-spacing: .4px; color: var(--gold3); text-transform: uppercase; }
+        .atl-st-link {
+            background: transparent; border: 1px solid var(--border); color: var(--text); cursor: pointer;
+            padding: 7px 14px; border-radius: 10px; font-size: 12px; font-weight: 700; font-family: inherit; transition: .2s;
+        }
+        .atl-st-link:hover { border-color: var(--gold3); color: var(--gold3); }
+        .atl-st-main { display: flex; align-items: center; gap: 16px; margin: 14px 0 16px; }
+        .atl-st-flame {
+            width: 62px; height: 62px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 30px; background: radial-gradient(circle at 50% 60%, rgba(255,138,31,0.30), rgba(255,138,31,0.06) 70%);
+            border: 1px solid rgba(255,138,31,0.35);
+        }
+        .atl-st-flame.off { filter: grayscale(1); opacity: .55; }
+        .atl-st-flame.on { animation: atlStFlicker 2.6s ease-in-out infinite; }
+        .atl-st-num { font-family: 'Space Mono', monospace; font-size: 34px; font-weight: 800; line-height: 1; color: var(--text); }
+        .atl-st-msg { font-size: 16px; font-weight: 800; line-height: 1.4; }
+        .atl-st-sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.6; }
+
+        .atl-st-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; max-width: 460px; }
+        .atl-st-day { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .atl-st-dl { font-size: 11px; font-weight: 700; color: var(--muted); }
+        .atl-st-dot {
+            width: 38px; height: 38px; max-width: 100%; aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 15px; border: 1.5px dashed var(--border); color: var(--muted); background: rgba(128,128,128,0.06); transition: .25s;
+        }
+        .atl-st-day.done .atl-st-dot { background: linear-gradient(135deg, var(--green3), var(--green4)); border: 1.5px solid var(--green4); color: #fff; }
+        .atl-st-day.today .atl-st-dot { border: 2px solid var(--gold3); border-style: solid; }
+        .atl-st-day.today.done .atl-st-dot { background: linear-gradient(135deg, #ff8a1f, var(--gold3)); border-color: var(--gold4); color: #fff; box-shadow: 0 0 0 4px rgba(240,192,64,0.14); }
+        .atl-st-day.today:not(.done) .atl-st-dot { color: var(--gold3); animation: atlStPulse 2.4s ease-in-out infinite; }
+        .atl-st-day.just .atl-st-dot { animation: atlStCell .7s cubic-bezier(.2,1.4,.4,1); }
+        .atl-st-day.future .atl-st-dot { opacity: .45; }
+        .atl-st-day.today .atl-st-dl { color: var(--gold3); }
+
+        .atl-st-prog { margin-top: 16px; max-width: 460px; }
+        .atl-st-prog-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+        .atl-st-bar { height: 8px; border-radius: 99px; background: rgba(128,128,128,0.18); overflow: hidden; }
+        .atl-st-bar > i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--gold3), #ff8a1f); transition: width .7s ease; }
+
+        /* My Streak page */
+        .atl-st-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .atl-st-stat { border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: var(--card); text-align: center; }
+        .atl-st-stat i { font-size: 18px; color: var(--gold3); margin-bottom: 8px; }
+        .atl-st-stat b { display: block; font-family: 'Space Mono', monospace; font-size: 28px; color: var(--text); line-height: 1.2; }
+        .atl-st-stat span { font-size: 12px; color: var(--muted); font-weight: 700; }
+        .atl-st-panel { border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; background: var(--card); margin-bottom: 16px; }
+        .atl-st-panel h3 { font-size: 14px; font-weight: 800; margin: 0 0 14px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .atl-st-ms { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 10px; background: rgba(128,128,128,0.04); }
+        .atl-st-ms:last-child { margin-bottom: 0; }
+        .atl-st-ms-ic { width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(128,128,128,0.12); color: var(--muted); font-size: 16px; }
+        .atl-st-ms.done { border-color: rgba(39,163,70,0.45); background: rgba(39,163,70,0.07); }
+        .atl-st-ms.done .atl-st-ms-ic { background: linear-gradient(135deg, var(--green3), var(--green4)); color: #fff; }
+        .atl-st-ms.next { border-color: var(--gold3); background: rgba(240,192,64,0.07); }
+        .atl-st-ms.next .atl-st-ms-ic { background: rgba(240,192,64,0.2); color: var(--gold3); }
+        .atl-st-ms-t { flex: 1; min-width: 0; }
+        .atl-st-ms-t b { display: block; font-size: 14px; color: var(--text); }
+        .atl-st-ms-t small { font-size: 12px; color: var(--muted); }
+        .atl-st-ms-r { font-size: 12px; font-weight: 800; color: var(--gold3); white-space: nowrap; }
+        .atl-st-note { margin-top: 12px; padding: 11px 14px; border-radius: 10px; font-size: 12.5px; line-height: 1.7; color: var(--muted); background: rgba(240,192,64,0.08); border: 1px solid rgba(240,192,64,0.25); }
+        .atl-st-badges { display: flex; flex-wrap: wrap; gap: 12px; }
+        .atl-st-badge { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--border); min-width: 220px; }
+        .atl-st-badge.earned { border-color: var(--gold3); background: linear-gradient(135deg, rgba(240,192,64,0.16), rgba(255,138,31,0.08)); }
+        .atl-st-badge.locked { opacity: .55; filter: grayscale(.8); }
+        .atl-st-badge-ic { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; background: rgba(128,128,128,0.15); flex-shrink: 0; }
+        .atl-st-badge.earned .atl-st-badge-ic { background: linear-gradient(135deg, #ff8a1f, var(--gold3)); color: #fff; }
+        .atl-st-badge b { display: block; font-size: 13.5px; color: var(--text); }
+        .atl-st-badge small { font-size: 11.5px; color: var(--muted); }
+        .atl-st-how { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 13px; color: var(--muted); }
+        .atl-st-how li { display: flex; align-items: center; gap: 10px; }
+        .atl-st-how i { color: var(--green4); width: 18px; text-align: center; }
+
+        /* Notifications */
+        .atl-st-pop {
+            position: fixed; z-index: 99990; top: 76px; inset-inline: 0; margin-inline: auto; width: max-content; max-width: calc(100vw - 32px);
+            display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: 99px; font-size: 14px; font-weight: 800;
+            background: var(--card); color: var(--text); border: 1px solid var(--gold3); box-shadow: 0 8px 28px rgba(0,0,0,.28);
+            animation: atlStPopIn .45s cubic-bezier(.2,1.3,.4,1) both; pointer-events: none;
+        }
+        .atl-st-pop.out { animation: atlStPopOut .35s ease forwards; }
+        .atl-st-pop .f { font-size: 20px; }
+        .atl-st-modal { position: fixed; inset: 0; z-index: 99995; background: rgba(0,0,0,.66); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 16px; animation: atlStFade .25s ease both; }
+        .atl-st-mbox { width: 100%; max-width: 400px; text-align: center; border-radius: 20px; padding: 28px 22px 22px; background: var(--card); border: 1px solid var(--gold3); color: var(--text); animation: atlStScale .45s cubic-bezier(.2,1.3,.4,1) both; }
+        .atl-st-mflame { font-size: 58px; line-height: 1; margin-bottom: 10px; animation: atlStFlicker 2.4s ease-in-out infinite; }
+        .atl-st-mbox h3 { font-size: 18px; font-weight: 800; margin: 0 0 12px; line-height: 1.5; }
+        .atl-st-mline { font-size: 14.5px; font-weight: 700; margin: 6px 0; line-height: 1.6; }
+        .atl-st-mline.dim { font-weight: 500; font-size: 12.5px; color: var(--muted); }
+        .atl-st-mbtn { margin-top: 18px; width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 800; font-size: 14px; font-family: inherit; color: #1a1d23; background: linear-gradient(135deg, var(--gold3), var(--gold4)); }
+
+        @keyframes atlStFlicker { 0%,100% { transform: scale(1) rotate(0); } 45% { transform: scale(1.07) rotate(-3deg); } 70% { transform: scale(1.03) rotate(2deg); } }
+        @keyframes atlStPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(240,192,64,.4); } 60% { box-shadow: 0 0 0 7px rgba(240,192,64,0); } }
+        @keyframes atlStCell { 0% { transform: scale(.5); } 100% { transform: scale(1); } }
+        @keyframes atlStPopIn { from { opacity: 0; transform: translateY(-14px) scale(.92); } to { opacity: 1; transform: none; } }
+        @keyframes atlStPopOut { to { opacity: 0; transform: translateY(-10px); } }
+        @keyframes atlStFade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes atlStScale { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: reduce) {
+            .atl-st-flame.on, .atl-st-mflame, .atl-st-day.today:not(.done) .atl-st-dot, .atl-st-day.just .atl-st-dot,
+            .atl-st-pop, .atl-st-modal, .atl-st-mbox { animation: none !important; }
+            .atl-st-bar > i { transition: none; }
+        }
+        @media (max-width: 520px) {
+            .atl-st-card { padding: 16px; }
+            .atl-st-main { gap: 12px; }
+            .atl-st-flame { width: 52px; height: 52px; font-size: 25px; }
+            .atl-st-num { font-size: 28px; }
+            .atl-st-msg { font-size: 14.5px; }
+            .atl-st-dot { width: 32px; height: 32px; font-size: 13px; }
+            .atl-st-week { gap: 3px; }
+            .atl-st-badge { min-width: 100%; }
+        }
+    </style>
+
+    <script>
+    (function () {
+        'use strict';
+        if (window.__atlasyaStreakUI) return;
+        window.__atlasyaStreakUI = true;
+
+        const AR = () => (typeof lang !== 'undefined' && lang === 'AR');
+        const T = (ar, en) => AR() ? ar : en;
+        const getView = () => (typeof window._streakGetView === 'function') ? window._streakGetView() : null;
+        const DAYS_AR = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
+        const DAYS_EN = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        const isStudent = () => !window._isAdmin;
+        let _justCells = false;   // بيفعّل أنيميشن الخلية مرة واحدة بعد تسجيل يوم جديد
+
+        function daysWord(n) {
+            if (AR()) return window._streakCore ? window._streakCore.arDaysWord(n) : (n + ' يوم');
+            return n + (n === 1 ? ' day' : ' days');
+        }
+        function nextMilestone(v) {
+            return v.milestones.find(m => !m.claimed && m.days > v.currentStreak) || null;
+        }
+
+        /* ───────── مكوّنات العرض ───────── */
+        function weekRow(v) {
+            const names = AR() ? DAYS_AR : DAYS_EN;
+            return `<div class="atl-st-week">${v.week.map((c, i) => {
+                const cls = ['atl-st-day', c.status, c.isToday ? 'today' : '', (c.isToday && c.status === 'done' && _justCells) ? 'just' : ''].join(' ');
+                let dot = '';
+                if (c.isToday) dot = c.status === 'done' ? '🔥' : '<i class="fa-solid fa-fire"></i>';
+                else if (c.status === 'done') dot = '<i class="fa-solid fa-check"></i>';
+                return `<div class="${cls}"><span class="atl-st-dl">${names[i]}</span><span class="atl-st-dot">${dot}</span></div>`;
+            }).join('')}</div>`;
+        }
+
+        function progressBlock(v) {
+            const nm = nextMilestone(v);
+            if (!nm) return '';
+            const pct = Math.max(4, Math.min(100, Math.round((v.currentStreak / nm.days) * 100)));
+            const left = nm.days - v.currentStreak;
+            return `<div class="atl-st-prog">
+                <div class="atl-st-prog-top">
+                    <span>${T(`باقي ${daysWord(left)} للمكافأة التالية`, `${daysWord(left)} left to the next reward`)}</span>
+                    <span>🎁 +${nm.coins} ${T('عملة', 'coins')}${nm.badge ? ' + 🏅' : ''}</span>
+                </div>
+                <div class="atl-st-bar"><i style="width:${pct}%"></i></div>
+            </div>`;
+        }
+
+        function messageFor(v) {
+            const n = v.currentStreak;
+            const msg = n > 0
+                ? T(`أنت مستمر منذ ${daysWord(n)}!`, `You've been on a streak for ${daysWord(n)}!`)
+                : T('ابدأ سلسلتك اليوم!', 'Start your streak today!');
+            const sub = v.doneToday
+                ? T('✓ تم تسجيل نشاط اليوم — نراك غدًا!', "✓ Today's activity is logged — see you tomorrow!")
+                : T('سجّل نشاطًا حقيقيًا اليوم: حل التحدي، شاهد فيديو، أو افتح مرجعًا أو Dataset.',
+                    'Do a real activity today: solve the challenge, watch a video, or open a reference or dataset.');
+            return { msg, sub };
+        }
+
+        function dashCardHTML() {
+            const v = getView();
+            if (!v || v.status === 'off' || v.status === 'error') return '';
+            if (!v.ready) {
+                return `<div class="atl-st-card" id="atlStreakCard"><div class="atl-st-head"><div class="atl-st-title"><i class="fa-solid fa-fire"></i> Daily Streak</div></div>
+                    <div class="atl-st-sub" style="margin-top:12px;"><i class="fa-solid fa-spinner fa-spin"></i></div></div>`;
+            }
+            const { msg, sub } = messageFor(v);
+            return `<div class="atl-st-card" id="atlStreakCard">
+                <div class="atl-st-head">
+                    <div class="atl-st-title"><i class="fa-solid fa-fire"></i> 🔥 Daily Streak</div>
+                    <button class="atl-st-link" onclick="goSettings('streak')">🔥 My Streak <i class="fa-solid fa-${AR() ? 'angle-left' : 'angle-right'}"></i></button>
+                </div>
+                <div class="atl-st-main">
+                    <div class="atl-st-flame ${v.doneToday ? 'on' : 'off'}">🔥</div>
+                    <div>
+                        <div class="atl-st-msg">${msg}</div>
+                        <div class="atl-st-sub">${sub}</div>
+                    </div>
+                </div>
+                ${weekRow(v)}
+                ${progressBlock(v)}
+            </div>`;
+        }
+
+        function injectDashCard(area) {
+            if (!area || !isStudent()) return;
+            const html = dashCardHTML();
+            const existing = area.querySelector('#atlStreakCard');
+            if (existing) { if (html) existing.outerHTML = html; else existing.remove(); return; }
+            if (!html) return;
+            const anchor = area.querySelector('.welcome-banner');
+            if (anchor) anchor.insertAdjacentHTML('afterend', html);
+        }
+
+        function streakPageHTML() {
+            const v = getView();
+            const back = `<button class="settings-back-btn" onclick="goSettings('hub')"><i class="fa-solid fa-${AR() ? 'arrow-right' : 'arrow-left'}"></i> ${T('العودة للإعدادات', 'Back to Settings')}</button>`;
+            const head = `<div class="page-header"><h2>🔥 My Streak</h2><p>${T('تابع التزامك اليومي ومكافآتك', 'Track your daily consistency and rewards')}</p></div>${back}`;
+            if (!v || !v.ready) {
+                const failed = v && (v.status === 'error');
+                return head + `<div class="atl-st-panel" style="text-align:center;color:var(--muted);">${failed
+                    ? T('تعذّر تحميل بيانات الـ Streak حاليًا. تأكد من الاتصال ثم أعد المحاولة.', 'Could not load your streak right now. Check your connection and try again.')
+                    : '<i class="fa-solid fa-spinner fa-spin"></i>'}</div>`;
+            }
+            const { msg, sub } = messageFor(v);
+            const stats = `<div class="atl-st-stats">
+                <div class="atl-st-stat"><i class="fa-solid fa-fire"></i><b>${v.currentStreak}</b><span>Current Streak</span></div>
+                <div class="atl-st-stat"><i class="fa-solid fa-trophy"></i><b>${v.longestStreak}</b><span>Longest Streak</span></div>
+                <div class="atl-st-stat"><i class="fa-solid fa-calendar-check"></i><b>${v.totalActiveDays}</b><span>Total Active Days</span></div>
+            </div>`;
+            const week = `<div class="atl-st-panel"><h3>${msg}</h3>${weekRow(v)}<div class="atl-st-sub" style="margin-top:12px;">${sub}</div>${progressBlock(v)}</div>`;
+
+            const nm = nextMilestone(v);
+            const ms = v.milestones.map(m => {
+                const state = m.claimed ? 'done' : (nm && nm.days === m.days ? 'next' : '');
+                const icon = m.claimed ? 'fa-check' : (state === 'next' ? 'fa-fire' : 'fa-lock');
+                const right = m.claimed
+                    ? (m.pending > 0 ? `⏳ ${m.pending} ${T('مؤجلة', 'pending')}` : `✓ ${T('تم الاستلام', 'Claimed')}`)
+                    : `🎁 +${m.coins} ${T('عملة', 'coins')}`;
+                return `<div class="atl-st-ms ${state}"><div class="atl-st-ms-ic"><i class="fa-solid ${icon}"></i></div>
+                    <div class="atl-st-ms-t"><b>${daysWord(m.days)} ${T('متتالية', 'in a row')}</b>
+                    <small>+${m.coins} ${T('عملة', 'coins')}${m.badge ? T(' + Badge مميز', ' + special Badge') : ''}</small></div>
+                    <div class="atl-st-ms-r">${right}</div></div>`;
+            }).join('');
+            const pendingNote = v.pendingTotal > 0
+                ? `<div class="atl-st-note">⏳ ${T(`لديك ${v.pendingTotal} عملة في المكافآت المؤجلة بسبب الحد اليومي للعملات — ستُضاف تلقائيًا في اليوم التالي.`,
+                    `You have ${v.pendingTotal} coins in pending rewards because of the daily coin limit — they'll be added automatically the next day.`)}</div>` : '';
+            const milestones = `<div class="atl-st-panel"><h3><i class="fa-solid fa-gift" style="color:var(--gold3);"></i> Milestones</h3>${ms}
+                <div class="atl-st-note" style="margin-top:12px;">${T('كل مكافأة تُمنح مرة واحدة فقط لكل Milestone.', 'Each milestone reward is granted only once.')}</div>${pendingNote}</div>`;
+
+            const earned = v.badges.some(b => b.id === 'streak_30');
+            const badges = `<div class="atl-st-panel"><h3><i class="fa-solid fa-medal" style="color:var(--gold3);"></i> Badges</h3>
+                <div class="atl-st-badges"><div class="atl-st-badge ${earned ? 'earned' : 'locked'}">
+                    <div class="atl-st-badge-ic">${earned ? '🏅' : '<i class="fa-solid fa-lock" style="font-size:17px;"></i>'}</div>
+                    <div><b>${T('وسام الالتزام — 30 يومًا', 'Consistency Badge — 30 days')}</b>
+                    <small>${earned ? T('تم الحصول عليه', 'Earned') : T('حافظ على Streak لمدة 30 يومًا متتاليًا', 'Keep a 30-day streak to unlock it')}</small></div></div></div></div>`;
+
+            const how = `<div class="atl-st-panel"><h3><i class="fa-solid fa-circle-info" style="color:var(--gold3);"></i> ${T('كيف يُحتسب اليوم؟', 'What counts as an active day?')}</h3>
+                <ul class="atl-st-how">
+                    <li><i class="fa-solid fa-calendar-check"></i>${T('حل التحدي اليومي', 'Solve the daily challenge')}</li>
+                    <li><i class="fa-solid fa-circle-play"></i>${T('مشاهدة محتوى تعليمي', 'Watch educational content')}</li>
+                    <li><i class="fa-solid fa-book-open"></i>${T('فتح مرجع أو Dataset', 'Open a reference or dataset')}</li>
+                </ul>
+                <div class="atl-st-note">${T('يُحتسب اليوم مرة واحدة فقط بتوقيت القاهرة. إذا مر يوم كامل بدون نشاط يبدأ الـ Streak من جديد.',
+                    'A day counts once, in Cairo time. If a full day passes without activity, your streak starts over.')}</div></div>`;
+            return head + stats + week + milestones + badges + how;
+        }
+
+        function renderStreakPage(area) {
+            area.innerHTML = streakPageHTML();
+        }
+
+        /* ───────── إضافة عنصر في قائمة الإعدادات (Profile hub) ───────── */
+        function injectHubItem(area) {
+            const first = area && area.querySelector('.settings-hub-item');
+            if (!first || area.querySelector('#atlStreakHubItem')) return;
+            const v = getView();
+            const desc = (v && v.ready)
+                ? T(`Streak الحالي: ${v.currentStreak} — الأطول: ${v.longestStreak} — إجمالي الأيام: ${v.totalActiveDays}`,
+                    `Current: ${v.currentStreak} — Longest: ${v.longestStreak} — Active days: ${v.totalActiveDays}`)
+                : T('تابع التزامك اليومي ومكافآتك', 'Track your daily consistency and rewards');
+            first.insertAdjacentHTML('beforebegin', `<div class="settings-hub-item" id="atlStreakHubItem" onclick="goSettings('streak')">
+                <div class="settings-hub-icon"><i class="fa-solid fa-fire" style="color:#ff8a1f;"></i></div>
+                <div class="settings-hub-text"><div class="settings-hub-title">🔥 My Streak</div><div class="settings-hub-desc">${desc}</div></div>
+                <i class="fa-solid fa-${AR() ? 'angle-left' : 'angle-right'} settings-hub-arrow"></i></div>`);
+        }
+
+        /* ───────── لفّ الدوال الموجودة (من غير تعديل جسمها) ───────── */
+        if (typeof window.renderDashboard === 'function') {
+            const _orig = window.renderDashboard;
+            window.renderDashboard = async function (area) {
+                const r = await _orig.apply(this, arguments);
+                try { injectDashCard(area || document.getElementById('contentArea')); } catch (e) { console.warn('[streak] dash card', e); }
+                return r;
+            };
+        }
+        if (typeof window.renderAccount === 'function') {
+            const _orig = window.renderAccount;
+            window.renderAccount = function (area) {
+                area = area || document.getElementById('contentArea');
+                if (isStudent() && window._accountTab === 'streak') { renderStreakPage(area); return; }
+                const r = _orig.apply(this, arguments);
+                try { if (isStudent() && (window._accountTab || 'hub') === 'hub') injectHubItem(area); } catch (e) { console.warn('[streak] hub item', e); }
+                return r;
+            };
+        }
+
+        /* ───────── ربط الأنشطة الحقيقية (مشاهدة محتوى / مرجع / Dataset) ───────── */
+        function record(type) {
+            try { const p = window._streakRecordActivity && window._streakRecordActivity(type); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+        }
+        function hook(name, type, guard) {
+            const orig = window[name];
+            if (typeof orig !== 'function') return;
+            window[name] = function () {
+                const r = orig.apply(this, arguments);
+                try { if (!guard || guard.apply(this, arguments)) record(type); } catch (e) {}
+                return r;
+            };
+        }
+        hook('plGoDetail', 'content');          // فتح قائمة تشغيل
+        hook('plPlayVideo', 'content');         // تشغيل فيديو
+        hook('libGoDetail', 'reference');       // فتح مرجع/كتاب
+        hook('libPreviewBook', 'reference');    // معاينة مرجع
+        hook('libDownloadBook', 'reference');   // تحميل مرجع
+        hook('dsOpenProject', 'dataset');       // فتح مشروع بيانات
+        hook('dsOpenDataset', 'dataset');       // فتح Dataset
+        hook('insOpenStage', 'content', function (stage) {   // صندوق رؤى GIS — فقط لو مفتوح فعلًا (مش مقفول)
+            return typeof insUnlockedStage !== 'function' || stage <= insUnlockedStage();
+        });
+
+        /* ───────── الإشعارات والأنيميشن ───────── */
+        function showDayPop(streak) {
+            document.querySelectorAll('.atl-st-pop').forEach(n => n.remove());
+            const el = document.createElement('div');
+            el.className = 'atl-st-pop';
+            el.innerHTML = `<span class="f">🔥</span><span>${T(`يوم جديد! Streak: ${streak}`, `New day logged! Streak: ${streak}`)}</span>`;
+            document.body.appendChild(el);
+            setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 380); }, 2600);
+        }
+
+        function showMilestoneModal(list) {
+            const m = list[list.length - 1];
+            const lines = [];
+            list.forEach(x => {
+                if (x.granted > 0) lines.push(`<div class="atl-st-mline">🎁 ${T(`حصلت على ${x.granted} عملة!`, `You earned ${x.granted} coins!`)}</div>`);
+                if (x.left > 0) lines.push(`<div class="atl-st-mline dim">⏳ ${x.granted > 0
+                    ? T(`وصلت للحد اليومي للعملات — الباقي ${x.left} عملة سيُضاف تلقائيًا غدًا.`, `Daily coin limit reached — the remaining ${x.left} coins will be added tomorrow.`)
+                    : T(`وصلت للحد اليومي للعملات — تم حفظ ${x.left} عملة وستُضاف تلقائيًا غدًا.`, `Daily coin limit reached — ${x.left} coins are saved and will be added tomorrow.`)}</div>`);
+                if (x.badge) lines.push(`<div class="atl-st-mline">🏅 ${T('حصلت على Badge مميز: وسام الالتزام!', 'You unlocked a special Badge: Consistency!')}</div>`);
+            });
+            const wrap = document.createElement('div');
+            wrap.className = 'atl-st-modal';
+            wrap.innerHTML = `<div class="atl-st-mbox" onclick="event.stopPropagation()">
+                <div class="atl-st-mflame">🔥</div>
+                <h3>${T(`🔥 رائع! وصلت إلى ${daysWord(m.days)} متتالية!`, `🔥 Awesome! You reached a ${m.days}-day streak!`)}</h3>
+                ${lines.join('')}
+                <button class="atl-st-mbtn">${T('تمام', 'Great')}</button></div>`;
+            const close = () => wrap.remove();
+            wrap.addEventListener('click', close);
+            wrap.querySelector('.atl-st-mbtn').addEventListener('click', close);
+            document.body.appendChild(wrap);
+        }
+
+        function refreshViews() {
+            if (!isStudent()) return;
+            const area = document.getElementById('contentArea');
+            if (!area) return;
+            if ((window._currentPage === 'dashboard' || !window._currentPage) && area.querySelector('.welcome-banner')) injectDashCard(area);
+            else if (window._currentPage === 'account') {
+                if (window._accountTab === 'streak') renderStreakPage(area);
+                else if (area.querySelector('#atlStreakHubItem')) { area.querySelector('#atlStreakHubItem').remove(); injectHubItem(area); }
+            }
+        }
+
+        window.addEventListener('atlasya:streak', function (e) {
+            const d = e.detail || {};
+            try {
+                if (d.kind === 'day') {
+                    _justCells = true;
+                    refreshViews();
+                    _justCells = false;
+                    if (d.milestones && d.milestones.length) showMilestoneModal(d.milestones);
+                    else showDayPop(d.streak);
+                } else {
+                    refreshViews();
+                }
+                if (d.payouts && d.payouts.length && d.totalGranted > 0 && typeof showToast === 'function') {
+                    showToast(T(`🎁 تم صرف ${d.totalGranted} عملة من مكافآت الـ Streak المؤجلة`, `🎁 ${d.totalGranted} coins from your pending Streak rewards were added`));
+                }
+                // تحديث المحفظة لو مفتوحة وتم صرف عملات
+                if (d.totalGranted > 0 && window._currentPage === 'account' && window._accountTab === 'wallet' && typeof renderWalletRoot === 'function') renderWalletRoot();
+            } catch (err) { console.warn('[streak] ui', err); }
         });
     })();
     </script>
