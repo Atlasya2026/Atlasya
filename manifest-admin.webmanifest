@@ -1,0 +1,21 @@
+{
+  "id": "/admin",
+  "name": "ATLASYA — Admin Panel",
+  "short_name": "ATLASYA Admin",
+  "description": "لوحة تحكم منصة ATLASYA",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./admin.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#161920",
+  "theme_color": "#161920",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "icons/admin-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/admin-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/admin-icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/admin-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
