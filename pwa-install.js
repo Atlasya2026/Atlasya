@@ -31,6 +31,50 @@
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; }
   function isAR() { return typeof lang === 'undefined' ? true : lang === 'AR'; }
 
+  /* ───────── Telegram admin notifications (عن طريق window._notifyAdminsBot الموجودة في الموقع) ───────── */
+  var K_NOTIFIED = 'atl_pwa_install_notified';
+  var pendingInstall = false;
+
+  function studentName() {
+    var d = window._userData || {};
+    return ((d.firstName || '') + ' ' + (d.lastName || '')).trim() || d.email || 'طالب';
+  }
+  function deviceInfo() {
+    var platform = 'laptop';
+    if (isIOS) platform = /ipad/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'tablet' : 'phone';
+    else if (isAndroid) platform = /mobile/i.test(ua) ? 'phone' : 'tablet';
+    var os = isIOS ? 'iOS' : isAndroid ? 'Android' : /windows/i.test(ua) ? 'Windows' : /mac os/i.test(ua) ? 'macOS' : /cros/i.test(ua) ? 'ChromeOS' : /linux/i.test(ua) ? 'Linux' : '-';
+    var browser = /edg\//i.test(ua) ? 'Edge' : /opr\/|opera/i.test(ua) ? 'Opera' : /samsungbrowser/i.test(ua) ? 'Samsung Internet'
+      : /firefox|fxios/i.test(ua) ? 'Firefox' : /crios|chrome/i.test(ua) ? 'Chrome' : /safari/i.test(ua) ? 'Safari' : '-';
+    return { platform: platform, os: os, browser: browser };
+  }
+  // بتتبعت مرة واحدة بس لكل جهاز، وبعد ما بيانات الطالب تكون جاهزة
+  function flushInstall() {
+    if (IS_ADMIN || store(K_NOTIFIED)) return;
+    if (!(pendingInstall || isStandalone)) return;          // standalone = الطالب فتح التطبيق المثبّت (بيغطي iPhone والتثبيت اليدوي)
+    if (!loggedIn() || !window._userData || typeof window._notifyAdminsBot !== 'function') return;
+    store(K_NOTIFIED, '1'); pendingInstall = false;
+    var di = deviceInfo();
+    window._notifyAdminsBot('app_install', { studentName: studentName(), platform: di.platform, os: di.os, browser: di.browser });
+  }
+
+  /* ───────── إشعار الاستريك: «الطالب فلان عمل استريك النهارده» ───────── */
+  window.addEventListener('atlasya:streak', function (e) {
+    var d = e.detail || {};
+    if (IS_ADMIN || d.kind !== 'day' || typeof window._notifyAdminsBot !== 'function') return;
+    var uid = (window._currentUid || window._userData && window._userData.uid || 'u');
+    var key = 'atl_streak_notified_' + uid, today = new Date().toISOString().slice(0, 10);
+    if (store(key) === today) return;                        // مرة واحدة في اليوم
+    store(key, today);
+    var ms = (d.milestones || [])[0];
+    window._notifyAdminsBot('streak_day', {
+      studentName: studentName(),
+      streak: Number(d.streak) || 1,
+      coinsAwarded: Number(d.totalGranted) || 0,
+      milestoneDays: ms ? Number(ms.days) : 0
+    });
+  });
+
   var deferredPrompt = null;
   var card = null, showTimer = null, stepsOpen = false;
 
@@ -164,7 +208,7 @@
       p.prompt();
       p.userChoice.then(function (c) {
         if (c.outcome === 'accepted') {
-          store(K_DONE, '1'); hide();
+          store(K_DONE, '1'); hide(); pendingInstall = true; flushInstall();
           if (typeof showToast === 'function') showToast(T().done);
         } else { dismiss(); }
       });
@@ -193,6 +237,7 @@
     return true;
   }
   function check() {
+    flushInstall();
     if (!loggedIn()) { clearTimeout(showTimer); showTimer = null; hide(); return; }
     if (!allowed() || (card && card.classList.contains('show')) || showTimer) return;
     showTimer = setTimeout(function () {       // استنى ثانيتين بعد الدخول عشان الواجهة تفتح الأول
@@ -205,7 +250,7 @@
     e.preventDefault(); deferredPrompt = e; render(); check();
   });
   window.addEventListener('appinstalled', function () {
-    deferredPrompt = null; store(K_DONE, '1'); hide();
+    deferredPrompt = null; store(K_DONE, '1'); hide(); pendingInstall = true; flushInstall();
   });
 
   function init() {
