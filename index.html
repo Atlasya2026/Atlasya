@@ -4493,6 +4493,20 @@
             }
         };
 
+        // تنبيهات الأدمن الشخصية للطالب (بتتحمّل من هنا لأن query/getDocs مش متاحين برّه الـ module)
+        window._loadMyAdminAlerts = async () => {
+            if (!currentUid) return [];
+            const snap = await getDocs(query(collection(db, 'admin_alerts'), where('toUid', '==', currentUid), limit(10)));
+            const alerts = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => (b.createdAt?.toMillis ? b.createdAt.toMillis() : 0) - (a.createdAt?.toMillis ? a.createdAt.toMillis() : 0));
+            snap.docs.forEach(async d => {
+                if (!d.data().read) {
+                    try { await updateDoc(doc(db, 'admin_alerts', d.id), { read: true }); } catch (e) {}
+                }
+            });
+            return alerts;
+        };
+
         window._loadMentorshipSlots = async () => {
             const q = query(collection(db, 'mentorship_slots'), orderBy('createdAt', 'asc'));
             const snap = await getDocs(q);
@@ -9531,15 +9545,29 @@
                 if (errEl) errEl.textContent = isAR?'من فضلك املأ اسم ووصف الكورس على الأقل':'Please fill at least the title and description';
                 return;
             }
+            // Firestore بيرفض أي قيمة undefined أو NaN — ننضّف البيانات قبل الإرسال
+            Object.keys(data).forEach(k => {
+                if (data[k] === undefined || data[k] === null) data[k] = '';
+                if (typeof data[k] === 'number' && !Number.isFinite(data[k])) data[k] = 0;
+            });
+            let _saved = false;
             try {
                 if (_companyEditingId) await window._companyUpdateCourse(_companyEditingId, data);
                 else await window._companySubmitCourse(data);
+                _saved = true;
                 showToast(isAR?'تم إرسال الكورس للمراجعة':'Course submitted for review');
                 _companyEditingId = null;
                 _companyView = 'dashboard';
                 renderCompanyPortal();
             } catch(e) {
-                if (errEl) errEl.textContent = isAR?'حدث خطأ أثناء الإرسال':'An error occurred while submitting';
+                console.error('company course submit failed (saved=' + _saved + '):', e);
+                const code = String((e && (e.code || e.message)) || '').slice(0, 140);
+                let hint = '';
+                if (/permission-denied|insufficient/i.test(code)) hint = isAR ? ' — الحساب مش مسموح له بإضافة كورس (راجع قواعد Firestore)' : ' — this account is not allowed to add courses (check Firestore rules)';
+                else if (/unauthenticated|Not logged in/i.test(code)) hint = isAR ? ' — سجّل خروج وادخل تاني بحساب الشركة' : ' — please log out and log in again';
+                if (errEl) errEl.textContent = (_saved
+                    ? (isAR ? 'تم الحفظ لكن حصل خطأ في عرض الصفحة، حدّث الصفحة' : 'Saved, but the page failed to refresh — please reload')
+                    : (isAR ? 'حدث خطأ أثناء الإرسال' : 'An error occurred while submitting')) + (code ? ` (${code})` : '') + hint;
             }
         };
 
@@ -15908,25 +15936,7 @@
                 let personalAlerts = [];
                 if (window._currentUid) {
                     try {
-                        const alertsQ = query(
-                            collection(db, 'admin_alerts'),
-                            where('toUid', '==', window._currentUid),
-                            limit(10)
-                        );
-                        const alertSnap = await getDocs(alertsQ);
-                        personalAlerts = alertSnap.docs
-                            .map(d => ({ id: d.id, ...d.data() }))
-                            .sort((a, b) => {
-                                const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-                                const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-                                return tb - ta;
-                            });
-                        // Mark them all read after loading
-                        alertSnap.docs.forEach(async d => {
-                            if (!d.data().read) {
-                                try { await updateDoc(doc(db, 'admin_alerts', d.id), { read: true }); } catch(e) {}
-                            }
-                        });
+                        personalAlerts = await window._loadMyAdminAlerts();
                     } catch(e) { console.warn('admin_alerts load error:', e?.message); }
                 }
 
