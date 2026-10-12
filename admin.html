@@ -8410,7 +8410,7 @@
         area = area || document.getElementById('contentArea');
         const isAR = lang === 'AR';
         window._memberFilter = window._memberFilter || 'all';
-        window._memberSortAZ = window._memberSortAZ || false;
+        window._memberSort = window._memberSort || 'newest'; // newest | oldest | az
         area.innerHTML = `
         <div class="page-header">
             <h2>${isAR ? 'قائمة الأعضاء' : 'Members List'}</h2>
@@ -8433,9 +8433,11 @@
                 <option value="basic" ${window._memberFilter==='basic'?'selected':''}>${isAR?'Basic فقط':'Basic only'}</option>
                 <option value="pro" ${window._memberFilter==='pro'?'selected':''}>${isAR?'Pro فقط':'Pro only'}</option>
             </select>
-            <button onclick="adminToggleMemberSort()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:${window._memberSortAZ?'rgba(212,160,23,0.18)':'rgba(255,255,255,0.04)'};border:1px solid ${window._memberSortAZ?'rgba(212,160,23,0.4)':'var(--border)'};border-radius:10px;color:${window._memberSortAZ?'var(--gold3)':'var(--muted)'};font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;">
-                <i class="fa-solid fa-arrow-down-a-z"></i> ${isAR?'ترتيب أبجدي':'Sort A-Z'}
-            </button>
+            <select id="memberSortSelect" onchange="adminSetMemberSort(this.value)" style="padding:7px 12px;border-radius:9px;border:1px solid rgba(212,160,23,0.4);background:var(--bg2);color:var(--gold3);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+                <option value="newest" ${window._memberSort==='newest'?'selected':''}>${isAR?'ترتيب: الأحدث انضماماً':'Sort: Newest joined'}</option>
+                <option value="oldest" ${window._memberSort==='oldest'?'selected':''}>${isAR?'ترتيب: الأقدم انضماماً':'Sort: Oldest joined'}</option>
+                <option value="az" ${window._memberSort==='az'?'selected':''}>${isAR?'ترتيب: أبجدي':'Sort: A-Z'}</option>
+            </select>
             <button onclick="adminLoadMembers()" style="margin-right:auto;display:flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:10px;color:var(--gold3);font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;" onmouseover="this.style.background='rgba(212,160,23,0.22)'" onmouseout="this.style.background='rgba(212,160,23,0.1)'">
                 <i class="fa-solid fa-rotate"></i> ${isAR ? 'تحديث' : 'Refresh'}
             </button>
@@ -8458,9 +8460,18 @@
         clearTimeout(window._memberSearchDebounce);
         window._memberSearchDebounce = setTimeout(() => adminLoadMembers(), 200);
     };
-    window.adminToggleMemberSort = function() {
-        window._memberSortAZ = !window._memberSortAZ;
-        renderAdminMembers();
+    window.adminSetMemberSort = function(val) {
+        window._memberSort = val;
+        adminLoadMembers();
+    };
+    // تاريخ انضمام العضو بالمللي ثانية (بيدعم Firestore Timestamp / رقم / نص) — 0 لو مفيش تاريخ
+    window._joinedMs = function(u) {
+        const j = u && u.joinedAt;
+        if (!j) return 0;
+        if (typeof j.toMillis === 'function') return j.toMillis();
+        if (typeof j.seconds === 'number') return j.seconds * 1000;
+        const t = typeof j === 'number' ? j : Date.parse(j);
+        return Number.isFinite(t) ? t : 0;
     };
 
     /* ─── ADMIN: REFERRALS / INVITE FRIENDS ─── */
@@ -12017,12 +12028,21 @@
                     return fullName.includes(searchTerm) || email.includes(searchTerm) || (searchPhone && phone.includes(searchPhone));
                 });
             }
-            if (window._memberSortAZ) {
-                visibleUsers.sort((a, b) => {
-                    const na = ((a.firstName||'') + ' ' + (a.lastName||'')).trim();
-                    const nb = ((b.firstName||'') + ' ' + (b.lastName||'')).trim();
-                    return na.localeCompare(nb, 'ar');
-                });
+            {
+                const mode = window._memberSort || 'newest';
+                const nameOf = (u) => ((u.firstName||'') + ' ' + (u.lastName||'')).trim();
+                if (mode === 'az') {
+                    visibleUsers.sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'ar'));
+                } else {
+                    const dir = mode === 'oldest' ? 1 : -1;
+                    visibleUsers.sort((a, b) => {
+                        const ta = window._joinedMs(a), tb = window._joinedMs(b);
+                        if (!ta && !tb) return nameOf(a).localeCompare(nameOf(b), 'ar');
+                        if (!ta) return 1;   // الأعضاء القدام اللي ملهمش تاريخ في الآخر دايماً
+                        if (!tb) return -1;
+                        return (ta - tb) * dir;
+                    });
+                }
             }
 
             if (memBadge) memBadge.textContent = visibleUsers.length;
@@ -12080,6 +12100,7 @@
                                     ${isSuspended?`<span style="background:rgba(220,50,50,0.18);color:#ff6b6b;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;"><i class="fa-solid fa-ban" style="font-size:8px;"></i> ${isAR?'موقوف':'Suspended'}</span>`:isPro?`<span style="background:var(--gold3);color:#000;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;"><i class="fa-solid fa-crown" style="font-size:8px;"></i> PRO</span>`:`<span style="background:rgba(30,122,52,0.2);color:var(--green4);font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;">BASIC</span>`}
                                 </div>
                                 <div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.email||'—'}</div>
+                                <div style="font-size:10.5px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:4px;opacity:.85;"><i class="fa-regular fa-calendar" style="font-size:10px;"></i> ${isAR?'انضم:':'Joined:'} ${window._joinedMs(u) ? new Date(window._joinedMs(u)).toLocaleDateString(isAR?'ar-EG':'en-GB',{day:'numeric',month:'short',year:'numeric'}) : (isAR?'غير محدد':'Unknown')}</div>
                                 ${proRemRowHtml}
                             </div>
                             <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;text-align:center;padding:5px 10px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;" title="${isAR?'رصيد العملات':'Coin balance'}">
