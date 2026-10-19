@@ -5384,6 +5384,14 @@
             d.setDate(d.getDate() - d.getDay());
             return d.toISOString().slice(0, 10);
         };
+        // مفتاح الإجابة في مستند منفصل (daily_challenge_keys/{id}) — الـ Rules بتسمح للطالب يقراه
+        // بس بعد ما يكون سجّل محاولته على السؤال ده.
+        window._getChallengeKey = async (questionId) => {
+            try {
+                const snap = await getDoc(doc(db, 'daily_challenge_keys', questionId));
+                return (snap.exists() && typeof snap.data().correctIndex === 'number') ? snap.data().correctIndex : null;
+            } catch (e) { return null; }
+        };
         window._getChallengeAttempt = async (questionId) => {
             if (!currentUid) return null;
             const snap = await getDoc(doc(db, 'daily_challenge_attempts', `${currentUid}_${questionId}`));
@@ -5410,32 +5418,37 @@
             const attemptRef = doc(db, 'daily_challenge_attempts', `${currentUid}_${question.id}`);
             if ((await getDoc(attemptRef)).exists()) { const err = new Error('Already answered'); err.code = 'already'; throw err; }
 
+            await window._dcSyncClock();
             let qData = question;
-            if (typeof qData.correctIndex !== 'number' || typeof qData.coins !== 'number') {
+            if (typeof qData.coins !== 'number' || !qData.type) {
                 const qSnap = await getDoc(doc(db, 'daily_challenges', question.id));
                 if (!qSnap.exists()) throw new Error('Question not found');
                 qData = { ...question, ...qSnap.data() };
             }
-            if (typeof qData.correctIndex !== 'number') throw new Error('Question has no answer key — open it in the admin panel and save it again');
-
             if (qData.type === 'weekly' && typeof window._dcCanAnswerWeekly === 'function' && !window._dcCanAnswerWeekly(question.id)) {
                 const err = new Error('Weekly chest is locked'); err.code = 'locked'; throw err;
             }
-            const correct = selectedIndex === qData.correctIndex;
-            const baseCoins = qData.type === 'weekly' ? (qData.coins || 70) : (qData.coins || 0);
-            const coinsAwarded = correct ? await window._applyCoinBoost(currentUid, baseCoins, window._userData) : 0;
+            if (qData.type !== 'weekly' && qData.scheduledDate && qData.scheduledDate !== dcCairoToday()) {
+                const err = new Error('Question is not open today'); err.code = 'locked'; throw err;
+            }
 
-            // المحاولة بتتسجل الأول (id ثابت = uid_questionId) عشان نفس السؤال ما يتجاوبش مرتين
+            // 1) المحاولة بتتسجل الأول بالاختيار بس (id ثابت = uid_questionId) — من غير نتيجة.
             await setDoc(attemptRef, {
                 userId: currentUid,
                 questionId: question.id,
                 type: qData.type || 'daily',
                 scheduledDate: qData.scheduledDate || '',
                 selectedIndex,
-                correct,
-                coinsAwarded,
                 answeredAt: serverTimestamp()
             });
+            // 2) بعد كده بس نقدر نقرا مفتاح الإجابة (الـ Rules بتفتحه بعد وجود المحاولة)
+            let keyIdx = await window._getChallengeKey(question.id);
+            if (typeof keyIdx !== 'number' && typeof qData.correctIndex === 'number') keyIdx = qData.correctIndex; // أسئلة قديمة لسه مترحّلتش
+            if (typeof keyIdx !== 'number') throw new Error('Question has no answer key — open it in the admin panel and save it again');
+            const correct = selectedIndex === keyIdx;
+            const baseCoins = qData.type === 'weekly' ? (qData.coins || 70) : (qData.coins || 0);
+            const coinsAwarded = correct ? await window._applyCoinBoost(currentUid, baseCoins, window._userData) : 0;
+            await updateDoc(attemptRef, { correct, coinsAwarded });
             await awardCoinsToMe(coinsAwarded, 'إجابة صحيحة في التحدي', 'Correct challenge answer');
 
             // الصندوق بقى هو المكافأة (سؤال أسبوعي بعد 7 أيام صح) — مفيش مكافأة إكمال تانية
@@ -5444,7 +5457,7 @@
             const d = window._userData || {};
             const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
             window._notifyAdminsBot('challenge_answer', { studentName, correct, coinsAwarded, challengeType: qData.type });
-            return { correct, coinsAwarded, weeklyBonus, correctIndex: qData.correctIndex };
+            return { correct, coinsAwarded, weeklyBonus, correctIndex: keyIdx };
         };
         window._getWeeklyBonusClaim = async (weekStart) => {
             if (!currentUid) return null;
@@ -7485,7 +7498,7 @@
             const style = document.createElement('style');
             style.id = 'dcStyles';
             style.textContent = `
-                .dc-wrap { max-width: 720px; margin: 0 auto; }
+                .dc-wrap { max-width: 980px; margin: 0 auto; }
                 .dc-section-title { font-size:14px; font-weight:800; color:var(--muted); margin:26px 0 12px; display:flex; align-items:center; gap:8px; }
                 .dc-section-title i { color:var(--gold3); }
                 .dcw-strip { display:flex; gap:10px; flex-wrap:wrap; }
@@ -7697,14 +7710,39 @@
         const DC_ISLANDS_AR = ['شاطئ البداية','وادي الخرائط','غابة الإحداثيات','جبال الارتفاعات','صحراء الأقمار','جزيرة الكنز'];
         const DC_ISLANDS_EN = ['Starter Shore','Map Valley','Coordinate Forest','Contour Mountains','Satellite Desert','Treasure Isle'];
 
+        /* ── ساعة السيرفر: اليوم بيتحسب من وقت Firestore مش من ساعة جهاز الطالب ──
+           بنكتب serverTimestamp() في مستند الطالب بتاع الساعة ونقراه، ونحفظ الفرق بين وقت السيرفر
+           وعدّاد performance.now() (عدّاد ثابت مبيتأثرش لو الطالب غيّر ساعة الجهاز بعد كده). */
+        const _dcClock = { base: null, perf: 0, syncedAt: 0 };
+        function dcNow() {
+            if (_dcClock.base === null) return new Date();
+            return new Date(_dcClock.base + (performance.now() - _dcClock.perf));
+        }
+        window._dcSyncClock = async function (force) {
+            if (!force && _dcClock.base !== null && performance.now() - _dcClock.syncedAt < 5 * 60 * 1000) return true;
+            if (!currentUid) return false;
+            try {
+                const ref = doc(db, 'challenge_clock', currentUid);
+                const t0 = performance.now();
+                await setDoc(ref, { t: serverTimestamp() });
+                const snap = await getDoc(ref);
+                const t1 = performance.now();
+                const ts = snap.exists() ? snap.data().t : null;
+                if (!ts || !ts.toMillis) return false;
+                _dcClock.base = ts.toMillis() + (t1 - t0) / 2;
+                _dcClock.perf = t1;
+                _dcClock.syncedAt = t1;
+                return true;
+            } catch (e) { console.error('server clock sync failed, using device clock:', e); return false; }
+        };
         function dcCairoToday() {
             try {
-                return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+                return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(dcNow());
             } catch (e) { return dcTodayStr(); }
         }
         function dcSecondsToCairoMidnight() {
             try {
-                const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(new Date());
+                const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(dcNow());
                 const g = t => parseInt(parts.find(p => p.type === t).value, 10) % 24;
                 return 86400 - (g('hour') * 3600 + g('minute') * 60 + g('second'));
             } catch (e) {
@@ -7728,7 +7766,7 @@
                 .tm-rules summary::-webkit-details-marker { display:none; }
                 .tm-rules ul { margin:10px 0 2px; padding-inline-start:18px; line-height:1.9; }
 
-                .tm-island { position:relative; border-radius:22px; border:1px solid var(--border2); padding:16px 12px 6px; margin-bottom:18px; overflow:hidden;
+                .tm-island { position:relative; border-radius:26px; border:1px solid var(--border2); padding:22px 16px 10px; margin-bottom:18px; overflow:hidden;
                     background: radial-gradient(520px 240px at 88% 0%, rgba(240,192,64,.10), transparent 62%), radial-gradient(440px 280px at 0% 100%, rgba(39,163,70,.15), transparent 62%), var(--bg2); }
                 .tm-island::before { content:''; position:absolute; inset:0; pointer-events:none; opacity:.9;
                     background: repeating-radial-gradient(circle at 82% 18%, transparent 0 26px, rgba(240,192,64,.05) 27px 28px), repeating-radial-gradient(circle at 10% 90%, transparent 0 30px, rgba(39,163,70,.06) 31px 32px); }
@@ -7740,18 +7778,18 @@
                 .tm-badge { font-size:11.5px; font-weight:800; padding:4px 11px; border-radius:99px; background:rgba(39,163,70,.14); border:1px solid rgba(39,163,70,.35); color:var(--g4); white-space:nowrap; }
                 .tm-badge.gold { background:rgba(240,192,64,.14); border-color:rgba(240,192,64,.4); color:var(--gold4); }
 
-                .tm-path { position:relative; z-index:1; direction:ltr; height:284px; }
+                .tm-path { position:relative; z-index:1; direction:ltr; height:450px; }
                 .tm-svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
-                .tm-base { fill:none; stroke:var(--muted); opacity:.5; stroke-width:3; stroke-dasharray:2 9; stroke-linecap:round; vector-effect:non-scaling-stroke; }
-                .tm-prog { fill:none; stroke:var(--g4); stroke-width:4; stroke-linecap:round; vector-effect:non-scaling-stroke; filter:drop-shadow(0 0 6px rgba(39,163,70,.55)); }
+                .tm-base { fill:none; stroke:var(--muted); opacity:.5; stroke-width:3.5; stroke-dasharray:3 10; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+                .tm-prog { fill:none; stroke:var(--g4); stroke-width:5; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; filter:drop-shadow(0 0 6px rgba(39,163,70,.55)); }
 
-                .tm-node { position:absolute; transform:translate(-50%,-50%); width:84px; text-align:center; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+                .tm-node { position:absolute; transform:translate(-50%,-50%); width:100px; text-align:center; cursor:pointer; -webkit-tap-highlight-color:transparent; }
                 .tm-node.tm-static { cursor:default; }
-                .tm-circle { position:relative; width:58px; height:58px; margin:0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:19px;
+                .tm-circle { position:relative; width:74px; height:74px; margin:0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:23px;
                     background:var(--bg3); color:var(--muted); border:3px solid var(--border2); transition:transform .2s ease, box-shadow .2s ease; }
                 .tm-node:not(.tm-static):hover .tm-circle { transform:scale(1.08); }
-                .tm-label { margin-top:7px; font-size:11.5px; font-weight:800; color:var(--text); direction:rtl; white-space:nowrap; }
-                .tm-sub { font-size:10.5px; color:var(--muted); direction:rtl; }
+                .tm-label { margin-top:8px; font-size:13px; font-weight:800; color:var(--text); direction:rtl; white-space:nowrap; }
+                .tm-sub { font-size:11.5px; color:var(--muted); direction:rtl; }
 
                 .tm-correct .tm-circle { background:linear-gradient(135deg,var(--g3),var(--g4)); border-color:#7be495; color:#fff; box-shadow:0 6px 18px -6px rgba(39,163,70,.7); }
                 .tm-wrong .tm-circle { background:linear-gradient(135deg,#a8241c,#e74c3c); border-color:#ff9a8f; color:#fff; box-shadow:0 6px 18px -6px rgba(231,76,60,.6); }
@@ -7759,13 +7797,13 @@
                 .tm-missed .tm-circle { background:transparent; border-style:dashed; opacity:.7; }
                 .tm-locked .tm-circle, .tm-empty .tm-circle { opacity:.55; }
 
-                .tm-chest .tm-circle { width:74px; height:74px; border-radius:24px; font-size:28px; }
+                .tm-chest .tm-circle { width:92px; height:92px; border-radius:28px; font-size:34px; }
                 .tm-chest.tm-ready .tm-circle { background:linear-gradient(135deg,var(--gold3),var(--gold4)); border-color:#fff3c4; color:#2b1e00; animation:tmPulse 1.6s ease-in-out infinite; }
                 .tm-chest.tm-correct .tm-circle { background:linear-gradient(135deg,var(--gold2),var(--gold4)); border-color:#fff3c4; color:#2b1e00; box-shadow:0 8px 24px -6px rgba(240,192,64,.7); }
                 .tm-chest.tm-failed .tm-circle { filter:grayscale(1); opacity:.5; }
                 .tm-chest .tm-lock { position:absolute; bottom:-6px; inset-inline-end:-6px; width:24px; height:24px; border-radius:50%; background:var(--bg); border:2px solid var(--border2); display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--muted); }
 
-                .tm-pin { position:absolute; left:50%; top:-40px; width:34px; height:34px; margin-left:-17px; border-radius:50%; background:#fff; color:var(--g2); display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 6px 16px rgba(0,0,0,.4); animation:tmBob 1.6s ease-in-out infinite; z-index:3; }
+                .tm-pin { position:absolute; left:50%; top:-48px; width:38px; height:38px; margin-left:-19px; border-radius:50%; background:#fff; color:var(--g2); display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 6px 16px rgba(0,0,0,.4); animation:tmBob 1.6s ease-in-out infinite; z-index:3; }
                 .tm-pin::after { content:''; position:absolute; bottom:-6px; left:50%; margin-left:-6px; border:6px solid transparent; border-bottom:0; border-top-color:#fff; }
 
                 @keyframes tmPulse { 0%,100% { box-shadow:0 0 0 0 rgba(240,192,64,.55); } 50% { box-shadow:0 0 0 14px rgba(240,192,64,0); } }
@@ -7785,9 +7823,9 @@
                 .tm-review-tag.miss { background:rgba(255,255,255,.06); color:var(--muted); }
                 .ch-opt.picked::after { content:'\\2190'; margin-inline-start:auto; font-size:11px; color:var(--muted); }
                 @media (max-width:420px) {
-                    .tm-node { width:76px; }
-                    .tm-circle { width:52px; height:52px; font-size:17px; }
-                    .tm-chest .tm-circle { width:66px; height:66px; }
+                    .tm-node { width:78px; }
+                    .tm-circle { width:58px; height:58px; font-size:19px; }
+                    .tm-chest .tm-circle { width:72px; height:72px; }
                 }
             `;
             document.head.appendChild(style);
@@ -7847,20 +7885,19 @@
         };
 
         // ── Geometry ──
-        const TM_ROW_H = 132, TM_TOP = 76;
+        // خريطة أكبر: صفّين × 4 دواير، كل دايرة أعلى/أوطى من اللي قبلها، والخطوط بينهم زجزاج مستقيم
+        const TM_ROW_H = 220, TM_TOP = 112, TM_ZIG = 40, TM_H = 450;
         function tmPos(i) {
             const row = Math.floor(i / 4);
             const col = row % 2 === 0 ? (i % 4) : (3 - (i % 4));
-            return { row, col, x: (col + 0.5) * 100, y: TM_TOP + row * TM_ROW_H };
+            const zig = (i % 2 === 0) ? -TM_ZIG : TM_ZIG;
+            return { row, col, x: (col + 0.5) * 100, y: TM_TOP + row * TM_ROW_H + zig };
         }
         function tmPathD(count) {
             let d = '';
             for (let i = 0; i < count; i++) {
                 const p = tmPos(i);
-                if (i === 0) { d += `M ${p.x} ${p.y}`; continue; }
-                const q = tmPos(i - 1);
-                if (q.row === p.row) d += ` L ${p.x} ${p.y}`;
-                else { const bx = q.x + (q.x > 200 ? 46 : -46); d += ` C ${bx} ${q.y}, ${bx} ${p.y}, ${p.x} ${p.y}`; }
+                d += (i === 0 ? 'M ' : ' L ') + p.x + ' ' + p.y;
             }
             return d;
         }
@@ -7925,7 +7962,7 @@
                     <span class="tm-badge ${seg.chest.status === 'ready' ? 'gold' : ''}">${chestBadge}</span>
                 </div>
                 <div class="tm-path">
-                    <svg class="tm-svg" viewBox="0 0 400 ${TM_TOP * 2 + TM_ROW_H}" preserveAspectRatio="none">
+                    <svg class="tm-svg" viewBox="0 0 400 ${TM_H}" preserveAspectRatio="none">
                         <path class="tm-base" d="${tmPathD(8)}"/>
                         ${progD ? `<path class="tm-prog" d="${progD}"/>` : ''}
                     </svg>
@@ -7936,7 +7973,7 @@
 
         async function dcRenderJourney(area) {
             const isAR = lang === 'AR';
-            await dcLoadAllAttempts();
+            await Promise.all([dcLoadAllAttempts(), window._dcSyncClock()]);
             const today = dcCairoToday();
             const J = dcBuildJourney(today);
 
@@ -7996,11 +8033,7 @@
                 </details>
                 ${readySeg ? `<div class="tm-rules" style="border-style:solid;border-color:rgba(240,192,64,.5);background:rgba(240,192,64,.08);color:var(--text);font-weight:800;"><i class="fa-solid fa-gift" style="color:var(--gold4);margin-inline-end:8px;"></i>${isAR ? `صندوق الكنز في المرحلة ${readySeg.k + 1} مفتوح — اضغط عليه وجاوب سؤال الأسبوع واكسب ${readySeg.chest.coins} عملة!` : `The Stage ${readySeg.k + 1} treasure chest is open — tap it and win ${readySeg.chest.coins} coins!`}</div>` : ''}
                 ${J.segs.map(s => dcSegmentHTML(s, avatarSeg && avatarSeg.k === s.k ? avatarKey : null, isAR)).join('')}
-                <div class="dc-section-title"><i class="fa-solid fa-clock-rotate-left"></i> ${isAR ? 'سجل التحديات السابقة' : 'Past Challenges Log'}</div>
-                <div id="dcHistoryList"><div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div></div>
             </div>`;
-            const histRoot = document.getElementById('dcHistoryList');
-            if (histRoot) dcRenderHistoryList(histRoot);
             dcStartCountdown();
             // bring the explorer into view
             const pin = area.querySelector('.tm-pin');
@@ -8067,7 +8100,7 @@
         };
 
         // Shows an already-answered (or missed) question with the correct answer revealed.
-        window.dcOpenReview = function (questionId, status) {
+        window.dcOpenReview = async function (questionId, status) {
             const isAR = lang === 'AR';
             const q = (_dcQuestions || []).find(x => x.id === questionId);
             if (!q) return;
@@ -8075,10 +8108,12 @@
             const letters = isAR ? ['أ', 'ب', 'ج', 'د'] : ['A', 'B', 'C', 'D'];
             const opts = isAR ? (q.optionsAR || []) : (q.optionsEN || q.optionsAR || []);
             const qText = isAR ? q.questionAR : (q.questionEN || q.questionAR);
-            const hasKey = typeof q.correctIndex === 'number';
+            let keyIdx = typeof q.correctIndex === 'number' ? q.correctIndex : null;
+            if (keyIdx === null && a) keyIdx = await window._getChallengeKey(q.id);
+            const hasKey = typeof keyIdx === 'number';
             const optsHTML = opts.map((opt, i) => {
                 let cls = 'disabled';
-                if (hasKey && i === q.correctIndex) cls += ' correct';
+                if (hasKey && i === keyIdx) cls += ' correct';
                 else if (a && a.selectedIndex === i && !a.correct) cls += ' wrong';
                 return `<button class="ch-opt ${cls}"><span class="ltr">${letters[i]}</span> <span>${escapeHtml(opt)}</span></button>`;
             }).join('');
