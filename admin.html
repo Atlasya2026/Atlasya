@@ -3413,7 +3413,7 @@
     import {
         getFirestore, doc, setDoc, getDoc, deleteDoc,
         collection, addDoc, getDocs, orderBy, query, serverTimestamp, updateDoc,
-        onSnapshot, limit, where, Timestamp, arrayUnion, arrayRemove, increment, writeBatch
+        onSnapshot, limit, where, Timestamp, arrayUnion, arrayRemove, increment, writeBatch, deleteField
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -3762,39 +3762,54 @@
 
     /* ─── ADMIN: DAILY & WEEKLY CHALLENGE (one scheduled question per calendar date) ─── */
     window._loadDailyChallengeQs = async () => {
-        const snap = await getDocs(collection(db, 'daily_challenges'));
+        const [snap, keysSnap] = await Promise.all([
+            getDocs(collection(db, 'daily_challenges')),
+            getDocs(collection(db, 'daily_challenge_keys')).catch(() => null)
+        ]);
+        const keys = {};
+        if (keysSnap) keysSnap.docs.forEach(d => { keys[d.id] = d.data(); });
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // الإجابة الصح (correctIndex) والكوينز جوه مستند السؤال نفسه، وصفحة الطالب بتصحّح منه
-        // في المتصفح من غير أي سيرفر خارجي. أسئلة اتحفظت قبل كده بمفتاح إجابتها في
-        // daily_challenges_answers (تصميم قديم): بنقرا المفتاح من هناك وننسخه جوه السؤال
-        // مرة واحدة، عشان الأسئلة القديمة تشتغل من غير ما تفتحها وتحفظها واحدة واحدة.
-        const needKey = list.filter(q => typeof q.correctIndex !== 'number' || typeof q.coins !== 'number');
-        if (!needKey.length) return list;
-        const olds = await Promise.all(needKey.map(q => getDoc(doc(db, 'daily_challenges_answers', q.id)).catch(() => null)));
-        needKey.forEach((q, i) => {
-            const old = olds[i];
-            if (!old || !old.exists()) return;
-            const k = old.data();
-            const patch = {};
-            if (typeof q.correctIndex !== 'number' && typeof k.correctIndex === 'number') patch.correctIndex = k.correctIndex;
-            if (typeof q.coins !== 'number' && typeof k.coins === 'number') patch.coins = k.coins;
-            if (!Object.keys(patch).length) return;
-            Object.assign(q, patch);
-            updateDoc(doc(db, 'daily_challenges', q.id), patch)
-                .catch(e => console.error('challenge answer-key migration failed for', q.id, e));
-        });
+        // مفتاح الإجابة (correctIndex) بقى في مستند منفصل daily_challenge_keys/{id} عشان الطالب
+        // ما يقدرش يشوفه مع السؤال. هنا بندمجه في الـ list للعرض، وأي سؤال لسه مفتاحه جوه مستند
+        // السؤال (تصميم قديم) بنرحّله تلقائيًا مرة واحدة وبنشيل الحقل من مستند السؤال.
+        for (const q of list) {
+            if (keys[q.id] && typeof keys[q.id].correctIndex === 'number') {
+                if (typeof q.correctIndex === 'number') {
+                    updateDoc(doc(db, 'daily_challenges', q.id), { correctIndex: deleteField() }).catch(() => {});
+                }
+                q.correctIndex = keys[q.id].correctIndex;
+                continue;
+            }
+            let idx = typeof q.correctIndex === 'number' ? q.correctIndex : null;
+            if (idx === null) {
+                try {
+                    const old = await getDoc(doc(db, 'daily_challenges_answers', q.id));
+                    if (old.exists() && typeof old.data().correctIndex === 'number') idx = old.data().correctIndex;
+                } catch (e) {}
+            }
+            if (idx === null) continue;
+            q.correctIndex = idx;
+            setDoc(doc(db, 'daily_challenge_keys', q.id), { correctIndex: idx })
+                .then(() => updateDoc(doc(db, 'daily_challenges', q.id), { correctIndex: deleteField() }))
+                .catch(e => console.error('answer-key migration failed for', q.id, e));
+        }
         return list;
     };
     window._addDailyChallengeQ = async (data) => {
+        const { correctIndex, ...qData } = data;
         const ref = doc(collection(db, 'daily_challenges'));
-        await setDoc(ref, { ...data, createdAt: serverTimestamp() });
+        await setDoc(doc(db, 'daily_challenge_keys', ref.id), { correctIndex });
+        await setDoc(ref, { ...qData, createdAt: serverTimestamp() });
         return ref.id;
     };
     window._updateDailyChallengeQ = async (id, data) => {
-        await updateDoc(doc(db, 'daily_challenges', id), data);
+        const { correctIndex, ...qData } = data;
+        if (typeof correctIndex === 'number') await setDoc(doc(db, 'daily_challenge_keys', id), { correctIndex });
+        await updateDoc(doc(db, 'daily_challenges', id), { ...qData, correctIndex: deleteField() });
     };
     window._deleteDailyChallengeQ = async (id) => {
         await deleteDoc(doc(db, 'daily_challenges', id));
+        try { await deleteDoc(doc(db, 'daily_challenge_keys', id)); } catch (e) {}
         try { await deleteDoc(doc(db, 'daily_challenges_answers', id)); } catch (e) {}
     };
     const DEFAULT_WEEKLY_CHALLENGE_SETTINGS = { enabled: true, bonusCoins: 100 };
