@@ -5410,6 +5410,32 @@
             catch (e) { console.error('coin tx log error:', e); }
         }
 
+        /* ── ساعة السيرفر: اليوم بيتحسب من وقت Firestore مش من ساعة جهاز الطالب ──
+           (معرّفة هنا جوه الـ module عشان تشوف db/setDoc/currentUid) */
+        const _dcClockState = window._dcClock = window._dcClock || { base: null, perf: 0, syncedAt: 0 };
+        window._dcSyncClock = async function (force) {
+            try {
+                if (!force && _dcClockState.base !== null && performance.now() - _dcClockState.syncedAt < 5 * 60 * 1000) return true;
+                if (!currentUid) return false;
+                const work = (async () => {
+                    const ref = doc(db, 'challenge_clock', currentUid);
+                    const t0 = performance.now();
+                    await setDoc(ref, { t: serverTimestamp() });
+                    const snap = await getDoc(ref);
+                    const t1 = performance.now();
+                    const ts = snap.exists() ? snap.data().t : null;
+                    if (!ts || !ts.toMillis) return false;
+                    _dcClockState.base = ts.toMillis() + (t1 - t0) / 2;
+                    _dcClockState.perf = t1;
+                    _dcClockState.syncedAt = t1;
+                    return true;
+                })();
+                // مهلة 4 ثواني: لو السيرفر مردّش نكمّل بساعة الجهاز بدل ما الصفحة تفضل تحمّل
+                return await Promise.race([work, new Promise(r => setTimeout(() => r(false), 4000))]);
+            } catch (e) { console.error('server clock sync failed, using device clock:', e); return false; }
+        };
+        window.dcCairoTodayModule = () => (typeof window.dcCairoToday === 'function' ? window.dcCairoToday() : new Date().toISOString().slice(0, 10));
+
         // Records the student's one-time answer for a scheduled question, awards coins on a
         // correct answer, and (for weekly questions) checks whether that unlocks the weekly bonus.
         // الإجابة الصح وقيمة الكوينز بتتقرا من مستند السؤال نفسه (daily_challenges/{id}).
@@ -5428,7 +5454,7 @@
             if (qData.type === 'weekly' && typeof window._dcCanAnswerWeekly === 'function' && !window._dcCanAnswerWeekly(question.id)) {
                 const err = new Error('Weekly chest is locked'); err.code = 'locked'; throw err;
             }
-            if (qData.type !== 'weekly' && qData.scheduledDate && qData.scheduledDate !== dcCairoToday()) {
+            if (qData.type !== 'weekly' && qData.scheduledDate && qData.scheduledDate !== window.dcCairoTodayModule()) {
                 const err = new Error('Question is not open today'); err.code = 'locked'; throw err;
             }
 
@@ -7552,7 +7578,11 @@
                 try { _dcWeeklySettings = await window._loadWeeklyChallengeSettings(); }
                 catch(e) { _dcWeeklySettings = { enabled: true, bonusCoins: 100 }; }
             }
-            await dcRenderPage(area);
+            try { await dcRenderPage(area); }
+            catch (e) {
+                console.error('renderDailyChallenge error:', e);
+                area.innerHTML = `<div style="text-align:center;padding:50px 20px;color:var(--muted);"><i class="fa-solid fa-triangle-exclamation" style="font-size:24px;color:var(--gold3);"></i><p style="margin-top:12px;">${lang==='AR'?'حصلت مشكلة في تحميل التحديات — جرّب تحدّث الصفحة':'Could not load challenges — please refresh'}</p></div>`;
+            }
         }
 
         window.dcGoView = function(view) {
@@ -7713,33 +7743,19 @@
         /* ── ساعة السيرفر: اليوم بيتحسب من وقت Firestore مش من ساعة جهاز الطالب ──
            بنكتب serverTimestamp() في مستند الطالب بتاع الساعة ونقراه، ونحفظ الفرق بين وقت السيرفر
            وعدّاد performance.now() (عدّاد ثابت مبيتأثرش لو الطالب غيّر ساعة الجهاز بعد كده). */
-        const _dcClock = { base: null, perf: 0, syncedAt: 0 };
+        /* الساعة نفسها (الـ sync) معرّفة جوه الـ module (window._dcSyncClock) لأنها محتاجة Firestore؛
+           هنا بس بنقرا الحالة المشتركة window._dcClock. */
         function dcNow() {
-            if (_dcClock.base === null) return new Date();
-            return new Date(_dcClock.base + (performance.now() - _dcClock.perf));
+            const c = window._dcClock;
+            if (!c || c.base === null) return new Date();
+            return new Date(c.base + (performance.now() - c.perf));
         }
-        window._dcSyncClock = async function (force) {
-            if (!force && _dcClock.base !== null && performance.now() - _dcClock.syncedAt < 5 * 60 * 1000) return true;
-            if (!currentUid) return false;
-            try {
-                const ref = doc(db, 'challenge_clock', currentUid);
-                const t0 = performance.now();
-                await setDoc(ref, { t: serverTimestamp() });
-                const snap = await getDoc(ref);
-                const t1 = performance.now();
-                const ts = snap.exists() ? snap.data().t : null;
-                if (!ts || !ts.toMillis) return false;
-                _dcClock.base = ts.toMillis() + (t1 - t0) / 2;
-                _dcClock.perf = t1;
-                _dcClock.syncedAt = t1;
-                return true;
-            } catch (e) { console.error('server clock sync failed, using device clock:', e); return false; }
-        };
         function dcCairoToday() {
             try {
                 return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(dcNow());
             } catch (e) { return dcTodayStr(); }
         }
+        window.dcCairoToday = dcCairoToday;
         function dcSecondsToCairoMidnight() {
             try {
                 const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(dcNow());
@@ -7973,7 +7989,8 @@
 
         async function dcRenderJourney(area) {
             const isAR = lang === 'AR';
-            await Promise.all([dcLoadAllAttempts(), window._dcSyncClock()]);
+            try { await Promise.all([dcLoadAllAttempts(), (window._dcSyncClock ? window._dcSyncClock() : Promise.resolve(false))]); }
+            catch (e) { console.error('challenge load error:', e); }
             const today = dcCairoToday();
             const J = dcBuildJourney(today);
 
