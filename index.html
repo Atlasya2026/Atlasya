@@ -4108,16 +4108,16 @@
     EmailAuthProvider,
     getFirestore,
     doc,
-    setDoc,
+    setDoc as _sbSetDoc,
     getDoc,
     deleteDoc,
     collection,
-    addDoc,
+    addDoc as _sbAddDoc,
     getDocs,
     orderBy,
     query,
     serverTimestamp,
-    updateDoc,
+    updateDoc as _sbUpdateDoc,
     onSnapshot,
     limit,
     where,
@@ -4140,6 +4140,91 @@ const firebaseConfig = {
         const auth = getAuth(app);
         const db = getFirestore(app);
         window._auth = auth; // expose for password change
+
+/* ─── SUPABASE STORAGE: الصور بتترفع كملفات (بدل base64 جوه الداتا بيز) ───
+   الـ bucket اسمه "uploads" (public) — شوف supabase-storage-setup.sql.
+   المسار: {uid}/{folder}/{اسم}.jpg  — الـ policy بتسمح لكل مستخدم يرفع في فولدره بس. */
+const STORAGE_BUCKET = 'uploads';
+function _dataUrlToBlob(dataUrl) {
+    const i = dataUrl.indexOf(',');
+    const mime = (dataUrl.slice(5, i).split(';')[0]) || 'application/octet-stream';
+    const bin = atob(dataUrl.slice(i + 1));
+    const arr = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
+    return new Blob([arr], { type: mime });
+}
+function _randHex(n) {
+    const a = new Uint8Array(n); crypto.getRandomValues(a);
+    return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+}
+window._uploadToStorage = async (path, blob, opts) => {
+    const u = auth.currentUser;
+    if (!u) throw new Error('Not logged in');
+    const token = await u.getIdToken();
+    const resp = await fetch(firebaseConfig.url + '/storage/v1/object/' + STORAGE_BUCKET + '/' + path, {
+        method: 'POST',
+        headers: {
+            apikey: firebaseConfig.key,
+            Authorization: 'Bearer ' + token,
+            'Content-Type': blob.type || 'application/octet-stream',
+            'x-upsert': (opts && opts.upsert) ? 'true' : 'false',
+            'cache-control': 'max-age=31536000'
+        },
+        body: blob
+    });
+    if (!resp.ok) throw new Error('storage upload failed (' + resp.status + ') ' + (await resp.text().catch(() => '')));
+    return firebaseConfig.url + '/storage/v1/object/public/' + STORAGE_BUCKET + '/' + path;
+};
+// بياخد data URL (اتضغطت قبل كده) ويرفعه ويرجّع الرابط. أي قيمة تانية (رابط قديم / فاضي) بترجع زي ما هي.
+window._ensureStorageUrl = async (folder, value, opts) => {
+    if (typeof value !== 'string' || value.indexOf('data:') !== 0) return value || '';
+    const uid = auth.currentUser && auth.currentUser.uid;
+    try {
+        if (!uid) throw new Error('Not logged in');
+        const blob = _dataUrlToBlob(value);
+        const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf', 'application/zip': 'zip', 'application/x-zip-compressed': 'zip', 'application/msword': 'doc', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx' }[blob.type] || 'bin';
+        const fixed = opts && opts.fixedName;
+        const path = uid + '/' + folder + '/' + (fixed || (Date.now() + '-' + _randHex(8))) + '.' + ext;
+        const url = await window._uploadToStorage(path, blob, { upsert: !!fixed });
+        return fixed ? url + '?v=' + Date.now() : url;
+    } catch (e) {
+        console.error('storage upload failed:', e);
+        // لو الـ bucket لسه متعملش: الصور الصغيرة بتتحفظ inline زي الأول عشان مفيش حاجة تقف
+        if (value.length <= 900000) return value;
+        throw e;
+    }
+};
+
+/* ─── أي صورة/ملف بيتكتب في الداتا بيز (أدمن أو طالب) بيتحوّل لرابط Storage أوتوماتيك ───
+   setDoc / addDoc / updateDoc بقت بتفحص البيانات: أي نص بيبدأ بـ data:image أو data:application
+   (ملفات مرفوعة) بيترفع لـ Supabase Storage ويتبدّل برابطه قبل الحفظ. */
+const _isPlainObj = (v) => !!v && typeof v === 'object' && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
+async function _deepUpload(v, key) {
+    if (typeof v === 'string') {
+        if (v.length > 2000 && /^data:(image|application)\//.test(v)) {
+            const folder = String(key || 'files').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24) || 'files';
+            return await window._ensureStorageUrl(folder, v);
+        }
+        return v;
+    }
+    if (Array.isArray(v)) {
+        let changed = false; const out = [];
+        for (const x of v) { const y = await _deepUpload(x, key); if (y !== x) changed = true; out.push(y); }
+        return changed ? out : v;
+    }
+    if (_isPlainObj(v)) {
+        let out = null;
+        for (const k of Object.keys(v)) {
+            const y = await _deepUpload(v[k], k);
+            if (y !== v[k]) { if (!out) out = Object.assign({}, v); out[k] = y; }
+        }
+        return out || v;
+    }
+    return v;
+}
+const setDoc = async (ref, data, ...rest) => _sbSetDoc(ref, await _deepUpload(data), ...rest);
+const addDoc = async (ref, data, ...rest) => _sbAddDoc(ref, await _deepUpload(data), ...rest);
+const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.all(rest.map((x) => _deepUpload(x)))));
         window._signOutAuth = () => signOut(auth);
 
         /* ─── REFERRAL LINK CAPTURE ───
@@ -4405,7 +4490,9 @@ const firebaseConfig = {
         };
         window._saveProfile = async (data) => {
             if (!currentUid) return;
-            await setDoc(doc(db, "users", currentUid), { ...data, profileImg: window._base64Img }, { merge: true });
+            const _img = await window._ensureStorageUrl('avatar', window._base64Img, { fixedName: 'avatar' });
+        window._base64Img = _img;
+        await setDoc(doc(db, "users", currentUid), { ...data, profileImg: _img }, { merge: true });
         };
         window._deleteAccount = async () => {
             if (!auth.currentUser) return;
@@ -4651,6 +4738,7 @@ const firebaseConfig = {
         /* ─── SUPPORT TICKETS ─── */
         window._createTicket = async (data) => {
             if (!currentUid) throw new Error('Not logged in');
+        const _shot = await window._ensureStorageUrl('tickets', data.screenshot);
             const d = window._userData || {};
             const studentName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
             await addDoc(collection(db, 'support_tickets'), {
@@ -4659,7 +4747,7 @@ const firebaseConfig = {
                 studentEmail: d.email || '',
                 type: data.type,
                 message: data.message,
-                screenshot: data.screenshot || '',
+                screenshot: _shot || '',
                 status: 'open',
                 reply: '',
                 rating: 0,
@@ -4875,6 +4963,11 @@ const firebaseConfig = {
         /* ─── CV BUILDER (Pro feature, Firestore) ─── */
         window._submitCVRequest = async (data) => {
             if (!currentUid) throw new Error('Not logged in');
+        const _certs = [];
+        for (const f of (Array.isArray(data.certificateFiles) ? data.certificateFiles : [])) {
+            _certs.push({ ...f, data: await window._ensureStorageUrl('certificates', f.data) });
+        }
+        data = { ...data, certificateFiles: _certs };
             const d = window._userData || {};
             const authorName = ((d.firstName || '') + ' ' + (d.lastName || '')).trim() || 'Member';
             const isFirstSubmit = !window._myCVCreatedAt;
@@ -4975,6 +5068,7 @@ const firebaseConfig = {
             }
             extra = extra || {};
             const d = window._userData || {};
+            const _proof = await window._ensureStorageUrl('payments', extra.screenshot);
             await addDoc(collection(db, 'upgrade_requests'), {
                 uid: currentUid,
                 firstName: extra.firstNameOverride || d.firstName || '',
@@ -4986,7 +5080,7 @@ const firebaseConfig = {
                 months: extra.months || 1,
                 amount: extra.amount || 0,
                 paymentDate: extra.paymentDate || '',
-                screenshot: extra.screenshot || '',
+                screenshot: _proof || '',
                 discountCode: extra.discountCode || '',
                 discountPercent: extra.discountPercent || 0,
                 requestedAt: serverTimestamp(),
@@ -11189,12 +11283,12 @@ const firebaseConfig = {
 
         let cvCertFilesData = [];
         const CV_CERT_MAX_FILES = 8;
-        const CV_CERT_MAX_TOTAL_BYTES = 800000; // certs budget; leaves ~150KB margin for text fields under Firestore's 1MB doc limit
-        const CV_CERT_MAX_PDF_BYTES = 500000;   // PDFs aren't compressed, so cap raw file size
+        const CV_CERT_MAX_TOTAL_BYTES = 12000000; // حد داخلي للذاكرة بس — الملفات بتترفع لـ Storage
+        const CV_CERT_MAX_PDF_BYTES = 3000000;   // PDF بيترفع زي ما هو — حد 3MB
 
         async function _cvCompressToBudget(file, budgetBytes) {
             // Try progressively smaller/lower-quality renders until the file fits its byte budget
-            const attempts = [[1280, 0.6], [1000, 0.5], [800, 0.4], [640, 0.35], [500, 0.28], [420, 0.2], [340, 0.15], [280, 0.12]];
+            const attempts = [[1600, 0.78], [1280, 0.6], [1000, 0.5], [800, 0.4], [640, 0.35], [500, 0.28], [420, 0.2], [340, 0.15], [280, 0.12]];
             let dataUrl = await _cvCompressImage(file, attempts[0][0], attempts[0][1]);
             for (let i = 1; i < attempts.length && _cvDataUrlBytes(dataUrl) > budgetBytes; i++) {
                 dataUrl = await _cvCompressImage(file, attempts[i][0], attempts[i][1]);
@@ -11275,7 +11369,7 @@ const firebaseConfig = {
                         dataUrl = await _cvCompressToBudget(file, budget);
                     } else if (file.type === 'application/pdf') {
                         if (file.size > CV_CERT_MAX_PDF_BYTES) {
-                            showToast(isAR ? `⚠️ ملف "${file.name}" كبير جداً (الحد الأقصى ~500KB للـ PDF)` : `⚠️ "${file.name}" is too large (max ~500KB for PDFs)`, true);
+                            showToast(isAR ? `⚠️ ملف "${file.name}" كبير جداً (الحد الأقصى ~3MB للـ PDF)` : `⚠️ "${file.name}" is too large (max ~3MB for PDFs)`, true);
                             continue;
                         }
                         dataUrl = await new Promise((resolve, reject) => {
@@ -11367,7 +11461,7 @@ const firebaseConfig = {
             // Firestore's real limit is on the WHOLE document (~1MB), not just the certificate files.
             // Check the actual combined payload size here so we catch it before Firestore does.
             const FIRESTORE_SAFE_DOC_BYTES = 950000;
-            const fullPayloadBytes = new Blob([JSON.stringify(data)]).size;
+            const fullPayloadBytes = new Blob([JSON.stringify({ ...data, certificateFiles: [] })]).size; // الشهادات بتترفع لـ Storage
             if (fullPayloadBytes > FIRESTORE_SAFE_DOC_BYTES) {
                 const overKB = Math.ceil((fullPayloadBytes - FIRESTORE_SAFE_DOC_BYTES) / 1000);
                 showToast(isAR
@@ -11764,7 +11858,7 @@ const firebaseConfig = {
         }
 
         function _portfolioItemCard(it, isAR) {
-            const isImg = it.fileData && /^data:image\//.test(it.fileData);
+            const isImg = it.fileData && /^data:image\/|\.(?:jpe?g|png|webp|gif)(?:\?|$)/i.test(it.fileData);
             const thumb = isImg
                 ? `<div class="portfolio-item-thumb" style="background-image:url('${it.fileData}');background-size:cover;background-position:center;cursor:pointer;" onclick="openPortfolioLightbox('${it.id}')"></div>`
                 : `<div class="portfolio-item-thumb">${it.icon || '🗺️'}</div>`;
@@ -11824,8 +11918,8 @@ const firebaseConfig = {
         };
 
         let portfolioFileData = null;
-        const PORT_FILE_BUDGET_BYTES = 800000; // leaves headroom under Firestore's ~1MB doc limit for title/desc text
-        const PORT_NONIMAGE_MAX_BYTES = 600000; // pdf/zip aren't compressed, so cap the raw file size instead
+        const PORT_FILE_BUDGET_BYTES = 2000000; // الصور بتتضغط لحد ~1.5MB والملف بيترفع لـ Storage
+        const PORT_NONIMAGE_MAX_BYTES = 5000000; // PDF/ZIP بيترفع زي ما هو — حد 5MB
         async function handlePortFile(e) {
             const isAR = lang === 'AR';
             const file = e.target.files[0];
@@ -11842,8 +11936,8 @@ const firebaseConfig = {
                 } else {
                     if (file.size > PORT_NONIMAGE_MAX_BYTES) {
                         showToast(isAR
-                            ? `⚠️ الملف كبير جداً (الحد الأقصى ~${Math.floor(PORT_NONIMAGE_MAX_BYTES / 1000)}KB لملفات PDF/ZIP)`
-                            : `⚠️ File too large (max ~${Math.floor(PORT_NONIMAGE_MAX_BYTES / 1000)}KB for PDF/ZIP)`, true);
+                            ? `⚠️ الملف كبير جداً (الحد الأقصى ~${Math.floor(PORT_NONIMAGE_MAX_BYTES / 1000000)}MB لملفات PDF/ZIP)`
+                            : `⚠️ File too large (max ~${Math.floor(PORT_NONIMAGE_MAX_BYTES / 1000000)}MB for PDF/ZIP)`, true);
                         e.target.value = '';
                         return;
                     }
@@ -11878,7 +11972,7 @@ const firebaseConfig = {
             const desc  = document.getElementById('portDesc')?.value?.trim();
             if (!title) { if (typeof showToast === 'function') showToast(isAR ? '⚠️ اكتب اسم المشروع' : '⚠️ Enter a project title'); return; }
             const FIRESTORE_SAFE_DOC_BYTES = 950000;
-            const payloadCheck = { title, desc, fileName: portfolioFileData?.name || '', fileData: portfolioFileData?.data || '' };
+            const payloadCheck = { title, desc, fileName: portfolioFileData?.name || '' }; // الملف نفسه بيترفع لـ Storage
             const fullPayloadBytes = new Blob([JSON.stringify(payloadCheck)]).size;
             if (fullPayloadBytes > FIRESTORE_SAFE_DOC_BYTES) {
                 if (typeof showToast === 'function') showToast(isAR ? '⚠️ حجم الملف كبير جداً حتى بعد الضغط، جرب صورة تانية' : '⚠️ File is too large even after compression, try a different image', true);
@@ -12494,7 +12588,7 @@ const firebaseConfig = {
             const favIds = window._userData?.favoriteBooks || [];
             const isFav = favIds.includes(id);
             const cover = b.coverData ? `<img src="${b.coverData}" alt="">` : `<i class="fa-solid fa-book"></i>`;
-            const sizeLabel = b.pdfData ? `~${Math.max(1, Math.round(b.pdfData.length*3/4/1024))} KB` : '';
+            const sizeLabel = (b.pdfData && String(b.pdfData).indexOf('data:') === 0) ? `~${Math.max(1, Math.round(b.pdfData.length*3/4/1024))} KB` : '';
             const ratings = b.ratings || {};
             const ratingVals = Object.values(ratings);
             const avgRating = ratingVals.length ? (ratingVals.reduce((a,c)=>a+c,0)/ratingVals.length) : 0;
@@ -13487,7 +13581,7 @@ const firebaseConfig = {
                 }
                 list.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;">
                     ${items.map(it => {
-                        const isImg = it.fileData && /^data:image\//.test(it.fileData);
+                        const isImg = it.fileData && /^data:image\/|\.(?:jpe?g|png|webp|gif)(?:\?|$)/i.test(it.fileData);
                         const thumb = isImg
                             ? `<div style="width:52px;height:52px;border-radius:8px;background-image:url('${it.fileData}');background-size:cover;background-position:center;flex-shrink:0;cursor:pointer;" onclick="openPortfolioLightbox('${it.id}')"></div>`
                             : `<div style="width:52px;height:52px;border-radius:8px;background:rgba(var(--brand-rgb,30,122,52),0.1);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🗺️</div>`;
@@ -15410,9 +15504,9 @@ const firebaseConfig = {
             const input = document.getElementById('adminCVFileInput');
             const file = input?.files?.[0];
             if (!file) { showToast(isAR?'اختر ملف الـ CV أولاً':'Select a CV file first', true); return; }
-            const ADMIN_CV_MAX_BYTES = 700000; // this doc is separate now, but keep a sane cap (~700KB raw ≈ ~930KB as base64)
+            const ADMIN_CV_MAX_BYTES = 5000000; // 5MB — بيترفع لـ Supabase Storage
             if (file.size > ADMIN_CV_MAX_BYTES) {
-                showToast(isAR ? `⚠️ الملف كبير جداً (الحد الأقصى ~700KB)` : `⚠️ File too large (max ~700KB)`, true);
+                showToast(isAR ? `⚠️ الملف كبير جداً (الحد الأقصى ~5MB)` : `⚠️ File too large (max ~5MB)`, true);
                 return;
             }
             const btn = document.getElementById('adminCVUploadBtn');
@@ -15586,9 +15680,9 @@ const firebaseConfig = {
             });
         }
 
-        async function compressImageForProfile(file) {
-            const LIMIT = 700000; // safe margin under Firestore's 1,048,487 byte field limit
-            let maxDim = 600, quality = 0.8;
+        async function compressImageForProfile(file, startDim) {
+        const LIMIT = 600000; // ~450KB بعد الضغط — الملف بيتخزن في Supabase Storage مش في الداتا بيز
+        let maxDim = startDim || 1280, quality = 0.78;
             let dataUrl = await _resizeImageFile(file, maxDim, quality);
             while (dataUrl.length > LIMIT && (quality > 0.3 || maxDim > 150)) {
                 if (quality > 0.3) quality = Math.round((quality - 0.1) * 10) / 10;
@@ -15598,28 +15692,27 @@ const firebaseConfig = {
             return dataUrl;
         }
 
-        function handleAdminImageUpload(e) {
+        async function handleAdminImageUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                window._base64Img = ev.target.result;
-                // Save to localStorage keyed by username so it persists
-                if (window._adminProfile) {
-                    localStorage.setItem('adminImg_' + window._adminProfile.username, ev.target.result);
-                }
+            try {
+                const small = await compressImageForProfile(file, 512);
+                const url = await window._ensureStorageUrl('avatar', small, { fixedName: 'avatar' });
+                window._base64Img = url;
+                if (window._adminProfile) localStorage.setItem('adminImg_' + window._adminProfile.username, url);
                 const av = document.getElementById('avatarXl');
                 if (av) {
-                    av.style.backgroundImage = `url('${ev.target.result}')`;
+                    av.style.backgroundImage = `url('${url}')`;
                     av.innerHTML = '<div class="avatar-xl-overlay"><i class="fa-solid fa-camera"></i></div>';
                 }
-                // Update topbar avatar
                 if (window._adminProfile && window._updateSidebarUser) {
-                    window._updateSidebarUser(window._adminProfile.firstName, window._adminProfile.lastName, ev.target.result);
+                    window._updateSidebarUser(window._adminProfile.firstName, window._adminProfile.lastName, url);
                 }
                 showToast(lang==='AR' ? 'تم تحديث الصورة' : 'Photo updated');
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                console.error('admin avatar upload failed:', err);
+                showToast(lang==='AR' ? 'تعذّر رفع الصورة' : 'Could not upload the photo', true);
+            }
         }
 
         async function handleImageUpload(e) {
@@ -15627,7 +15720,7 @@ const firebaseConfig = {
             if (!file) return;
             const isAR = lang === 'AR';
             try {
-                const dataUrl = await compressImageForProfile(file);
+                const dataUrl = await compressImageForProfile(file, 512);
                 if (dataUrl.length > 1000000) {
                     showToast(isAR ? '⚠️ الصورة كبيرة جداً، جرّب صورة أصغر' : '⚠️ Image is too large, try a smaller one', true);
                     return;
