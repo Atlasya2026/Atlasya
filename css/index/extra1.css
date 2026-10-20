@@ -1,0 +1,181 @@
+            /* ===== STUDENT FULL-SCREEN BACKGROUND LOGIN ===== */
+            #authBox.split-auth {
+                padding: 0;
+                align-items: stretch;
+                position: relative;
+                background:
+                    radial-gradient(1100px 900px at 82% 6%, rgba(26,122,110,0.38), transparent 60%),
+                    radial-gradient(750px 750px at 12% 96%, rgba(14,77,123,0.48), transparent 65%),
+                    radial-gradient(500px 500px at 50% 50%, rgba(212,160,23,0.08), transparent 70%),
+                    linear-gradient(160deg, #030f16 0%, #072538 40%, #0e4d7b 72%, #1a7a6e 100%);
+            }
+            #authBox.split-auth::before {
+                content: '';
+                position: fixed; inset: 0; z-index: 0;
+                background-image:
+                    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+                background-size: 42px 42px;
+                pointer-events: none;
+            }
+            /* #authBox is direction:rtl site-wide (for the Arabic auth text),
+            which would also flip the flex row order below. Force this
+            container back to ltr so nothing about the RTL text is affected,
+            then re-apply rtl to the text inside. */
+            .auth-split { display: flex; direction: ltr; width: 100%; min-height: 100vh; }
+
+            /* Illustrated left column. position:fixed so it stays put (doesn't
+            scroll) while the sign-up form on the right scrolls, and is pinned
+            to exactly the left half of the screen — never behind/under the
+            login card on the right. */
+            .auth-split-left {
+                direction: rtl;
+                position: fixed;
+                top: 0; left: 0; bottom: 0;
+                width: 50%;
+                z-index: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 32px 24px;
+                overflow: hidden;
+                background: transparent;
+            }
+            /* Soft decorative orbit rings behind the illustration — purely cosmetic */
+            .auth-split-left::before {
+                content: '';
+                position: absolute;
+                width: 620px; height: 620px;
+                border: 1px solid rgba(255,255,255,0.06);
+                border-radius: 50%;
+                pointer-events: none;
+            }
+            .auth-split-left::after {
+                content: '';
+                position: absolute;
+                width: 460px; height: 460px;
+                border: 1px dashed rgba(212,160,23,0.14);
+                border-radius: 50%;
+                pointer-events: none;
+                animation: authRingSpin 90s linear infinite;
+            }
+            @keyframes authRingSpin { to { transform: rotate(360deg); } }
+            .auth-split-left-inner { position: relative; z-index: 1; max-width: 780px; width: 100%; text-align: center; opacity: 0.97; animation: fadeUp 0.7s cubic-bezier(.16,1,.3,1) both; }
+            .auth-split-left-inner .auth-logo { justify-content: center; margin-bottom: 10px; }
+            .auth-split-illustration { width: min(680px, 44vw); height: auto; filter: drop-shadow(0 40px 70px rgba(0,0,0,0.5)); animation: authFloat 7s ease-in-out infinite; }
+            @keyframes authFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+            .auth-split-tagline { color: rgba(232,236,240,0.78); font-size: 14.5px; line-height: 1.9; margin-top: 8px; max-width: 460px; margin-left: auto; margin-right: auto; }
+            .auth-split-badges { display: flex; gap: 10px; justify-content: center; margin-top: 26px; flex-wrap: wrap; }
+            .auth-split-badge {
+                font-size: 11px; font-weight: 700; color: var(--g4);
+                background: rgba(var(--brand2-rgb,39,163,70),0.12); border: 1px solid rgba(var(--brand2-rgb,39,163,70),0.34);
+                padding: 7px 14px; border-radius: 99px; letter-spacing: 0.5px;
+                backdrop-filter: blur(6px);
+                transition: transform 0.2s ease, background 0.2s ease;
+            }
+            .auth-split-badge:hover { transform: translateY(-2px); background: rgba(var(--brand2-rgb,39,163,70),0.2); }
+
+            /* Floating login card panel — occupies the right half of the screen,
+            offset by the fixed illustration panel's width so the two never overlap */
+            .auth-split-right {
+                direction: rtl;
+                position: relative;
+                z-index: 1;
+                margin-left: 50%;
+                width: 50%;
+                display: flex; align-items: flex-start; justify-content: center;
+                padding: 40px 32px;
+                overflow-y: auto;
+                min-height: 100vh;
+            }
+            /* Vertically center short forms, but always allow scrolling from the very top
+            (fixes the flex align-items:center + overflow bug that hid the pill toggle
+            when the sign-up form was taller than the viewport) */
+            .auth-split-right { padding-top: max(40px, calc((100vh - 620px) / 2)); }
+            .auth-split-right .auth-wrap { max-width: 420px; width: 100%; margin: 0; padding: 0; animation: fadeUp 0.55s cubic-bezier(.16,1,.3,1) both; }
+
+            /* Compact logo lockup shown only on mobile/tablet, above the pill toggle,
+            since the illustrated left column (with the full logo) is hidden there */
+            .auth-mobile-brand { display: none; }
+
+            .auth-pill-toggle {
+                display: flex; background: rgba(0,0,0,0.32); border: 1px solid rgba(var(--brand2-rgb,39,163,70),0.28);
+                border-radius: 99px; padding: 5px; margin-bottom: 26px; gap: 4px;
+                backdrop-filter: blur(12px);
+                box-shadow: inset 0 1px 4px rgba(0,0,0,0.25);
+            }
+            .pill-btn {
+                flex: 1; border: none; background: transparent; color: rgba(232,236,240,0.7);
+                font-family: 'Tajawal', sans-serif; font-size: 13.5px; font-weight: 700;
+                padding: 11px 14px; border-radius: 99px; cursor: pointer; transition: all 0.3s cubic-bezier(.16,1,.3,1);
+            }
+            .pill-btn.active { background: linear-gradient(90deg,var(--g3),var(--g4)); color: #04140d; box-shadow: 0 6px 18px -2px rgba(var(--brand2-rgb,39,163,70),0.45); }
+            .pill-btn:not(.active):hover { color: #fff; }
+
+            @media (max-width: 900px) {
+                .auth-split-left {
+                    left: 0; right: 0; top: 0; bottom: 0; width: 100%;
+                    padding: 24px;
+                }
+                /* Mobile: illustration only, no marketing copy behind the card */
+                .auth-split-left-inner .auth-logo,
+                .auth-split-tagline,
+                .auth-split-badges { display: none; }
+                .auth-split-illustration { width: min(380px, 78vw) !important; }
+                .auth-split-right {
+                    margin-left: 0; width: 100%;
+                    padding: 26px 18px calc(48px + env(safe-area-inset-bottom, 0px));
+                    padding-top: max(28px, env(safe-area-inset-top, 0px));
+                }
+                .auth-mobile-brand {
+                    display: flex; align-items: center; justify-content: center; gap: 12px;
+                    margin-bottom: 24px;
+                }
+                .auth-mobile-brand img { width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }
+                .auth-mobile-brand .amb-text h1 {
+                    font-family: 'Space Mono', monospace; font-size: 18px; letter-spacing: 0.5px;
+                    background: linear-gradient(135deg,#4fb0e8,#4fe0c8);
+                    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+                    margin: 0;
+                }
+                .auth-mobile-brand .amb-text span {
+                    display: block; font-size: 11px; letter-spacing: 2px; color: rgba(232,236,240,0.55);
+                    text-transform: uppercase; margin-top: 2px;
+                }
+            }
+            @media (max-width: 480px) {
+                .auth-box { padding: 24px 18px !important; }
+                .auth-split-illustration { width: min(280px, 72vw) !important; }
+            }
+
+            /* Floating login/signup card — subtle glass effect over the page
+            background now that it sits in its own right-hand column ── */
+            .split-auth .auth-box {
+                background: rgba(10,28,42,0.52);
+                border: 1px solid rgba(255,255,255,0.16);
+                backdrop-filter: blur(24px) saturate(160%);
+                -webkit-backdrop-filter: blur(24px) saturate(160%);
+            }
+            body.light-mode .split-auth .auth-box {
+                background: rgba(255,255,255,0.46);
+                border: 1px solid rgba(255,255,255,0.6);
+            }
+            /* Labels, helper text and icons default to var(--muted), which is too
+            low-contrast on the translucent glass card — darken them here.
+            !important is needed because several of these elements set
+            color:var(--muted) inline in the markup. */
+            .split-auth .auth-box p,
+            .split-auth .field label,
+            .split-auth .field-inner > i,
+            .split-auth .field .eye-btn,
+            .split-auth .auth-remember-row label,
+            .split-auth .auth-box [style*="var(--muted)"] {
+                color: #24344a !important;
+            }
+            .split-auth .field .eye-btn:hover { color: var(--g4) !important; }
+            /* Remember-me row, placed above the login button */
+            .auth-remember-row {
+                display: flex; align-items: center; gap: 8px;
+                margin-bottom: 16px;
+            }
+        
