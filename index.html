@@ -7367,8 +7367,15 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 showToast('✓ تم إنشاء الحساب! تم إرسال رابط تأكيد لبريدك');
                 showEmailVerifyScreen(email);
             } catch(e) {
-                let msg = e.message;
-                if (e.code === 'auth/email-already-in-use') {
+                console.error('signup error:', e);
+                const _m = ((e && e.message) || '').toLowerCase();
+                let msg = 'حصل خطأ أثناء إنشاء الحساب، حاول تاني';
+                if (_m.includes('rate') || _m.includes('limit') || _m.includes('security purposes')) {
+                    msg = 'محاولات كتيرة، استنى دقيقة وجرّب تاني';
+                } else if (_m.includes('timeout') || _m.includes('deadline') || _m.includes('sending') || (e && e.code === 'auth/internal-error')) {
+                    msg = 'تعذّر إرسال إيميل التأكيد حالياً. لو الحساب اتعمل جرّب تسجّل دخول، أو حاول بعد شوية';
+                }
+                if (e && e.code === 'auth/email-already-in-use') {
                     msg = 'هذا البريد الإلكتروني مسجل بالفعل من قبل. يمكنك تسجيل الدخول مباشرة أو استخدام بريد إلكتروني آخر.';
                     const emailInput = document.getElementById('signUpEmail');
                     if (emailInput) { emailInput.style.borderColor = '#e74c3c'; emailInput.focus(); setTimeout(() => emailInput.style.borderColor = '', 3000); }
@@ -15785,7 +15792,17 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 showToast('تم إرسال رابط الاسترداد إلى بريدك');
                 setTimeout(() => showLogin(), 2000);
             } catch(e) {
-                showToast('البريد غير مسجل أو غير صحيح', true);
+                console.error('reset error:', e);
+                const _m = ((e && e.message) || '').toLowerCase();
+                if (_m.includes('rate') || _m.includes('limit') || _m.includes('security purposes')) {
+                    showToast('محاولات كتيرة، استنى دقيقة وجرّب تاني', true);
+                } else if (_m.includes('timeout') || _m.includes('deadline') || _m.includes('smtp') || _m.includes('sending') || (e && e.code === 'auth/internal-error')) {
+                    showToast('تعذّر إرسال الإيميل حالياً، حاول بعد شوية', true);
+                } else if (_m.includes('invalid') || (e && e.code === 'auth/invalid-email')) {
+                    showToast('صيغة البريد غير صحيحة', true);
+                } else {
+                    showToast('حصل خطأ: ' + ((e && e.message) || 'غير معروف'), true);
+                }
             } finally {
                 btn.innerHTML = `<span>إرسال رابط الاسترداد</span>`;
                 btn.disabled = false;
