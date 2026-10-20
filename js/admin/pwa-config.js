@@ -1,1 +1,0 @@
-window.ATLASYA_PWA = { admin: true };
