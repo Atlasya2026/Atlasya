@@ -3493,6 +3493,10 @@ const firebaseConfig = {
         updatedAt: serverTimestamp(),
         updatedBy: (window._adminProfile && (window._adminProfile.displayName || window._adminProfile.username)) || ''
     }, { merge: true });
+    // إيميل تجريبي مستثنى من إيقاف المنصة (بيتخزّن في نفس المستند عشان صفحة الطالب بتسمع له أصلًا)
+    window._setPlatformTester = (email) => setDoc(doc(db, 'settings', 'platformStatus'), {
+        testerEmail: String(email || '').trim().toLowerCase()
+    }, { merge: true });
 
     let currentUid = null;
     window._base64Img = "";
@@ -11465,7 +11469,7 @@ const firebaseConfig = {
     /* ─── PLATFORM ON/OFF (حسابي ← التحكم في المنصة) ───
        الحالة في Firestore: settings/platformStatus { maintenance: true|false }.
        المشرف العام بس هو اللي بيشوف الكارت ده وبيقدر يغيّره. */
-    window._platformState = { loaded: false, maintenance: false, error: '', updatedBy: '', updatedAtMs: 0 };
+    window._platformState = { loaded: false, maintenance: false, error: '', updatedBy: '', updatedAtMs: 0, testerEmail: '' };
     let _platformUnsub = null;
 
     function startPlatformWatch() {
@@ -11473,11 +11477,12 @@ const firebaseConfig = {
         _platformUnsub = window._watchPlatformStatus((data, err) => {
             if (err) {
                 _platformUnsub = null; // الـ listener اتقفل بالخطأ — نسمح بإعادة المحاولة
-                window._platformState = { loaded: false, maintenance: false, error: err.code || String(err), updatedBy: '', updatedAtMs: 0 };
+                window._platformState = { loaded: false, maintenance: false, error: err.code || String(err), updatedBy: '', updatedAtMs: 0, testerEmail: '' };
             } else {
                 window._platformState = {
                     loaded: true, error: '',
                     maintenance: data.maintenance === true,
+                    testerEmail: String(data.testerEmail || '').trim().toLowerCase(),
                     updatedBy: data.updatedBy || '',
                     updatedAtMs: (data.updatedAt && data.updatedAt.toMillis) ? data.updatedAt.toMillis() : 0
                 };
@@ -11522,9 +11527,48 @@ const firebaseConfig = {
                 const when = new Date(st.updatedAtMs).toLocaleString(isAR ? 'ar-EG' : 'en-GB');
                 line += (isAR ? '  آخر تغيير: ' : '  Last change: ') + (st.updatedBy ? st.updatedBy + ' — ' : '') + when;
             }
+            if (off && st.testerEmail) line += (isAR ? '  — مستثنى للتجربة: ' : '  — Test exception: ') + st.testerEmail;
             sub.textContent = line;
         }
+        // خانة الإيميل التجريبي
+        const tIn = document.getElementById('platformTesterEmail');
+        const tNote = document.getElementById('platformTesterNote');
+        if (tIn && document.activeElement !== tIn) tIn.value = st.testerEmail || '';
+        if (tNote) tNote.textContent = st.testerEmail
+            ? (isAR ? 'الإيميل ده بيشتغل على المنصة عادي حتى لو متوقفة: ' : 'This email can use the platform normally even when stopped: ') + st.testerEmail
+            : (isAR ? 'مفيش إيميل مستثنى دلوقتي.' : 'No exception email set.');
+        const tClr = document.getElementById('platformTesterClear');
+        if (tClr) tClr.style.display = st.testerEmail ? '' : 'none';
     }
+
+    async function savePlatformTester(clear) {
+        const isAR = typeof lang === 'undefined' || lang === 'AR';
+        if (!window._adminIsSuper) return;
+        const inp = document.getElementById('platformTesterEmail');
+        const email = clear ? '' : ((inp && inp.value) || '').trim().toLowerCase();
+        if (!clear && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showToast(isAR ? 'اكتب إيميل صحيح' : 'Enter a valid email', true);
+            return;
+        }
+        const btns = [document.getElementById('platformTesterSave'), document.getElementById('platformTesterClear')];
+        btns.forEach(b => { if (b) b.disabled = true; });
+        try {
+            await window._setPlatformTester(email);
+            if (clear && inp) inp.value = '';
+            showToast(clear
+                ? (isAR ? 'تم إلغاء الاستثناء' : 'Exception removed')
+                : (isAR ? 'تم حفظ الإيميل التجريبي ✓' : 'Test email saved ✓'));
+        } catch (e) {
+            console.error('tester email save failed:', e);
+            showToast(e && e.code === 'permission-denied'
+                ? (isAR ? 'مفيش صلاحية كتابة على settings/platformStatus — راجع قواعد Firestore' : 'No write permission on settings/platformStatus — check Firestore rules')
+                : (isAR ? 'تعذّر حفظ الإيميل، جرّب تاني' : 'Could not save the email, try again'), true);
+        } finally {
+            btns.forEach(b => { if (b) b.disabled = false; });
+            renderPlatformControlUI();
+        }
+    }
+    window.savePlatformTester = savePlatformTester;
 
     async function onPlatformSwitch(cb) {
         const isAR = typeof lang === 'undefined' || lang === 'AR';
@@ -11628,6 +11672,18 @@ const firebaseConfig = {
                         <input type="checkbox" id="platformSwitch" onchange="onPlatformSwitch(this)" disabled>
                         <span class="pf-slider"></span>
                     </label>
+                </div>
+                <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
+                    <label style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;">${isAR ? 'إيميل تجريبي (مستثنى من الإيقاف)' : 'Test email (exempt from the stop)'}</label>
+                    <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.7;">${isAR
+                        ? 'الحساب ده هيشتغل على المنصة عادي حتى لو أوقفتها عن الطلاب، عشان تجرّب أي تعديل. يدخل من زرار \"دخول تجريبي\" في صفحة الصيانة.'
+                        : 'This account keeps using the platform normally while it is stopped, so you can test changes. It signs in via the \"Test login\" link on the maintenance page.'}</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        <input type="email" id="platformTesterEmail" placeholder="tester@example.com" dir="ltr" style="flex:1;min-width:200px;">
+                        <button class="btn-save" id="platformTesterSave" type="button" onclick="savePlatformTester(false)"><i class="fa-solid fa-floppy-disk"></i> <span>${isAR ? 'حفظ' : 'Save'}</span></button>
+                        <button class="btn-save" id="platformTesterClear" type="button" onclick="savePlatformTester(true)" style="display:none;background:transparent;border:1px solid var(--border);color:var(--muted);"><i class="fa-solid fa-xmark"></i> <span>${isAR ? 'إلغاء الاستثناء' : 'Remove'}</span></button>
+                    </div>
+                    <div id="platformTesterNote" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
                 </div>
             </div>` : ''}
             ${window._adminIsSuper ? `
