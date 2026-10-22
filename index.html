@@ -6391,6 +6391,12 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                         <input id="fpConf" type="password" autocomplete="new-password" placeholder="••••••••" dir="ltr" style="text-align:right" required>
                         <button type="button" class="eye-btn fp-eye" data-t="fpConf" aria-label="إظهار"><i class="fa-regular fa-eye"></i></button></div>
                     </div>
+                    <div class="field" id="fpOldWrap" style="display:none">
+                      <label for="fpOld">كلمة المرور الحالية (القديمة)</label>
+                      <div class="field-inner"><i class="fa-solid fa-key"></i>
+                        <input id="fpOld" type="password" autocomplete="current-password" placeholder="••••••••" dir="ltr" style="text-align:right"></div>
+                      <div class="fp-hint">مطلوبة لتأكيد هويتك مرة تانية قبل التغيير.</div>
+                    </div>
                     <div class="fp-err" id="fpErr" role="alert"></div>
                     <button type="submit" class="btn-primary" id="fpBtn"><span>حفظ ومتابعة</span></button>
                   </form>
@@ -6440,8 +6446,14 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                         const parts = nm.split(' ');
                         await updateDoc(doc(db, 'users', (auth.currentUser || user).uid), { firstName: parts.shift() || '', lastName: parts.join(' '), phone: ph });
                     } catch (e) { throw new Error('profile-failed'); }
-                    // 2) كلمة المرور
-                    await updatePassword(auth.currentUser || user, a);
+                    // 2) كلمة المرور (لو طُلبت الحالية، نعيد التحقق بيها الأول)
+                    const _u = auth.currentUser || user;
+                    const oldv = $('fpOld').value;
+                    if ($('fpOldWrap').style.display !== 'none') {
+                        if (!oldv) { const e0 = new Error('need-old'); throw e0; }
+                        await reauthenticateWithCredential(_u, EmailAuthProvider.credential(_u.email, oldv));
+                    }
+                    await updatePassword(_u, a);
                     // التحقق الفعلي من السيرفر — مش بنصدّق الواجهة
                     let still = true;
                     try { still = await _pwNeedsChange(); } catch (e) { still = true; }
@@ -6453,13 +6465,22 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 } catch (e) {
                     window._pwGateBusy = false;
                     const msg = String((e && (e.message || e.code)) || '');
+                    console.error('[force-pw] failed:', e);
+                    const detail = ' (' + msg.slice(0, 110) + ')';
                     if (/same|different|identical/i.test(msg)) err('كلمة المرور الجديدة لازم تكون مختلفة عن القديمة.');
                     else if (/weak|short|least|characters/i.test(msg)) err('كلمة المرور ضعيفة — اختر كلمة أقوى.');
                     else if (/reauth|recent|nonce|session|jwt|expired/i.test(msg)) err('انتهت الجلسة. اضغط "تسجيل الخروج" وسجّل دخول من جديد ثم غيّر كلمة المرور.');
                     else if (/profile-failed/.test(msg)) err('تعذّر حفظ الاسم ورقم التليفون. حاول مرة أخرى.');
                     else if (/verify-failed/.test(msg)) err('لم يتم تأكيد التغيير من النظام. حاول مرة أخرى.');
                     else if (/network|fetch/i.test(msg)) err('مشكلة في الاتصال بالإنترنت. حاول مرة أخرى.');
-                    else err('حصل خطأ أثناء تغيير كلمة المرور. حاول مرة أخرى.');
+                    else {
+                        // غالبًا الجلسة محتاجة تأكيد بكلمة المرور الحالية — نظهر الخانة ونعيد المحاولة
+                        $('fpOldWrap').style.display = '';
+                        if (/need-old/.test(msg)) err('اكتب كلمة المرور الحالية.');
+                        else if (/invalid|credential|wrong|password/i.test(msg) && $('fpOld').value) err('كلمة المرور الحالية غير صحيحة.');
+                        else err('محتاجين نتأكد إنك صاحب الحساب: اكتب كلمة المرور الحالية وجرّب تاني.' + detail);
+                        try { $('fpOld').focus(); } catch (x) {}
+                    }
                     btn.disabled = false; btn.innerHTML = '<span>حفظ ومتابعة</span>';
                 }
             });
