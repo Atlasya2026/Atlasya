@@ -2,7 +2,11 @@
 <html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+/* Old GitHub Pages address → show the "we moved" page and stop loading the app */
+(function(){ if(/(^|\.)github\.io$/i.test(location.hostname)){ window.stop(); location.replace('moved.html'+(location.search?location.search+'&__to=admin':'?__to=admin')+location.hash); } })();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ATLASYA — Admin Panel</title>
     <!-- PWA -->
     <meta name="theme-color" content="#161920">
