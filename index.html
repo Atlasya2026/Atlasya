@@ -6312,6 +6312,153 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             });
         };
 
+
+        /* ═══════════ تغيير كلمة السر الإجباري (بعد تطوير المنصة) ═══════════
+           التحقق من السيرفر: الدالة needs_password_change() في Supabase بتبصّ على سجل
+           تغيير كلمة السر اللي بيتكتب بتريجر جوه قاعدة البيانات (force-password-change.sql).
+           الواجهة مجرد عرض — لو السيرفر قال "لسه" مفيش دخول للمنصة.
+           لو التحقق نفسه فشل (شبكة/السيرفر) بنقفل ومابنفتحش المنصة (fail-closed). */
+        const _pwNeedsChange = async () => {
+            const r = await rpc(db, 'needs_password_change');
+            const v = (r && typeof r === 'object' && !Array.isArray(r)) ? (r.needs_password_change ?? r.data ?? r.result) : r;
+            return !(v === false || v === 'false' || v === 'f');
+        };
+        function _pwShowModal(user, loadError) {
+            if (document.getElementById('forcePwModal')) { if (loadError) document.getElementById('forcePwModal').dataset.err = '1'; return; }
+            const css = document.createElement('style');
+            css.id = 'forcePwCss';
+            css.textContent = `
+              #forcePwModal{position:fixed;inset:0;z-index:2147483000;background:rgba(6,8,12,.92);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:18px;direction:rtl;overflow-y:auto}
+              #forcePwModal .fp-card{width:100%;max-width:440px;background:var(--bg2,#20242c);border:1px solid rgba(212,160,23,.35);border-radius:22px;padding:30px 26px;box-shadow:0 28px 80px rgba(0,0,0,.6);color:var(--text,#e8e6f0);font-family:inherit}
+              #forcePwModal .fp-ico{width:62px;height:62px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:rgba(212,160,23,.12);border:2px solid rgba(212,160,23,.4);color:#f0c040;font-size:25px}
+              #forcePwModal h2{margin:0 0 8px;font-size:20px;font-weight:800;text-align:center}
+              #forcePwModal .fp-why{font-size:13px;line-height:1.85;opacity:.85;text-align:center;margin:0 0 18px;padding:12px 14px;background:rgba(255,255,255,.04);border-radius:12px}
+              #forcePwModal label{display:block;font-size:12.5px;font-weight:700;margin:12px 0 6px;opacity:.9}
+              #forcePwModal .fp-row{position:relative}
+              #forcePwModal input{width:100%;box-sizing:border-box;padding:12px 14px 12px 42px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25);color:inherit;font-size:15px;outline:none;direction:ltr;text-align:left;font-family:inherit}
+              #forcePwModal input:focus{border-color:#d4a017}
+              #forcePwModal .fp-eye{position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:0;color:inherit;opacity:.6;cursor:pointer;padding:8px;font-size:14px}
+              #forcePwModal .fp-hint{font-size:11.5px;opacity:.6;margin-top:6px;line-height:1.6}
+              #forcePwModal .fp-err{min-height:18px;font-size:12.5px;color:#ff7b7b;margin:12px 0 0;text-align:center;line-height:1.6}
+              #forcePwModal .fp-btn{width:100%;margin-top:14px;padding:13px;border:0;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;background:linear-gradient(135deg,#d4a017,#f0c040);color:#1a1d23;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px}
+              #forcePwModal .fp-btn:disabled{opacity:.6;cursor:not-allowed}
+              #forcePwModal .fp-out{display:block;margin:14px auto 0;background:none;border:0;color:inherit;opacity:.55;font-size:12.5px;cursor:pointer;text-decoration:underline;font-family:inherit}`;
+            document.head.appendChild(css);
+
+            const m = document.createElement('div');
+            m.id = 'forcePwModal';
+            m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+            m.innerHTML = `
+              <div class="fp-card">
+                <div class="fp-ico"><i class="fa-solid fa-shield-halved"></i></div>
+                <h2>تحديث كلمة المرور مطلوب</h2>
+                <p class="fp-why">عملنا تحديثات على المنصة، ولأجل <b>أمان حسابك</b> لازم تختار كلمة مرور جديدة قبل ما تكمّل.
+                  الخطوة دي إجبارية ومرة واحدة بس، وبعدها تقدر تستخدم المنصة عادي.<br>وراجع بياناتك (الاسم ورقم التليفون) وحدّثها لو محتاج.</p>
+                <form id="forcePwForm" autocomplete="off" novalidate>
+                  <label for="fpName">الاسم</label>
+                  <div class="fp-row"><input id="fpName" type="text" autocomplete="name" maxlength="80" style="direction:rtl;text-align:right;padding-left:14px" required></div>
+                  <label for="fpPhone">رقم التليفون</label>
+                  <div class="fp-row"><input id="fpPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="01XXXXXXXXX" style="padding-left:14px" required></div>
+                  <label for="fpNew">كلمة المرور الجديدة</label>
+                  <div class="fp-row"><input id="fpNew" type="password" autocomplete="new-password" minlength="8" required>
+                    <button type="button" class="fp-eye" data-t="fpNew" aria-label="إظهار"><i class="fa-regular fa-eye"></i></button></div>
+                  <div class="fp-hint">8 حروف على الأقل، وتحتوي على حروف وأرقام، ومختلفة عن كلمة المرور القديمة.</div>
+                  <label for="fpConf">تأكيد كلمة المرور الجديدة</label>
+                  <div class="fp-row"><input id="fpConf" type="password" autocomplete="new-password" required>
+                    <button type="button" class="fp-eye" data-t="fpConf" aria-label="إظهار"><i class="fa-regular fa-eye"></i></button></div>
+                  <div class="fp-err" id="fpErr" role="alert"></div>
+                  <button type="submit" class="fp-btn" id="fpBtn"><span>حفظ كلمة المرور الجديدة</span></button>
+                </form>
+                <button type="button" class="fp-out" id="fpOut">تسجيل الخروج</button>
+              </div>`;
+            document.body.appendChild(m);
+            document.body.style.overflow = 'hidden';
+
+            const $ = (id) => document.getElementById(id);
+            const err = (t) => { $('fpErr').textContent = t || ''; };
+            if (loadError) err('تعذّر التحقق من حالة حسابك. تأكد من الاتصال بالإنترنت ثم حاول مرة أخرى.');
+
+            // منع الإغلاق: Escape / رجوع / حذف العنصر من الـ DOM
+            m.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); } });
+            m.addEventListener('click', e => e.stopPropagation());
+            new MutationObserver(() => {
+                if (!document.getElementById('forcePwModal') && window._pwGateOpen) { document.body.appendChild(m); document.body.style.overflow = 'hidden'; }
+                if (m.style.display === 'none' || m.hidden) { m.style.display = 'flex'; m.hidden = false; }
+            }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'hidden'] });
+            window._pwGateOpen = true;
+
+            m.querySelectorAll('.fp-eye').forEach(b => b.addEventListener('click', () => {
+                const i = $(b.dataset.t); i.type = i.type === 'password' ? 'text' : 'password';
+                b.firstElementChild.className = i.type === 'password' ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
+            }));
+            $('fpOut').addEventListener('click', async () => {
+                try { await signOut(auth); } catch (e) {}
+                location.reload();
+            });
+
+            $('forcePwForm').addEventListener('submit', async (ev) => {
+                ev.preventDefault();
+                const a = $('fpNew').value, b = $('fpConf').value, btn = $('fpBtn');
+                err('');
+                const nm = $('fpName').value.trim().replace(/\s+/g, ' '), ph = $('fpPhone').value.replace(/[\s\-()]/g, '');
+                if (nm.length < 2) return err('اكتب اسمك.');
+                if (!/^\+?\d{10,15}$/.test(ph)) return err('اكتب رقم تليفون صحيح.');
+                if (a.length < 8) return err('كلمة المرور لازم تكون 8 حروف على الأقل.');
+                if (!/[A-Za-z؀-ۿ]/.test(a) || !/\d/.test(a)) return err('كلمة المرور لازم تحتوي على حروف وأرقام.');
+                if (a !== b) return err('كلمتا المرور غير متطابقتين.');
+                btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+                window._pwGateBusy = true;
+                try {
+                    // 1) بيانات الحساب (الاسم + التليفون) — الأول، عشان لو فشلت ما نفتحش المنصة من غيرها
+                    try {
+                        const parts = nm.split(' ');
+                        await updateDoc(doc(db, 'users', (auth.currentUser || user).uid), { firstName: parts.shift() || '', lastName: parts.join(' '), phone: ph });
+                    } catch (e) { throw new Error('profile-failed'); }
+                    // 2) كلمة المرور
+                    await updatePassword(auth.currentUser || user, a);
+                    // التحقق الفعلي من السيرفر — مش بنصدّق الواجهة
+                    let still = true;
+                    try { still = await _pwNeedsChange(); } catch (e) { still = true; }
+                    if (still) throw new Error('verify-failed');
+                    try { if (localStorage.getItem('rememberedPass')) localStorage.setItem('rememberedPass', a); } catch (e) {}
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span>تم تغيير كلمة المرور ✓</span>';
+                    window._pwGateOpen = false;
+                    setTimeout(() => location.reload(), 700);
+                } catch (e) {
+                    window._pwGateBusy = false;
+                    const msg = String((e && (e.message || e.code)) || '');
+                    if (/same|different|identical/i.test(msg)) err('كلمة المرور الجديدة لازم تكون مختلفة عن القديمة.');
+                    else if (/weak|short|least|characters/i.test(msg)) err('كلمة المرور ضعيفة — اختر كلمة أقوى.');
+                    else if (/reauth|recent|nonce|session|jwt|expired/i.test(msg)) err('انتهت الجلسة. اضغط "تسجيل الخروج" وسجّل دخول من جديد ثم غيّر كلمة المرور.');
+                    else if (/profile-failed/.test(msg)) err('تعذّر حفظ الاسم ورقم التليفون. حاول مرة أخرى.');
+                    else if (/verify-failed/.test(msg)) err('لم يتم تأكيد التغيير من النظام. حاول مرة أخرى.');
+                    else if (/network|fetch/i.test(msg)) err('مشكلة في الاتصال بالإنترنت. حاول مرة أخرى.');
+                    else err('حصل خطأ أثناء تغيير كلمة المرور. حاول مرة أخرى.');
+                    btn.disabled = false; btn.innerHTML = '<span>حفظ كلمة المرور الجديدة</span>';
+                }
+            });
+            // تعبئة مسبقة من بيانات الحساب الحالية
+            getDoc(doc(db, 'users', user.uid)).then(sn => {
+                if (!sn.exists()) return; const d = sn.data();
+                if (!$('fpName').value) $('fpName').value = ((d.firstName || '') + ' ' + (d.lastName || '')).trim();
+                if (!$('fpPhone').value) $('fpPhone').value = d.phone || '';
+            }).catch(() => {});
+            setTimeout(() => { try { $('fpName').focus(); } catch (e) {} }, 100);
+        }
+        // true = المستخدم محجوب (لازم يغيّر كلمة السر) ← مفيش تشغيل للمنصة
+        async function _pwGateBlocked(user) {
+            if (window._pwGateBusy) return true;
+            let needs = true, loadError = false;
+            try { needs = await _pwNeedsChange(); }
+            catch (e) { console.warn('password gate check failed', e); loadError = true; needs = true; }
+            if (!needs) return false;
+            currentUid = null; window._userData = null;
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('authBox').style.display = 'none';
+            _pwShowModal(user, loadError);
+            return true;
+        }
+
         onAuthStateChanged(auth, async (user) => {
             if (window.refreshMaintenanceOverlay) window.refreshMaintenanceOverlay(); // الإيميل التجريبي المستثنى بيتفحص عند كل تغيير مستخدم
             if (user) {
@@ -6348,6 +6495,9 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     if (typeof showEmailVerifyScreen === 'function') showEmailVerifyScreen(user.email);
                     return;
                 }
+
+                // ── تغيير كلمة السر الإجباري: التحقق من السيرفر قبل فتح أي صفحة ──
+                if (await _pwGateBlocked(user)) return;
 
                 currentUid = user.uid;
                 window._currentUid = user.uid; // expose for JS
