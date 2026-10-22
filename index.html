@@ -9082,8 +9082,9 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 .wh-disc-wrap .wh-hub { width:22%; height:22%; min-width:60px; min-height:60px; background:radial-gradient(circle at 35% 28%, #2a6b57, #0b1a16 72%); color:#fff; border:3px solid #f0c040; box-shadow:0 6px 18px rgba(0,0,0,.5), inset 0 0 0 2px rgba(255,255,255,.12); font-size:12px; letter-spacing:0; z-index:6; transition:transform .15s; }
                 .wh-disc-wrap .wh-hub:not(.disabled):hover { transform:translate(-50%,-50%) scale(1.06); }
                 .wh-disc-wrap .wh-hub.disabled { opacity:.6; filter:grayscale(.3); }
-                .wh-legend { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:20px; position:relative; z-index:1; }
-                .wh-chip { width:46px; height:46px; border-radius:50%; display:grid; place-items:center; border:2px solid rgba(255,255,255,.7); box-shadow:0 4px 10px rgba(0,0,0,.25); cursor:default; }
+                .wh-legend { display:flex; flex-wrap:nowrap; justify-content:center; gap:clamp(4px,1.6vw,9px); margin-top:20px; padding:0 6px; position:relative; z-index:1; }
+                .wh-chip { flex:0 0 auto; width:clamp(28px,9.4vw,40px); height:clamp(28px,9.4vw,40px); border-radius:50%; display:grid; place-items:center; border:2px solid rgba(255,255,255,.7); box-shadow:0 3px 8px rgba(0,0,0,.25); cursor:default; }
+                .wh-chip svg { width:64%; height:64%; }
                 .wh-gift-disc-wrap { --s:min(250px, 70vw); width:var(--s); height:var(--s); margin:18px auto; }
                 .wh-result-card.wh-gift-card { position:relative; overflow:hidden; }
                 .wh-gift-card > *:not(.wh-stage) { position:relative; z-index:1; }
@@ -9247,6 +9248,97 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             }).join('');
         }
 
+        /* ═══ WHEEL RESULT FX — win: jingle + balloons + confetti · lose: sad trombone ═══ */
+        let _whAudio = null;
+        function wheelUnlockAudio() {
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                if (!_whAudio) _whAudio = new AC();
+                if (_whAudio.state === 'suspended') _whAudio.resume();
+            } catch (e) {}
+        }
+        // browsers only allow sound after a tap, so unlock on the first interaction (the spin tap counts)
+        document.addEventListener('pointerdown', wheelUnlockAudio, { passive: true });
+        document.addEventListener('keydown', wheelUnlockAudio, { passive: true });
+
+        function wheelTone(freq, t0, dur, type, vol, slideTo, lowpass) {
+            const ctx = _whAudio; if (!ctx) return;
+            const t = ctx.currentTime + t0;
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, t);
+            if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            let node = osc;
+            if (lowpass) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lowpass; osc.connect(f); node = f; }
+            node.connect(g); g.connect(ctx.destination);
+            osc.start(t); osc.stop(t + dur + 0.05);
+        }
+        function wheelPlayWin() {
+            wheelUnlockAudio(); if (!_whAudio) return;
+            [[523.25, 0], [659.25, .11], [783.99, .22], [1046.5, .33]].forEach(([f, t]) => wheelTone(f, t, t === .33 ? .55 : .2, 'triangle', .2));
+            [523.25, 659.25, 783.99].forEach(f => wheelTone(f, .34, .9, 'sine', .07));
+            [[1318.5, .5], [1568, .58], [2093, .66], [2637, .74], [3136, .82]].forEach(([f, t]) => wheelTone(f, t, .18, 'sine', .08));
+        }
+        function wheelPlayLose() {
+            wheelUnlockAudio(); if (!_whAudio) return;
+            wheelTone(196, 0, .3, 'sawtooth', .16, 185, 800);
+            wheelTone(185, .32, .3, 'sawtooth', .16, 174, 800);
+            wheelTone(174.6, .64, .3, 'sawtooth', .16, 164.8, 800);
+            wheelTone(164.8, .96, .85, 'sawtooth', .18, 120, 700);
+        }
+
+        function wheelBalloonSVG(col) {
+            return `<svg viewBox="0 0 60 100" width="100%" height="100%" aria-hidden="true"><path d="M30 94c-1-8 3-12 0-18" fill="none" stroke="rgba(120,120,120,.7)" stroke-width="1.4"/>
+                <path d="M30 70l-5 7h10z" fill="${wheelMix(col, -.2)}"/>
+                <ellipse cx="30" cy="35" rx="26" ry="33" fill="${col}"/>
+                <ellipse cx="20" cy="22" rx="6" ry="10" fill="#fff" opacity=".4" transform="rotate(-22 20 22)"/></svg>`;
+        }
+        function wheelBalloons() {
+            if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            const old = document.getElementById('whFx'); if (old) old.remove();
+            const fx = document.createElement('div');
+            fx.id = 'whFx';
+            fx.style.cssText = 'position:fixed;inset:0;z-index:100001;pointer-events:none;overflow:hidden;';
+            const pal = ['#ef4444', '#f5a524', '#12a37f', '#7c4dff', '#14b8c4', '#ec4899', '#f97316', '#3b82f6'];
+            const vw = window.innerWidth, vh = window.innerHeight;
+            // balloons rise from the bottom of the screen
+            for (let i = 0; i < 18; i++) {
+                const el = document.createElement('div');
+                const w = 44 + Math.random() * 38, col = pal[i % pal.length];
+                el.style.cssText = `position:absolute;left:${(4 + Math.random() * 92).toFixed(1)}%;bottom:${-w * 2}px;width:${w}px;height:${w * 1.66}px;will-change:transform;`;
+                el.innerHTML = wheelBalloonSVG(col);
+                fx.appendChild(el);
+                const sway = (Math.random() - .5) * 90;
+                el.animate([
+                    { transform: 'translate(0,0) rotate(-4deg)', opacity: 1 },
+                    { transform: `translate(${sway}px,${-vh * .55}px) rotate(5deg)`, opacity: 1, offset: .5 },
+                    { transform: `translate(${-sway * .6}px,${-vh - w * 2.4}px) rotate(-6deg)`, opacity: 1 }
+                ], { duration: 3800 + Math.random() * 2200, delay: Math.random() * 1100, easing: 'cubic-bezier(.3,.1,.4,1)', fill: 'forwards' });
+            }
+            // confetti + streamers burst up from both bottom corners, then flutter down
+            for (let i = 0; i < 90; i++) {
+                const el = document.createElement('div');
+                const left = i % 2 === 0, streamer = i % 6 === 0;
+                const w = streamer ? 4 : 7 + Math.random() * 6, h = streamer ? 20 + Math.random() * 16 : 5 + Math.random() * 5;
+                el.style.cssText = `position:absolute;${left ? 'left' : 'right'}:6px;bottom:6px;width:${w}px;height:${h}px;background:${pal[Math.floor(Math.random() * pal.length)]};border-radius:${streamer ? 2 : 1.5}px;will-change:transform;`;
+                fx.appendChild(el);
+                const dir = left ? 1 : -1, dx = dir * (vw * (.1 + Math.random() * .6)), up = vh * (.35 + Math.random() * .5), rot = (Math.random() * 900 - 450);
+                el.animate([
+                    { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+                    { transform: `translate(${dx * .65}px,${-up}px) rotate(${rot * .5}deg)`, opacity: 1, offset: .42, easing: 'cubic-bezier(.2,.7,.3,1)' },
+                    { transform: `translate(${dx}px,${vh * .15}px) rotate(${rot}deg)`, opacity: 0 }
+                ], { duration: 2600 + Math.random() * 1600, delay: Math.random() * 350, easing: 'cubic-bezier(.4,0,.8,.6)', fill: 'forwards' });
+            }
+            document.body.appendChild(fx);
+            setTimeout(() => { fx.remove(); }, 7600);
+        }
+        function wheelCelebrate(win) {
+            try { if (win) { wheelPlayWin(); wheelBalloons(); } else { wheelPlayLose(); } } catch (e) { console.warn('wheel fx', e); }
+        }
+
         function wheelBuildConicGradient(order, colors) {
             const seg = 360 / order.length;
             const stops = order.map((k, i) => `${colors[i % colors.length]} ${(i*seg).toFixed(2)}deg ${((i+1)*seg).toFixed(2)}deg`);
@@ -9388,6 +9480,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         };
 
         function wheelShowBasicResult(result) {
+            wheelCelebrate(['coin1','coin2','coin3','extraSpin','gift'].includes(result.type));
             const isAR = lang === 'AR';
             const modal = document.createElement('div');
             modal.id = 'whResultModal';
@@ -9484,6 +9577,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         };
 
         function wheelShowGiftResult(result) {
+            wheelCelebrate(true);
             const isAR = lang === 'AR';
             const modal = document.createElement('div');
             modal.id = 'whResultModal';
