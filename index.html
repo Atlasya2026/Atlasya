@@ -3265,7 +3265,122 @@
 
             /* Small-screen readability: nothing below 11px */
             @media (max-width: 640px) { body { -webkit-text-size-adjust: 100%; } }
-        </style>
+        /* ═══ CONSULTATIONS (cs-) ═══ */
+.cs-wrap{--cs-cyan:#22d3ee;--cs-amber:#f59e0b;--cs-red:#ef4444;--cs-bg:rgba(255,255,255,0.03);max-width:1100px;margin:0 auto;}
+.cs-hero{display:flex;gap:18px;align-items:flex-start;padding:22px;border-radius:18px;background:linear-gradient(135deg,rgba(var(--brand-rgb,30,122,52),0.18),rgba(34,211,238,0.07));border:1px solid var(--border);margin-bottom:18px;}
+.cs-hero>i{font-size:30px;color:var(--cs-cyan);margin-top:2px}
+.cs-hero h3{font-size:17px;font-weight:800;margin:0 0 6px}
+.cs-hero p{font-size:13px;color:var(--muted);line-height:1.8;margin:0}
+.cs-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 18px}
+.cs-step{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--cs-bg);font-size:12px;color:var(--muted);line-height:1.7}
+.cs-step b{display:flex;align-items:center;gap:8px;color:var(--text);font-size:13px;margin-bottom:4px}
+.cs-step b span{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--green4),var(--cs-cyan));color:#04120a;font-size:12px;display:inline-flex;align-items:center;justify-content:center;font-weight:800}
+.cs-policy{padding:12px 14px;border:1px dashed rgba(34,211,238,0.35);border-radius:12px;font-size:12px;color:var(--muted);line-height:1.9;margin-bottom:18px;background:rgba(34,211,238,0.04)}
+.cs-policy i{color:var(--cs-cyan);margin-inline-end:6px}
+.cs-tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border);overflow-x:auto}
+.cs-tab{padding:11px 18px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font:700 14px 'Tajawal',sans-serif;cursor:pointer;white-space:nowrap;display:flex;gap:8px;align-items:center}
+.cs-tab.on{color:var(--green4);border-bottom-color:var(--green4)}
+.cs-tab .n{background:var(--green4);color:#04120a;border-radius:99px;font-size:11px;padding:1px 7px;font-weight:800}
+.cs-topics{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:18px}
+.cs-topic{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--cs-bg);color:var(--text);font:600 13px 'Tajawal',sans-serif;cursor:pointer;text-align:start;transition:.2s}
+.cs-topic i{color:var(--cs-cyan);width:18px;text-align:center}
+.cs-topic:hover{border-color:var(--green4)}
+.cs-topic.on{border-color:var(--green4);background:rgba(var(--brand-rgb,30,122,52),0.18)}
+.cs-card{padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--card);margin-bottom:14px}
+.cs-card h4{font-size:14px;font-weight:800;margin:0 0 14px;display:flex;gap:8px;align-items:center}
+.cs-card h4 i{color:var(--green4)}
+.cs-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cs-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.cs-f{margin-bottom:14px}
+.cs-f label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.cs-f label em{color:var(--cs-red);font-style:normal}
+.cs-in,.cs-f input,.cs-f select,.cs-f textarea{width:100%;padding:11px 13px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:11px;color:var(--text);font:14px 'Tajawal',sans-serif;outline:none;color-scheme:dark;box-sizing:border-box}
+.cs-f textarea{resize:vertical;min-height:90px;line-height:1.7}
+.cs-f input:focus,.cs-f select:focus,.cs-f textarea:focus{border-color:var(--green4)}
+.cs-hint{font-size:11px;color:var(--muted);margin-top:5px}
+.cs-count{float:inline-end;font-weight:400}
+.cs-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 20px;border:none;border-radius:11px;font:700 13px 'Tajawal',sans-serif;cursor:pointer;transition:.2s;color:#04120a;background:linear-gradient(135deg,var(--green4),var(--brand-end,#1abc9c))}
+.cs-btn:hover{opacity:.9}
+.cs-btn:disabled,.cs-btn.dis{opacity:.45;cursor:not-allowed}
+.cs-btn.ghost{background:rgba(255,255,255,0.06);color:var(--text);border:1px solid var(--border)}
+.cs-btn.cyan{background:linear-gradient(135deg,#0ea5c6,var(--cs-cyan))}
+.cs-btn.danger{background:rgba(239,68,68,0.12);color:#ff7a7a;border:1px solid rgba(239,68,68,0.35)}
+.cs-btn.sm{padding:7px 13px;font-size:12px;border-radius:9px}
+.cs-btn.block{width:100%}
+.cs-files{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.cs-file{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:9px;font-size:12px;background:var(--cs-bg);max-width:100%}
+.cs-file button{background:none;border:none;color:#ff7a7a;cursor:pointer;font-size:13px}
+.cs-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:99px;font-size:11px;font-weight:800;border:1px solid transparent}
+.cs-chip.pending{background:rgba(245,158,11,0.13);color:#fbbf24;border-color:rgba(245,158,11,0.3)}
+.cs-chip.accepted{background:rgba(34,211,238,0.12);color:#67e8f9;border-color:rgba(34,211,238,0.3)}
+.cs-chip.confirmed{background:rgba(39,163,70,0.16);color:#4ade80;border-color:rgba(39,163,70,0.4)}
+.cs-chip.completed{background:rgba(26,188,156,0.14);color:#5eead4;border-color:rgba(26,188,156,0.35)}
+.cs-chip.rejected{background:rgba(239,68,68,0.12);color:#fca5a5;border-color:rgba(239,68,68,0.3)}
+.cs-chip.cancelled{background:rgba(138,143,160,0.14);color:#aab0c0;border-color:rgba(138,143,160,0.3)}
+.cs-item{padding:16px 18px;border:1px solid var(--border);border-radius:16px;background:var(--card);margin-bottom:12px;border-inline-start:4px solid var(--border)}
+.cs-item.pending{border-inline-start-color:#f59e0b}.cs-item.accepted{border-inline-start-color:#22d3ee}.cs-item.confirmed{border-inline-start-color:#27a346}
+.cs-item.completed{border-inline-start-color:#1abc9c}.cs-item.rejected{border-inline-start-color:#ef4444}.cs-item.cancelled{border-inline-start-color:#8a8fa0}
+.cs-item.click{cursor:pointer;transition:.2s}.cs-item.click:hover{background:rgba(var(--brand-rgb,30,122,52),0.08)}
+.cs-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cs-title{font-size:14px;font-weight:800;color:var(--text);margin:8px 0 4px}
+.cs-meta{font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.cs-meta i{margin-inline-end:5px;color:var(--cs-cyan)}
+.cs-text{font-size:13px;color:var(--text);line-height:1.8;white-space:pre-wrap;word-break:break-word}
+.cs-box{margin-top:12px;padding:12px 14px;border-radius:11px;font-size:13px;line-height:1.8;border:1px solid var(--border);background:var(--cs-bg)}
+.cs-box.ok{background:rgba(var(--brand-rgb,30,122,52),0.08);border-color:rgba(var(--brand-rgb,30,122,52),0.3)}
+.cs-box.warn{background:rgba(245,158,11,0.07);border-color:rgba(245,158,11,0.3)}
+.cs-box.bad{background:rgba(239,68,68,0.07);border-color:rgba(239,68,68,0.3)}
+.cs-box.info{background:rgba(34,211,238,0.06);border-color:rgba(34,211,238,0.3)}
+.cs-box b.t{display:block;font-size:11px;margin-bottom:4px;color:var(--muted);letter-spacing:.3px}
+.cs-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.cs-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.cs-pill{padding:6px 14px;border-radius:99px;border:1px solid var(--border);background:none;color:var(--muted);font:700 12px 'Tajawal',sans-serif;cursor:pointer}
+.cs-pill.on{background:var(--green4);color:#04120a;border-color:var(--green4)}
+.cs-empty{text-align:center;padding:34px 16px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:14px}
+.cs-empty i{display:block;font-size:28px;opacity:.35;margin-bottom:10px}
+.cs-loading{text-align:center;padding:28px;color:var(--muted)}
+.cs-stars{display:inline-flex;gap:4px;direction:ltr}
+.cs-stars button{background:none;border:none;font-size:24px;color:#4b5563;cursor:pointer;padding:0;transition:.15s}
+.cs-stars button.on,.cs-stars span.on{color:#fbbf24}
+.cs-stars span{font-size:15px;color:#4b5563}
+.cs-res{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.cs-res a{color:var(--cs-cyan);font-weight:700;font-size:13px;text-decoration:none}
+.cs-res a:hover{text-decoration:underline}
+.cs-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.cs-stat{padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--card);cursor:pointer;transition:.2s}
+.cs-stat:hover{border-color:var(--green4)}
+.cs-stat .n{font-size:26px;font-weight:800;line-height:1.1}
+.cs-stat .l{font-size:12px;color:var(--muted);margin-top:4px}
+.cs-stat .s{font-size:11px;color:var(--muted);margin-top:2px;opacity:.8}
+.cs-tools{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px;align-items:end}
+.cs-tools .cs-f{margin:0}
+.cs-cal{border:1px solid var(--border);border-radius:16px;background:var(--card);padding:14px;margin-bottom:14px}
+.cs-cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-weight:800;font-size:14px}
+.cs-cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cs-cal-d{font-size:10px;color:var(--muted);text-align:center;padding:4px 0}
+.cs-cal-c{min-height:54px;border:1px solid transparent;border-radius:9px;padding:4px 6px;font-size:11px;color:var(--muted);background:var(--cs-bg);cursor:pointer;text-align:start;display:flex;flex-direction:column;gap:2px}
+.cs-cal-c.today{border-color:var(--cs-cyan)}
+.cs-cal-c.sel{border-color:var(--green4);background:rgba(var(--brand-rgb,30,122,52),0.2)}
+.cs-cal-c.out{opacity:.25;pointer-events:none}
+.cs-cal-c b{display:block;font-size:10px;padding:1px 5px;border-radius:6px;background:rgba(39,163,70,0.22);color:#86efac;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cs-mask{position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.72);display:flex;align-items:flex-start;justify-content:center;padding:20px 12px;overflow-y:auto}
+.cs-modal{width:100%;max-width:560px;background:var(--card,#20242c);border:1px solid var(--border);border-radius:18px;padding:22px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.6);animation:fadeUp .25s ease both}
+.cs-modal.wide{max-width:820px}
+.cs-modal-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.cs-modal-h h3{font-size:16px;font-weight:800;margin:0}
+.cs-x{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.07);border:none;color:var(--muted);cursor:pointer;font-size:15px;flex-shrink:0}
+.cs-sec{margin:16px 0 8px;font-size:12px;font-weight:800;color:var(--green4);letter-spacing:.4px;display:flex;gap:7px;align-items:center}
+.cs-kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:13px}
+.cs-kv dt{color:var(--muted)}.cs-kv dd{margin:0;color:var(--text);word-break:break-word}
+.cs-tl{list-style:none;margin:0;padding:0;border-inline-start:2px solid var(--border)}
+.cs-tl li{position:relative;padding:0 14px 12px;font-size:12px;color:var(--muted)}
+.cs-tl li::before{content:'';position:absolute;inset-inline-start:-6px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--green4)}
+.cs-tl b{color:var(--text)}
+.cs-join-note{font-size:12px;color:var(--muted);margin-top:8px}
+@media(max-width:900px){.cs-stats{grid-template-columns:repeat(2,1fr)}.cs-tools{grid-template-columns:1fr 1fr}.cs-tools .cs-f:first-child{grid-column:1/-1}.cs-steps{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.cs-grid2,.cs-grid3{grid-template-columns:1fr}.cs-hero{flex-direction:column}.cs-steps{grid-template-columns:1fr}.cs-kv{grid-template-columns:1fr}.cs-kv dt{margin-top:6px}.cs-modal{padding:16px}.cs-actions .cs-btn{flex:1 1 100%}.cs-cal-c{min-height:44px}}
+
+</style>
         <style>
             /* ===== STUDENT FULL-SCREEN BACKGROUND LOGIN ===== */
             #authBox.split-auth {
@@ -4898,55 +5013,32 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             await deleteDoc(doc(db, 'mentorship_bookings', bookingId));
         };
 
-        /* ─── MENTORSHIP: ASK-AN-EXPERT REQUESTS ─── */
-        window._sendMentorshipRequest = async (message, preferredDay, preferredTime) => {
-            if (!currentUid) throw new Error('Not logged in');
-            const d = window._userData || {};
-            const authorName = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || 'User';
-            await addDoc(collection(db, 'mentorship_requests'), {
-                uid: currentUid,
-                authorName,
-                email: d.email || '',
-                phone: d.phone || '',
-                message: message || '',
-                preferredDay: preferredDay || '',
-                preferredTime: preferredTime || '',
-                replied: false,
-                reply: '',
-                createdAt: serverTimestamp()
-            });
-            window._notifyAdminsBot('expert_question', { studentName: authorName, message: message || '' });
-        };
-
+        /* ─── CONSULTATIONS: data layer — القراءة من الجدول (RLS بيحدد النطاق)، وكل الكتابة عبر RPC فيها تحقق على السيرفر ─── */
+        window._consultRpc = (name, args) => rpc(db, name, args);
         window._loadMyMentorshipRequests = async () => {
             if (!currentUid) return [];
-            // NOTE: no orderBy here on purpose — combining where() + orderBy() on
-            // different fields needs a Firestore composite index that doesn't exist,
-            // which made this query fail. We sort client-side instead.
+            // no orderBy on purpose (composite index) — sort client-side
             const q = query(collection(db, 'mentorship_requests'), where('uid', '==', currentUid));
             const snap = await getDocs(q);
             const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
             return rows;
         };
-
         window._loadMentorshipRequests = async () => {
             const q = query(collection(db, 'mentorship_requests'), orderBy('createdAt', 'desc'));
             const snap = await getDocs(q);
             return snap.docs.map(d => ({ id: d.id, ...d.data() }));
         };
-
-        window._replyMentorshipRequest = async (requestId, replyText) => {
-            await updateDoc(doc(db, 'mentorship_requests', requestId), {
-                reply: replyText,
-                replied: true,
-                repliedAt: serverTimestamp()
+        window._consultLoadExperts = async () => {
+            const snap = await getDocs(collection(db, 'admins'));
+            return snap.docs.map(d => {
+                const x = d.data() || {};
+                const name = (x.name || ((x.firstName || '') + ' ' + (x.lastName || '')).trim() || x.email || d.id);
+                return { id: d.id, name };
             });
         };
+        window._consultUploadFile = (dataUrl) => (window._ensureStorageUrl ? window._ensureStorageUrl('consult', dataUrl) : Promise.reject(new Error('upload unavailable')));
 
-        window._deleteMentorshipRequest = async (requestId) => {
-            await deleteDoc(doc(db, 'mentorship_requests', requestId));
-        };
 
         /* ─── SUPPORT TICKETS ─── */
         window._createTicket = async (data) => {
@@ -7914,7 +8006,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         function navigate(page, el, silent, noHistory) {
             if (window._isAdmin && Array.isArray(window._adminPermissions)) {
                 const neededKey = ADMIN_PAGE_PERMISSION_MAP[page];
-                if (neededKey && !window._adminPermissions.includes(neededKey)) {
+                if (neededKey && !(window._adminPermissions.includes(neededKey) || (neededKey === 'mentorship' && window._adminPermissions.includes('mentorship_own')))) {
                     showToast(lang==='AR' ? 'ليس لديك صلاحية للوصول لهذا القسم' : "You don't have permission to access this section", true);
                     return;
                 }
@@ -12842,149 +12934,409 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         document.body.removeChild(overlay);
     };
 
-        /* ─── MENTORSHIP ─── */
-        async function renderMentorship(area) {
-            const isAR = lang === 'AR';
-            const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
-            const isAdmin = window._isAdmin ? window._isAdmin() : false;
+        /* ─── MENTORSHIP / CONSULTATIONS ─── */
+/* ═══ CONSULTATIONS — shared helpers (window.CS) ═══ */
+window.CS = (function () {
+    const TOPICS = [
+        { k: 'gis_project',     ar: 'مراجعة مشروع GIS',               en: 'GIS project review',        ic: 'fa-layer-group' },
+        { k: 'remote_sensing',  ar: 'الاستشعار عن بعد',               en: 'Remote sensing',            ic: 'fa-satellite' },
+        { k: 'cartography',     ar: 'الخرائط والتصميم الخرائطي',      en: 'Cartography & map design',  ic: 'fa-map' },
+        { k: 'spatial_analysis',ar: 'التحليل المكاني',                en: 'Spatial analysis',          ic: 'fa-chart-area' },
+        { k: 'programming',     ar: 'برمجة GIS (Python / GEE / JS)',  en: 'GIS programming',           ic: 'fa-code' },
+        { k: 'research',        ar: 'بحث أو رسالة علمية',             en: 'Research / thesis',         ic: 'fa-graduation-cap' },
+        { k: 'career',          ar: 'مسار مهني و CV و Portfolio',     en: 'Career, CV & portfolio',    ic: 'fa-briefcase' },
+        { k: 'other',           ar: 'أخرى',                           en: 'Other',                     ic: 'fa-circle-question' }
+    ];
+    const STATUS = {
+        pending:   { ar: 'قيد المراجعة',                en: 'Under review',                  ic: 'fa-hourglass-half',
+                     msgAR: 'وصل طلبك وفريقنا يراجعه الآن. سنخبرك فور اتخاذ قرار.', msgEN: 'We received your request and the team is reviewing it.' },
+        accepted:  { ar: 'مقبولة بانتظار تأكيد الموعد', en: 'Accepted — awaiting schedule',  ic: 'fa-circle-check',
+                     msgAR: 'تم قبول طلبك. بانتظار تحديد الموعد النهائي وإضافة رابط الاجتماع.', msgEN: 'Your request was accepted. The final time and meeting link are coming.' },
+        confirmed: { ar: 'مؤكدة',                       en: 'Confirmed',                     ic: 'fa-calendar-check',
+                     msgAR: 'تم تأكيد جلستك. يظهر رابط الدخول قبل الموعد بـ 15 دقيقة.', msgEN: 'Your session is confirmed. The join link opens 15 minutes before the start.' },
+        rejected:  { ar: 'مرفوضة',                      en: 'Rejected',                      ic: 'fa-circle-xmark',
+                     msgAR: 'نعتذر، لم نتمكن من قبول هذا الطلب.', msgEN: 'Sorry, we could not accept this request.' },
+        completed: { ar: 'مكتملة',                      en: 'Completed',                     ic: 'fa-flag-checkered',
+                     msgAR: 'اكتملت الجلسة. شاركنا رأيك لتحسين الخدمة.', msgEN: 'The session is complete. Please share your feedback.' },
+        cancelled: { ar: 'ملغاة',                       en: 'Cancelled',                     ic: 'fa-ban',
+                     msgAR: 'تم إلغاء هذا الطلب.', msgEN: 'This request was cancelled.' }
+    };
+    const ERR = {
+        not_logged_in: ['سجّل دخولك أولًا', 'Please sign in first'],
+        account_suspended: ['حسابك موقوف حاليًا', 'Your account is suspended'],
+        invalid_topic: ['اختر مجال الاستشارة', 'Pick a topic'],
+        invalid_title: ['عنوان الطلب يجب أن يكون بين 3 و120 حرفًا', 'Title must be 3–120 characters'],
+        invalid_message: ['وصف المشكلة يجب أن يكون 20 حرفًا على الأقل', 'Describe the problem (20+ characters)'],
+        invalid_goal: ['اكتب الهدف المطلوب (10 أحرف على الأقل)', 'Write your goal (10+ characters)'],
+        invalid_duration: ['المدة غير صالحة', 'Invalid duration'],
+        invalid_day: ['اختر يومًا صالحًا (من اليوم وحتى 90 يومًا قادمة)', 'Pick a valid day (today up to 90 days ahead)'],
+        invalid_time: ['الوقت غير صالح أو في الماضي', 'Invalid time or in the past'],
+        invalid_attachments: ['المرفقات غير صالحة (حتى 3 ملفات صور/PDF)', 'Invalid attachments (max 3 image/PDF files)'],
+        too_many_open: ['لديك 3 طلبات مفتوحة بالفعل. انتظر الرد عليها أو ألغِ أحدها', 'You already have 3 open requests'],
+        duplicate_request: ['أرسلت طلبًا مطابقًا خلال آخر 24 ساعة', 'You sent an identical request in the last 24h'],
+        forbidden: ['غير مصرّح لك بهذا الإجراء', 'You are not allowed to do this'],
+        not_found: ['الطلب غير موجود', 'Request not found'],
+        invalid_transition: ['لا يمكن تنفيذ هذا الإجراء في الحالة الحالية للطلب', 'Not possible in the request’s current status'],
+        reason_required: ['اكتب السبب (5 أحرف على الأقل)', 'A reason is required (5+ characters)'],
+        invalid_note: ['النص طويل جدًا', 'Text is too long'],
+        invalid_link: ['رابط الاجتماع غير صالح — يجب أن يبدأ بـ https://', 'Invalid meeting link — must start with https://'],
+        expert_required: ['اختر الخبير المسؤول أولًا', 'Choose the responsible expert first'],
+        invalid_expert: ['الخبير المختار غير صالح', 'Invalid expert'],
+        expert_busy: ['الخبير لديه جلسة أخرى في نفس الوقت', 'The expert has another session at that time'],
+        too_late_to_cancel: ['الإلغاء متاح قبل الموعد بـ 24 ساعة على الأقل — تواصل مع الإدارة', 'Cancelling is allowed up to 24h before — contact the team'],
+        too_late_to_reschedule: ['طلب تغيير الموعد متاح قبل الموعد بـ 12 ساعة على الأقل', 'Reschedule requests close 12h before the session'],
+        reschedule_pending: ['لديك طلب تغيير موعد قيد المراجعة بالفعل', 'You already have a pending reschedule request'],
+        reschedule_limit: ['وصلت للحد الأقصى لطلبات تغيير الموعد (مرتان)', 'Reschedule limit reached (2)'],
+        session_not_started: ['لا يمكن تسجيل الاكتمال قبل بدء الجلسة', 'Cannot complete before the session starts'],
+        invalid_summary: ['الملخص مطلوب (10 أحرف على الأقل)', 'Summary is required (10+ characters)'],
+        invalid_resources: ['المصادر: عنوان ورابط https صحيح لكل مصدر (حتى 10)', 'Resources need a title and a valid https link (max 10)'],
+        already_rated: ['قمت بتقييم هذه الجلسة من قبل', 'You already rated this session'],
+        invalid_rating: ['اختر تقييمًا من 1 إلى 5', 'Pick a rating from 1 to 5'],
+        link_not_available: ['رابط الاجتماع يُتاح قبل الموعد بـ 15 دقيقة', 'The link opens 15 minutes before the session'],
+        invalid_action: ['إجراء غير معروف', 'Unknown action']
+    };
+    const isAR = () => (typeof lang === 'undefined' ? true : lang === 'AR');
+    const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const err = (e) => {
+        const c = e && (e.code === 'permission-denied' ? 'forbidden' : e.code);
+        const m = ERR[c] || ERR[(e && e.message || '').trim()];
+        return m ? m[isAR() ? 0 : 1] : (isAR() ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, try again');
+    };
+    const topic = (k) => TOPICS.find(t => t.k === k) || { k: k || 'other', ar: 'غير محدد', en: 'Unspecified', ic: 'fa-circle-question' };
+    const topicLabel = (k) => { const t = topic(k); return isAR() ? t.ar : t.en; };
+    const stOf = (r) => STATUS[r.status] ? r.status : 'pending';
+    const chip = (st) => { const s = STATUS[st] || STATUS.pending; return `<span class="cs-chip ${STATUS[st] ? st : 'pending'}"><i class="fa-solid ${s.ic}" style="font-size:10px"></i> ${isAR() ? s.ar : s.en}</span>`; };
+    const toDate = (v) => { if (!v) return null; const d = v.toDate ? v.toDate() : new Date(v); return isNaN(d) ? null : d; };
+    const loc = () => (isAR() ? 'ar-EG' : 'en-GB');
+    const fmtDT = (v) => { const d = toDate(v); return d ? d.toLocaleString(loc(), { timeZone: 'Africa/Cairo', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; };
+    const fmtShort = (v) => { const d = toDate(v); return d ? d.toLocaleString(loc(), { timeZone: 'Africa/Cairo', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; };
+    const fmtCreated = (v) => { const d = toDate(v); return d ? d.toLocaleDateString(loc(), { day: 'numeric', month: 'short', year: 'numeric' }) : ''; };
+    const fmtDay = (s) => { if (!s) return ''; const d = new Date(s + 'T00:00:00Z'); return isNaN(d) ? s : d.toLocaleDateString(loc(), { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); };
+    const cairoTxt = () => (isAR() ? 'بتوقيت القاهرة' : 'Cairo time');
+    // تحويل قيمة datetime-local (بتوقيت القاهرة) ↔ ISO
+    const tzOff = (ms) => { const p = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Cairo', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }).formatToParts(new Date(ms)).reduce((a, x) => (a[x.type] = x.value, a), {}); return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(ms / 1000) * 1000; };
+    const cairoToISO = (v) => { if (!v || v.indexOf('T') < 0) return ''; const [d, t] = v.split('T'); const [y, m, da] = d.split('-').map(Number); const [h, mi] = t.split(':').map(Number); const base = Date.UTC(y, m - 1, da, h, mi); let g = base; for (let i = 0; i < 2; i++) g = base - tzOff(g); return new Date(g).toISOString(); };
+    const isoToCairoInput = (v) => { const d = toDate(v); if (!d) return ''; const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(d).reduce((a, x) => (a[x.type] = x.value, a), {}); return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`; };
+    const cairoDayKey = (v) => { const d = toDate(v); if (!d) return ''; const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d).reduce((a, x) => (a[x.type] = x.value, a), {}); return `${p.year}-${p.month}-${p.day}`; };
+    const todayKey = () => cairoDayKey(new Date());
+    const startMs = (r) => { const d = toDate(r.scheduledAt); return d ? d.getTime() : null; };
+    const endMs = (r) => { const s = startMs(r); return s == null ? null : s + (Number(r.durationMin) || 60) * 60000; };
+    const countdown = (ms) => {
+        const diff = ms - Date.now(); const ar = isAR();
+        if (diff <= 0) return ar ? 'بدأت الجلسة' : 'Session started';
+        const m = Math.floor(diff / 60000), h = Math.floor(m / 60), d = Math.floor(h / 24);
+        if (d >= 1) return ar ? `تبدأ بعد ${d} يوم` : `Starts in ${d}d`;
+        if (h >= 1) return ar ? `تبدأ بعد ${h} ساعة و${m % 60} دقيقة` : `Starts in ${h}h ${m % 60}m`;
+        return ar ? `تبدأ بعد ${m} دقيقة` : `Starts in ${m}m`;
+    };
+    const stars = (n) => `<span class="cs-stars">${[1, 2, 3, 4, 5].map(i => `<span class="${i <= n ? 'on' : ''}">★</span>`).join('')}</span>`;
+    const linkify = (t) => esc(t).replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--cs-cyan);font-weight:700;text-decoration:underline">$1</a>').replace(/\n/g, '<br>');
+    const safeUrl = (u) => (/^https:\/\//i.test(u || '') ? esc(u) : '');
+    const rpc = (name, args) => { if (!window._consultRpc) return Promise.reject(new Error('unavailable')); return window._consultRpc(name, args); };
+    const toast = (m, bad) => { if (typeof showToast === 'function') showToast(m, bad); };
 
-            if (!isPro && !isAdmin) {
-                _renderProGate(area, isAR ? 'اسأل خبير GIS' : 'Ask a GIS Expert', isAR ? 'اسأل خبير GIS' : 'Ask a GIS Expert');
-                return;
-            }
+    // نافذة عامة
+    const modal = (html, opts) => {
+        const mask = document.createElement('div'); mask.className = 'cs-mask';
+        mask.innerHTML = `<div class="cs-modal ${opts && opts.wide ? 'wide' : ''}" role="dialog" aria-modal="true">${html}</div>`;
+        mask.addEventListener('mousedown', (e) => { if (e.target === mask && !(opts && opts.sticky)) close(); });
+        const close = () => { mask.remove(); if (!document.querySelector('.cs-mask')) document.body.style.overflow = ''; if (opts && opts.onClose) opts.onClose(); };
+        mask.querySelectorAll('[data-cs-close]').forEach(b => b.addEventListener('click', close));
+        document.body.appendChild(mask); document.body.style.overflow = 'hidden';
+        return { el: mask.firstElementChild, mask, close, q: (s) => mask.querySelector(s) };
+    };
+    // نافذة تأكيد (بديل confirm) — بترجّع Promise: false = إلغاء، وإلا النص (أو true)
+    const confirmBox = (o) => new Promise((resolve) => {
+        const ar = isAR(); let done = false;
+        const m = modal(`<div class="cs-modal-h"><h3>${esc(o.title)}</h3><button class="cs-x" data-cs-close aria-label="close">✕</button></div>
+            ${o.body ? `<p class="cs-text" style="color:var(--muted);margin:0 0 12px">${esc(o.body)}</p>` : ''}
+            ${o.input ? `<div class="cs-f"><label>${esc(o.input.label)}${o.input.required ? ' <em>*</em>' : ''}</label><textarea id="csCfIn" maxlength="${o.input.max || 500}" placeholder="${esc(o.input.placeholder || '')}" style="min-height:80px"></textarea></div>` : ''}
+            <div class="cs-actions" style="margin-top:6px"><button class="cs-btn ${o.danger ? 'danger' : ''}" id="csCfOk">${esc(o.ok || (ar ? 'تأكيد' : 'Confirm'))}</button><button class="cs-btn ghost" data-cs-close>${ar ? 'رجوع' : 'Back'}</button></div>`,
+            { onClose: () => { if (!done) { done = true; resolve(false); } } });
+        m.q('#csCfOk').addEventListener('click', () => {
+            let v = true;
+            if (o.input) { v = (m.q('#csCfIn').value || '').trim(); if (o.input.required && v.length < (o.input.min || 1)) { m.q('#csCfIn').style.borderColor = '#ef4444'; return; } }
+            done = true; resolve(v); m.close();
+        });
+        if (o.input) setTimeout(() => m.q('#csCfIn') && m.q('#csCfIn').focus(), 50);
+    });
+    return { TOPICS, STATUS, isAR, esc, err, topic, topicLabel, stOf, chip, toDate, fmtDT, fmtShort, fmtCreated, fmtDay, cairoTxt, cairoToISO, isoToCairoInput, cairoDayKey, todayKey, startMs, endMs, countdown, stars, linkify, safeUrl, rpc, toast, modal, confirmBox };
+})();
 
-            area.innerHTML = `
-            <div class="page-header">
-                <h2>${isAR ? 'اسأل خبير GIS' : 'Ask a GIS Expert'}</h2>
-                <p>${isAR ? 'ابعت طلبك وهيرد عليك فريقنا بمواعيد التوفر ولينك الجلسة' : 'Send your request and our team will reply with available times and a session link'}</p>
+/* ─── CONSULTATIONS: STUDENT ─── */
+function _escapeHtml(text) {
+    return (text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function _linkifyText(text) {
+    const escaped = _escapeHtml(text);
+    return escaped
+        .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--cs-cyan,#22d3ee);font-weight:700;text-decoration:underline;">$1</a>')
+        .replace(/\n/g, '<br>');
+}
+
+const _csState = { tab: 'book', filter: 'all', reqs: [], loadErr: false, topic: '', files: [], form: {}, key: '', sending: false, rate: {} };
+function csNewKey() { try { return crypto.randomUUID(); } catch (e) { return 'k' + Date.now() + Math.random().toString(36).slice(2, 10); } }
+
+async function renderMentorship(area) {
+    const C = window.CS, ar = C.isAR();
+    const isPro = (window._userData?.plan === 'pro') || (typeof window._isPro === 'function' ? window._isPro() : false);
+    const isAdmin = window._isAdmin === true;
+    if (!isPro && !isAdmin) {
+        _renderProGate(area, ar ? 'اسأل خبير GIS' : 'Ask a GIS Expert', 'Ask a GIS Expert');
+        return;
+    }
+    clearInterval(window._csTimer);
+    if (!_csState.key) _csState.key = csNewKey();
+    area.innerHTML = `
+        <div class="page-header">
+            <h2>${ar ? 'اسأل خبير GIS' : 'Ask a GIS Expert'}</h2>
+            <p>${ar ? 'احجز جلسة استشارية مع خبير، وتابع حالة طلبك من لحظة الإرسال حتى التقييم' : 'Book a session with an expert and follow it from request to feedback'}</p>
+        </div>
+        <div class="cs-wrap" id="csRoot"><div class="cs-loading"><i class="fa-solid fa-spinner fa-spin"></i></div></div>`;
+    await csLoadMine();
+    csRenderStudent();
+    try { window.CS.rpc('consult_remind_due').catch(() => {}); } catch (e) {}
+}
+
+async function csLoadMine() {
+    try { _csState.reqs = await window._loadMyMentorshipRequests(); _csState.loadErr = false; }
+    catch (e) { _csState.reqs = []; _csState.loadErr = true; }
+}
+
+function csIsOpen(r) { return ['pending', 'accepted', 'confirmed'].includes(r.status); }
+
+function csRenderStudent() {
+    const root = document.getElementById('csRoot'); if (!root) return;
+    const C = window.CS, ar = C.isAR();
+    const open = _csState.reqs.filter(csIsOpen).length;
+    const steps = ar
+        ? [['أرسل طلبك', 'اختر المجال واشرح المشكلة والهدف'], ['المراجعة', 'يراجع الفريق الطلب ويقبله أو يرد عليك بالسبب'], ['تأكيد الموعد', 'نحدد الموعد النهائي والخبير ورابط الاجتماع'], ['الجلسة والتقييم', 'تحصل على ملخص وتوصيات ثم تقيّم الجلسة']]
+        : [['Send your request', 'Pick a topic, describe the problem and goal'], ['Review', 'The team accepts it or replies with a reason'], ['Schedule', 'We set the final time, expert and meeting link'], ['Session & feedback', 'Get a summary and recommendations, then rate']];
+    root.innerHTML = `
+        <div class="cs-hero"><i class="fa-solid fa-user-tie"></i><div>
+            <h3>${ar ? 'جلسة استشارية فردية مع خبير GIS' : 'One-to-one session with a GIS expert'}</h3>
+            <p>${ar ? 'مراجعة مشاريعك، حل مشكلات ArcGIS وQGIS والاستشعار عن بعد، توجيه الأبحاث، ونصائح لمسارك المهني. تُعقد الجلسة عبر اجتماع أونلاين يتم تحديده بعد قبول الطلب.' : 'Project reviews, ArcGIS/QGIS and remote sensing troubleshooting, research guidance and career advice — held as an online meeting once your request is accepted.'}</p></div></div>
+        <div class="cs-steps">${steps.map((s, i) => `<div class="cs-step"><b><span>${i + 1}</span>${s[0]}</b>${s[1]}</div>`).join('')}</div>
+        <div class="cs-policy"><i class="fa-solid fa-scale-balanced"></i>${ar
+            ? `سياسة الخدمة: كل المواعيد ${C.cairoTxt()} · الحد الأقصى 3 طلبات مفتوحة · الإلغاء متاح حتى 24 ساعة قبل الجلسة المؤكدة · طلب تغيير الموعد حتى 12 ساعة قبلها (مرتان كحد أقصى) · يظهر رابط الاجتماع قبل الموعد بـ 15 دقيقة فقط.`
+            : `Policy: all times are ${C.cairoTxt()} · up to 3 open requests · cancel up to 24h before a confirmed session · reschedule requests up to 12h before (max 2) · the meeting link opens 15 minutes before the start.`}</div>
+        <div class="cs-tabs">
+            <button class="cs-tab ${_csState.tab === 'book' ? 'on' : ''}" onclick="csTab('book')"><i class="fa-solid fa-calendar-plus"></i> ${ar ? 'حجز استشارة' : 'Book a session'}</button>
+            <button class="cs-tab ${_csState.tab === 'mine' ? 'on' : ''}" onclick="csTab('mine')"><i class="fa-solid fa-calendar-days"></i> ${ar ? 'استشاراتي' : 'My consultations'} ${open ? `<span class="n">${open}</span>` : ''}</button>
+        </div>
+        <div id="csTabBody">${_csState.tab === 'book' ? csBookHtml() : csMineHtml()}</div>`;
+    if (_csState.tab === 'mine') { clearInterval(window._csTimer); window._csTimer = setInterval(csTick, 30000); csTick(); }
+}
+
+function csTab(t) { csSaveForm(); _csState.tab = t; csRenderStudent(); }
+function csSaveForm() {
+    const g = (id) => document.getElementById(id); if (!g('csTitle')) return;
+    _csState.form = { title: g('csTitle').value, message: g('csMsg').value, goal: g('csGoal').value, day: g('csDay').value, time: g('csTime').value, dur: g('csDur').value };
+}
+
+/* ── نموذج الحجز ── */
+function csBookHtml() {
+    const C = window.CS, ar = C.isAR(), f = _csState.form || {};
+    const today = C.todayKey(); const max = new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10);
+    const full = _csState.reqs.filter(r => ['pending', 'accepted'].includes(r.status)).length >= 3;
+    return `
+        ${full ? `<div class="cs-box warn" style="margin:0 0 14px"><i class="fa-solid fa-triangle-exclamation"></i> ${ar ? 'لديك 3 طلبات مفتوحة بالفعل. انتظر الرد عليها أو ألغِ أحدها لإرسال طلب جديد.' : 'You already have 3 open requests. Wait for a reply or cancel one to send a new one.'}</div>` : ''}
+        <div class="cs-card"><h4><i class="fa-solid fa-shapes"></i> ${ar ? 'مجال الاستشارة' : 'Topic'} <em style="color:#ef4444;font-style:normal">*</em></h4>
+            <div class="cs-topics" id="csTopics">${C.TOPICS.map(t => `<button type="button" class="cs-topic ${_csState.topic === t.k ? 'on' : ''}" onclick="csPickTopic('${t.k}')"><i class="fa-solid ${t.ic}"></i>${ar ? t.ar : t.en}</button>`).join('')}</div></div>
+        <div class="cs-card"><h4><i class="fa-solid fa-pen-to-square"></i> ${ar ? 'تفاصيل الطلب' : 'Request details'}</h4>
+            <div class="cs-f"><label>${ar ? 'عنوان مختصر' : 'Short title'} <em>*</em></label><input id="csTitle" maxlength="120" value="${C.esc(f.title || '')}" placeholder="${ar ? 'مثال: مراجعة تحليل الملاءمة المكانية' : 'e.g. Review of my suitability analysis'}"></div>
+            <div class="cs-f"><label>${ar ? 'وصف المشكلة' : 'Describe the problem'} <em>*</em><span class="cs-count" id="csMsgN">0/2000</span></label><textarea id="csMsg" maxlength="2000" oninput="csCount('csMsg','csMsgN',2000)" placeholder="${ar ? 'اشرح ما حدث، البرنامج والإصدار، وما جرّبته…' : 'What happened, software/version, what you tried…'}">${C.esc(f.message || '')}</textarea><div class="cs-hint">${ar ? '20 حرفًا على الأقل' : 'At least 20 characters'}</div></div>
+            <div class="cs-f"><label>${ar ? 'الهدف المطلوب من الجلسة' : 'What do you want from the session?'} <em>*</em></label><textarea id="csGoal" maxlength="1000" style="min-height:70px" placeholder="${ar ? 'مثال: الوصول لخريطة نهائية جاهزة للتسليم' : 'e.g. A final map ready to submit'}">${C.esc(f.goal || '')}</textarea></div></div>
+        <div class="cs-card"><h4><i class="fa-solid fa-clock"></i> ${ar ? 'الوقت المناسب' : 'Preferred time'} <small style="font-weight:400;color:var(--muted)">(${C.cairoTxt()})</small></h4>
+            <div class="cs-grid3">
+                <div class="cs-f"><label>${ar ? 'اليوم' : 'Day'} <em>*</em></label><input type="date" id="csDay" min="${today}" max="${max}" value="${C.esc(f.day || '')}"></div>
+                <div class="cs-f"><label>${ar ? 'الساعة' : 'Time'} <em>*</em></label><input type="time" id="csTime" value="${C.esc(f.time || '')}"></div>
+                <div class="cs-f"><label>${ar ? 'مدة الجلسة المتوقعة' : 'Expected duration'}</label><select id="csDur">${[30, 45, 60, 90].map(m => `<option value="${m}" ${String(f.dur || 60) === String(m) ? 'selected' : ''}>${m} ${ar ? 'دقيقة' : 'min'}</option>`).join('')}</select></div>
             </div>
-            <div class="mentorship-intro">
-                <i class="fa-solid fa-user-tie"></i>
-                <div>
-                    <h3>${isAR ? 'إيه اللي هتاخده من الاستشارة؟' : 'What you get from the consultation'}</h3>
-                    <p>${isAR
-                        ? 'مراجعة مشاريعك، إجابة أسئلتك التقنية، نصائح لمسارك المهني في GIS، ومساعدة في بناء الـ Portfolio. اكتب طلبك وهيوصلك رد بمواعيد الجلسة على Google Meet.'
-                        : 'Project review, technical Q&A, GIS career advice, and help building your Portfolio. Write your request and you will get a reply with session times on Google Meet.'}</p>
-                </div>
-            </div>
-            <div style="text-align:center;margin:22px 0 30px;">
-                <button onclick="openConsultationModal()" style="padding:15px 34px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:12px;font-size:15px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(212,160,23,0.25);">
-                    <i class="fa-solid fa-calendar-plus"></i> ${isAR ? 'احجز استشارة' : 'Book a Consultation'}
-                </button>
-            </div>
-            <p class="report-section-title"><i class="fa-solid fa-comments"></i> ${isAR ? 'طلباتك السابقة' : 'Your Requests'}</p>
-            <div id="mentorshipRequestsContainer">
-                <div style="text-align:center;padding:24px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
-            </div>`;
+            <div class="cs-hint">${ar ? 'الموعد المطلوب اقتراح، والموعد النهائي يحدده الفريق بعد القبول.' : 'This is a suggestion — the team sets the final time after accepting.'}</div></div>
+        <div class="cs-card"><h4><i class="fa-solid fa-paperclip"></i> ${ar ? 'مرفقات (اختياري)' : 'Attachments (optional)'}</h4>
+            <input type="file" id="csFileIn" accept="image/png,image/jpeg,image/webp,application/pdf" multiple style="display:none" onchange="csPickFiles(this)">
+            <button type="button" class="cs-btn ghost sm" onclick="document.getElementById('csFileIn').click()"><i class="fa-solid fa-upload"></i> ${ar ? 'إضافة صورة أو PDF' : 'Add image or PDF'}</button>
+            <div class="cs-hint">${ar ? 'حتى 3 ملفات، كل ملف حتى 3MB (PNG / JPG / WEBP / PDF)' : 'Up to 3 files, 3MB each (PNG / JPG / WEBP / PDF)'}</div>
+            <div class="cs-files" id="csFileList">${csFilesHtml()}</div></div>
+        <button class="cs-btn block" id="csSendBtn" onclick="csSubmit()" ${full ? 'disabled' : ''}><i class="fa-solid fa-paper-plane"></i> ${ar ? 'إرسال طلب الاستشارة' : 'Send consultation request'}</button>`;
+}
+function csCount(id, out, max) { const a = document.getElementById(id), b = document.getElementById(out); if (a && b) b.textContent = a.value.length + '/' + max; }
+function csPickTopic(k) { _csState.topic = k; document.querySelectorAll('#csTopics .cs-topic').forEach((b, i) => b.classList.toggle('on', window.CS.TOPICS[i].k === k)); }
+function csFilesHtml() {
+    return _csState.files.map((f, i) => `<span class="cs-file"><i class="fa-solid ${f.type === 'application/pdf' ? 'fa-file-pdf' : 'fa-image'}" style="color:var(--cs-cyan)"></i>${window.CS.esc(f.name.slice(0, 28))}<button type="button" onclick="csDropFile(${i})" aria-label="remove">✕</button></span>`).join('');
+}
+function csDropFile(i) { _csState.files.splice(i, 1); const l = document.getElementById('csFileList'); if (l) l.innerHTML = csFilesHtml(); }
+function csPickFiles(inp) {
+    const C = window.CS, ar = C.isAR();
+    const ok = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+    Array.from(inp.files || []).forEach((file) => {
+        if (_csState.files.length >= 3) { C.toast(ar ? 'الحد الأقصى 3 ملفات' : 'Max 3 files', true); return; }
+        if (!ok.includes(file.type)) { C.toast((ar ? 'نوع غير مدعوم: ' : 'Unsupported type: ') + file.name, true); return; }
+        if (file.size > 3 * 1024 * 1024) { C.toast((ar ? 'الملف أكبر من 3MB: ' : 'File over 3MB: ') + file.name, true); return; }
+        const rd = new FileReader();
+        rd.onload = () => { _csState.files.push({ name: file.name, type: file.type, size: file.size, dataUrl: rd.result }); const l = document.getElementById('csFileList'); if (l) l.innerHTML = csFilesHtml(); };
+        rd.readAsDataURL(file);
+    });
+    inp.value = '';
+}
 
-            // Load this student's requests from Firebase
-            try {
-                let reqs = [];
-                if (window._loadMyMentorshipRequests) {
-                    reqs = await window._loadMyMentorshipRequests();
-                }
-                const container = document.getElementById('mentorshipRequestsContainer');
-                if (!container) return;
-                if (!reqs || reqs.length === 0) {
-                    container.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;"><i class="fa-solid fa-comments" style="display:block;font-size:24px;opacity:0.3;margin-bottom:8px;"></i>${isAR ? 'مفيش طلبات لسه، دوس على "احجز استشارة" وابدأ' : 'No requests yet — click "Book a Consultation" to get started'}</div>`;
-                    return;
-                }
-                container.innerHTML = reqs.map(r => {
-                    const timeStr = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-                    return `<div style="padding:16px 18px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:14px;margin-bottom:12px;">
-                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-                            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:${r.replied ? 'rgba(var(--brand-rgb,30,122,52),0.15)' : 'rgba(212,160,23,0.15)'};color:${r.replied ? 'var(--green4)' : 'var(--gold3)'};">
-                                <i class="fa-solid fa-circle" style="font-size:6px;"></i> ${r.replied ? (isAR ? 'تم الرد' : 'Replied') : (isAR ? 'قيد الانتظار' : 'Pending')}
-                            </span>
-                            ${timeStr ? `<span style="font-size:11px;color:var(--muted);margin-right:auto;"><i class="fa-regular fa-clock"></i> ${timeStr}</span>` : ''}
-                        </div>
-                        <div style="font-size:13px;color:var(--text);line-height:1.75;white-space:pre-wrap;">${_escapeHtml(r.message||'')}</div>
-                        ${(r.preferredDay || r.preferredTime) ? `<div style="font-size:11px;color:var(--gold3);margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><i class="fa-regular fa-calendar-check"></i> ${isAR ? 'الوقت المطلوب:' : 'Requested time:'} ${r.preferredDay || ''} ${r.preferredTime ? '— ' + r.preferredTime : ''}</div>` : ''}
-                        ${r.replied ? `<div style="margin-top:12px;padding:12px 14px;background:rgba(var(--brand-rgb,30,122,52),0.07);border:1px solid rgba(var(--brand-rgb,30,122,52),0.22);border-radius:10px;">
-                            <div style="font-size:11px;font-weight:700;color:var(--green4);margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-headset"></i> ${isAR ? 'رد الفريق' : "Team's Reply"}</div>
-                            <div style="font-size:13px;color:var(--text);line-height:1.75;">${_linkifyText(r.reply||'')}</div>
-                        </div>` : `<div style="margin-top:10px;font-size:12px;color:var(--muted);"><i class="fa-regular fa-hourglass-half"></i> ${isAR ? 'هيوصلك رد قريباً بمواعيد التوفر' : 'You will get a reply soon with available times'}</div>`}
-                    </div>`;
-                }).join('');
-            } catch(e) {
-                const container = document.getElementById('mentorshipRequestsContainer');
-                if (container) container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);">${isAR ? 'خطأ في التحميل' : 'Loading error'}</div>`;
-            }
+async function csSubmit() {
+    if (_csState.sending) return;
+    const C = window.CS, ar = C.isAR(), g = (id) => document.getElementById(id);
+    const f = { topic: _csState.topic, title: g('csTitle').value.trim(), message: g('csMsg').value.trim(), goal: g('csGoal').value.trim(), preferredDay: g('csDay').value, preferredTime: g('csTime').value, duration: Number(g('csDur').value) };
+    const bad = !f.topic ? 'invalid_topic' : f.title.length < 3 ? 'invalid_title' : f.message.length < 20 ? 'invalid_message' : f.goal.length < 10 ? 'invalid_goal' : !f.preferredDay || f.preferredDay < C.todayKey() ? 'invalid_day' : !f.preferredTime ? 'invalid_time' : '';
+    if (bad) { C.toast(C.err({ code: bad }), true); return; }
+    const btn = g('csSendBtn'); _csState.sending = true;
+    if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${ar ? 'جارٍ الإرسال…' : 'Sending…'}`; }
+    try {
+        const urls = [];
+        for (const file of _csState.files) {
+            const u = await window._consultUploadFile(file.dataUrl);
+            if (!u || String(u).indexOf('data:') === 0) throw { code: 'invalid_attachments' };
+            urls.push(u);
         }
+        await C.rpc('consult_create', { p: Object.assign({}, f, { attachments: urls, clientKey: _csState.key }) });
+        try { if (typeof window._notifyAdminsBot === 'function') window._notifyAdminsBot('expert_question', { studentName: (typeof window._botStudentName === 'function' ? window._botStudentName() : 'طالب'), message: f.title + ' — ' + f.message.slice(0, 200) }); } catch (e) {}
+        _csState.files = []; _csState.form = {}; _csState.topic = ''; _csState.key = csNewKey(); _csState.tab = 'mine'; _csState.filter = 'all';
+        C.toast(ar ? '🎉 تم إرسال طلبك وهو الآن قيد المراجعة' : '🎉 Request sent — now under review');
+        await csLoadMine();
+    } catch (e) {
+        C.toast(C.err(e), true);
+    } finally {
+        _csState.sending = false;
+        if (document.getElementById('csRoot')) csRenderStudent();
+    }
+}
 
-        function _escapeHtml(text) {
-            return (text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        }
+/* ── استشاراتي ── */
+function csMineHtml() {
+    const C = window.CS, ar = C.isAR();
+    if (_csState.loadErr) return `<div class="cs-empty"><i class="fa-solid fa-plug-circle-xmark"></i>${ar ? 'تعذّر تحميل الطلبات' : 'Could not load your requests'}<br><button class="cs-btn ghost sm" style="margin-top:12px" onclick="csReload()"><i class="fa-solid fa-rotate"></i> ${ar ? 'إعادة المحاولة' : 'Retry'}</button></div>`;
+    const up = _csState.reqs.filter(csIsOpen), past = _csState.reqs.filter(r => !csIsOpen(r));
+    const list = _csState.filter === 'upcoming' ? up : _csState.filter === 'past' ? past : _csState.reqs;
+    const sorted = list.slice().sort((a, b) => {
+        const oa = csIsOpen(a) ? 0 : 1, ob = csIsOpen(b) ? 0 : 1; if (oa !== ob) return oa - ob;
+        return (C.toDate(b.createdAt)?.getTime() || 0) - (C.toDate(a.createdAt)?.getTime() || 0);
+    });
+    const pill = (k, l, n) => `<button class="cs-pill ${_csState.filter === k ? 'on' : ''}" onclick="csFilter('${k}')">${l} (${n})</button>`;
+    return `<div class="cs-pills">${pill('all', ar ? 'الكل' : 'All', _csState.reqs.length)}${pill('upcoming', ar ? 'الحالية والقادمة' : 'Current & upcoming', up.length)}${pill('past', ar ? 'السابقة' : 'Past', past.length)}
+        <button class="cs-pill" style="margin-inline-start:auto" onclick="csReload()"><i class="fa-solid fa-rotate"></i></button></div>` +
+        (sorted.length ? sorted.map(csCardHtml).join('') :
+            `<div class="cs-empty"><i class="fa-solid fa-calendar-xmark"></i>${_csState.reqs.length ? (ar ? 'لا توجد طلبات في هذا التصنيف' : 'Nothing in this view') : (ar ? 'لم تحجز أي استشارة بعد' : 'You have not booked a session yet')}<br>
+            <button class="cs-btn sm" style="margin-top:12px" onclick="csTab('book')"><i class="fa-solid fa-calendar-plus"></i> ${ar ? 'احجز استشارة' : 'Book a session'}</button></div>`);
+}
+function csFilter(k) { _csState.filter = k; const b = document.getElementById('csTabBody'); if (b) { b.innerHTML = csMineHtml(); csTick(); } }
+async function csReload() { const b = document.getElementById('csTabBody'); if (b) b.innerHTML = '<div class="cs-loading"><i class="fa-solid fa-spinner fa-spin"></i></div>'; await csLoadMine(); csRenderStudent(); }
 
-        function _linkifyText(text) {
-            const escaped = _escapeHtml(text);
-            return escaped
-                .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:var(--gold3);font-weight:700;text-decoration:underline;">$1</a>')
-                .replace(/\n/g, '<br>');
-        }
+function csCardHtml(r) {
+    const C = window.CS, ar = C.isAR(), st = C.stOf(r), S = C.STATUS[st], e = C.esc;
+    const title = r.title || (r.message || '').slice(0, 70) || (ar ? 'طلب استشارة' : 'Consultation request');
+    const start = C.startMs(r), end = C.endMs(r);
+    const resch = r.rescheduleRequest;
+    let body = '';
+    body += `<div class="cs-text" style="color:var(--muted);font-size:12px;margin-bottom:6px">${ar ? S.msgAR : S.msgEN}</div>`;
+    body += `<div class="cs-text">${e(r.message || '')}</div>`;
+    if (r.goal) body += `<div class="cs-box"><b class="t">${ar ? 'الهدف المطلوب' : 'Goal'}</b><div class="cs-text">${e(r.goal)}</div></div>`;
+    if (Array.isArray(r.attachments) && r.attachments.length) body += `<div class="cs-res" style="margin-top:8px">${r.attachments.map((u, i) => C.safeUrl(u) ? `<a href="${C.safeUrl(u)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-paperclip"></i> ${ar ? 'مرفق' : 'Attachment'} ${i + 1}</a>` : '').join('')}</div>`;
+    if (st !== 'confirmed' && (r.preferredDay || r.preferredTime)) body += `<div class="cs-meta"><span><i class="fa-regular fa-calendar"></i>${ar ? 'الوقت المطلوب:' : 'Requested:'} ${e(/^\d{4}-/.test(r.preferredDay || '') ? C.fmtDay(r.preferredDay) : (r.preferredDay || ''))} ${r.preferredTime ? '— ' + e(r.preferredTime) : ''}</span></div>`;
+    if (r.adminNote && st !== 'rejected') body += `<div class="cs-box info"><b class="t"><i class="fa-solid fa-headset"></i> ${ar ? 'ملاحظة من الفريق' : 'Note from the team'}</b><div class="cs-text">${C.linkify(r.adminNote)}</div></div>`;
+    if (st === 'rejected') body += `<div class="cs-box bad"><b class="t">${ar ? 'سبب الرفض' : 'Reason'}</b><div class="cs-text">${e(r.rejectReason || '')}</div></div>`;
+    if (st === 'cancelled') body += `<div class="cs-box"><b class="t">${ar ? (r.cancelledBy === 'admin' ? 'أُلغيت بواسطة الإدارة' : 'ألغيتَ هذا الطلب') : (r.cancelledBy === 'admin' ? 'Cancelled by the team' : 'You cancelled this')}</b>${r.cancelReason ? `<div class="cs-text">${e(r.cancelReason)}</div>` : ''}</div>`;
+    if (st === 'confirmed' && start) {
+        const now = Date.now(), canCancel = start - now >= 24 * 36e5, canResch = start - now >= 12 * 36e5;
+        body += `<div class="cs-box ok"><b class="t"><i class="fa-solid fa-calendar-check"></i> ${ar ? 'موعد الجلسة' : 'Session time'} (${C.cairoTxt()})</b>
+            <div style="font-weight:800">${e(C.fmtDT(r.scheduledAt))}</div>
+            <div class="cs-meta"><span><i class="fa-regular fa-hourglass-half"></i>${r.durationMin || 60} ${ar ? 'دقيقة' : 'min'}</span>${r.expertName ? `<span><i class="fa-solid fa-user-tie"></i>${e(r.expertName)}</span>` : ''}<span class="cs-cd" data-s="${start}" style="color:var(--green4);font-weight:700"></span></div>
+            <div class="cs-actions"><button class="cs-btn cyan cs-join" data-s="${start}" data-e="${end}" onclick="csJoin('${e(r.id)}')"><i class="fa-solid fa-video"></i> ${ar ? 'دخول الاجتماع' : 'Join meeting'}</button></div>
+            <div class="cs-join-note">${ar ? 'يُفتح رابط الاجتماع قبل الموعد بـ 15 دقيقة.' : 'The meeting link opens 15 minutes before the start.'}</div></div>`;
+        if (!canCancel) body += `<div class="cs-hint" style="margin-top:8px">${ar ? 'الإلغاء من جهتك متاح حتى 24 ساعة قبل الجلسة — للضرورة تواصل مع الإدارة.' : 'Self-cancellation closes 24h before the session — contact the team if needed.'}</div>`;
+        r._canCancel = canCancel; r._canResch = canResch;
+    }
+    if (resch && resch.status === 'pending') body += `<div class="cs-box warn"><b class="t"><i class="fa-solid fa-clock-rotate-left"></i> ${ar ? 'طلب تغيير الموعد قيد المراجعة' : 'Reschedule request pending'}</b><div class="cs-text">${e(C.fmtDay(resch.day))} — ${e(resch.time || '')}${resch.note ? '\n' + e(resch.note) : ''}</div></div>`;
+    if (resch && resch.status === 'declined') body += `<div class="cs-box"><b class="t">${ar ? 'تعذّر تغيير الموعد' : 'Reschedule declined'}</b><div class="cs-text">${e(resch.note || (ar ? 'الموعد الحالي ما زال ساريًا.' : 'The current time stands.'))}</div></div>`;
+    if (r.legacy && r.reply) body += `<div class="cs-box ok"><b class="t"><i class="fa-solid fa-headset"></i> ${ar ? 'رد الفريق' : "Team's reply"}</b><div class="cs-text">${_linkifyText(r.reply)}</div></div>`;
+    if (st === 'completed' && !r.legacy) {
+        if (r.summary) body += `<div class="cs-box ok"><b class="t"><i class="fa-solid fa-clipboard-check"></i> ${ar ? 'ملخص الاستشارة' : 'Session summary'}</b><div class="cs-text">${e(r.summary)}</div>
+            ${r.recommendations ? `<b class="t" style="margin-top:10px">${ar ? 'التوصيات' : 'Recommendations'}</b><div class="cs-text">${e(r.recommendations)}</div>` : ''}
+            ${r.nextSteps ? `<b class="t" style="margin-top:10px">${ar ? 'الخطوات التالية' : 'Next steps'}</b><div class="cs-text">${e(r.nextSteps)}</div>` : ''}
+            ${Array.isArray(r.resources) && r.resources.length ? `<b class="t" style="margin-top:10px">${ar ? 'مصادر مفيدة' : 'Useful resources'}</b><div class="cs-res">${r.resources.map(x => C.safeUrl(x.url) ? `<a href="${C.safeUrl(x.url)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-link"></i> ${e(x.title || x.url)}</a>` : '').join('')}</div>` : ''}</div>`;
+        else body += `<div class="cs-hint" style="margin-top:8px"><i class="fa-regular fa-hourglass-half"></i> ${ar ? 'سيضيف الخبير ملخص الجلسة وتوصياته قريبًا.' : 'The expert will add a summary soon.'}</div>`;
+        if (r.rating) body += `<div class="cs-box"><b class="t">${ar ? 'تقييمك' : 'Your rating'}</b>${C.stars(r.rating)}${r.ratingComment ? `<div class="cs-text" style="margin-top:6px">${e(r.ratingComment)}</div>` : ''}</div>`;
+        else body += `<div class="cs-box info" data-rate="${e(r.id)}"><b class="t">${ar ? 'قيّم هذه الاستشارة' : 'Rate this session'}</b>
+            <div class="cs-stars">${[1, 2, 3, 4, 5].map(i => `<button type="button" data-n="${i}" onclick="csStar('${e(r.id)}',${i})" aria-label="${i}">★</button>`).join('')}</div>
+            <div class="cs-f" style="margin:10px 0 0"><textarea id="csRc_${e(r.id)}" maxlength="1000" style="min-height:60px" placeholder="${ar ? 'تعليق (اختياري)' : 'Comment (optional)'}"></textarea></div>
+            <div class="cs-actions" style="margin-top:8px"><button class="cs-btn sm" onclick="csRate('${e(r.id)}')"><i class="fa-solid fa-paper-plane"></i> ${ar ? 'إرسال التقييم' : 'Submit rating'}</button></div></div>`;
+    }
+    // أزرار الإجراءات حسب الحالة وسياسة المنصة
+    const acts = [];
+    if (['pending', 'accepted'].includes(st) || (st === 'confirmed' && r._canCancel)) acts.push(`<button class="cs-btn danger sm" onclick="csCancel('${e(r.id)}')"><i class="fa-solid fa-ban"></i> ${ar ? 'إلغاء الطلب' : 'Cancel'}</button>`);
+    const reschPending = resch && resch.status === 'pending';
+    if (!reschPending && !r.legacy && (st === 'accepted' || (st === 'confirmed' && r._canResch)) && (Number(r.reschedulesUsed) || 0) < 2) acts.push(`<button class="cs-btn ghost sm" onclick="csResched('${e(r.id)}')"><i class="fa-solid fa-clock-rotate-left"></i> ${ar ? 'طلب تغيير الموعد' : 'Request new time'}</button>`);
+    return `<div class="cs-item ${st}">
+        <div class="cs-row">${C.chip(st)}<span class="cs-chip" style="background:rgba(255,255,255,0.05);color:var(--muted);border-color:var(--border)"><i class="fa-solid ${C.topic(r.topic).ic}" style="font-size:10px"></i> ${e(C.topicLabel(r.topic))}</span>
+            <span style="margin-inline-start:auto;font-size:11px;color:var(--muted)"><i class="fa-regular fa-clock"></i> ${e(C.fmtCreated(r.createdAt))}</span></div>
+        <div class="cs-title">${e(title)}</div>${body}
+        ${acts.length ? `<div class="cs-actions">${acts.join('')}</div>` : ''}</div>`;
+}
 
-        window.openConsultationModal = function() {
-            const isAR = lang === 'AR';
-            const existing = document.getElementById('consultationModal');
-            if (existing) existing.remove();
+function csTick() {
+    if (!document.getElementById('csRoot')) { clearInterval(window._csTimer); return; }
+    const C = window.CS, now = Date.now();
+    document.querySelectorAll('.cs-cd').forEach(el => { el.textContent = C.countdown(Number(el.dataset.s)); });
+    document.querySelectorAll('.cs-join').forEach(b => {
+        const s = Number(b.dataset.s), en = Number(b.dataset.e);
+        const open = now >= s - 15 * 60000 && now <= en + 60 * 60000;
+        b.disabled = !open; b.classList.toggle('dis', !open);
+    });
+}
 
-            const modal = document.createElement('div');
-            modal.id = 'consultationModal';
-            modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:16px;';
-            modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
-            modal.innerHTML = `
-                <div style="width:100%;max-width:480px;background:var(--card);border:1px solid rgba(212,160,23,0.3);border-radius:20px;padding:28px 26px;backdrop-filter:blur(20px);box-shadow:var(--shadow);animation:fadeUp 0.3s ease both;" onclick="event.stopPropagation()">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                        <h3 style="font-size:17px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;"><i class="fa-solid fa-user-tie" style="color:var(--gold3);"></i> ${isAR ? 'احجز استشارة' : 'Book a Consultation'}</h3>
-                        <button onclick="document.getElementById('consultationModal').remove()" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);border:none;color:var(--muted);cursor:pointer;font-size:15px;">✕</button>
-                    </div>
-                    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.7;">${isAR ? 'اكتب اللي محتاج تستشير فيه بالظبط، واختار اليوم والساعة اللي يناسبوك، وفريقنا هيرد عليك بالتأكيد أو بمواعيد تانية ولينك الجلسة.' : 'Tell us exactly what you need help with, pick your preferred day and time, and our team will confirm or suggest other times along with the session link.'}</p>
-                    <textarea id="consultationMsgInput" rows="5" placeholder="${isAR ? 'مثال: محتاج مراجعة مشروع خرائطي في ArcGIS...' : 'e.g. I need a review of my ArcGIS mapping project...'}" style="width:100%;padding:12px 14px;background:rgba(0,0,0,0.35);border:1px solid rgba(212,160,23,0.2);border-radius:12px;color:var(--text);font-size:14px;font-family:'Tajawal',sans-serif;outline:none;resize:vertical;margin-bottom:14px;"></textarea>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
-                        <div>
-                            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;">${isAR ? 'اليوم المفضل' : 'Preferred Day'}</label>
-                            <input type="date" id="consultationDayInput" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(212,160,23,0.25);border-radius:10px;color:var(--text);font-size:13px;font-family:'Tajawal',sans-serif;outline:none;color-scheme:dark;">
-                        </div>
-                        <div>
-                            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;">${isAR ? 'الساعة المفضلة' : 'Preferred Time'}</label>
-                            <input type="time" id="consultationTimeInput" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(212,160,23,0.25);border-radius:10px;color:var(--text);font-size:13px;font-family:'Tajawal',sans-serif;outline:none;color-scheme:dark;">
-                        </div>
-                    </div>
-                    <button onclick="submitConsultationRequest()" style="width:100%;padding:13px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-                        <i class="fa-solid fa-paper-plane"></i> ${isAR ? 'إرسال الطلب' : 'Send Request'}
-                    </button>
-                </div>`;
-            document.body.appendChild(modal);
-            setTimeout(() => document.getElementById('consultationMsgInput')?.focus(), 100);
-        };
+async function csJoin(id) {
+    const C = window.CS;
+    try { const url = await C.rpc('consult_get_link', { p_id: id }); if (url) window.open(url, '_blank', 'noopener,noreferrer'); }
+    catch (e) { C.toast(C.err(e), true); }
+}
 
-        window.submitConsultationRequest = async function() {
-            const isAR = lang === 'AR';
-            const input = document.getElementById('consultationMsgInput');
-            const msg = input?.value.trim();
-            const dayVal = document.getElementById('consultationDayInput')?.value || '';
-            const timeVal = document.getElementById('consultationTimeInput')?.value || '';
-            if (!msg) {
-                if (typeof showToast === 'function') showToast(isAR ? 'من فضلك اكتب طلبك الأول' : 'Please write your request first', true);
-                return;
-            }
-            // Format the date nicely (e.g. "الأحد 29 يونيو 2026") if provided
-            let dayLabel = '';
-            if (dayVal) {
-                try {
-                    const dt = new Date(dayVal + 'T00:00:00');
-                    dayLabel = dt.toLocaleDateString(isAR ? 'ar-EG' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-                } catch(e) { dayLabel = dayVal; }
-            }
-            try {
-                await window._sendMentorshipRequest(msg, dayLabel, timeVal);
-                document.getElementById('consultationModal')?.remove();
-                if (typeof showToast === 'function') showToast(isAR ? '🎉 تم إرسال طلبك! هيتم الرد عليك قريباً' : '🎉 Request sent! We will get back to you soon.');
-                if (window._currentPage === 'mentorship') navigate('mentorship', null, true);
-            } catch(e) {
-                if (typeof showToast === 'function') showToast(isAR ? 'خطأ في الإرسال، حاول مرة ثانية' : 'Failed to send, please try again', true);
-            }
-        };
+async function csCancel(id) {
+    const C = window.CS, ar = C.isAR();
+    const v = await C.confirmBox({ title: ar ? 'إلغاء الطلب؟' : 'Cancel this request?', body: ar ? 'لن تتمكن من استرجاع الطلب بعد الإلغاء.' : 'This cannot be undone.', ok: ar ? 'نعم، إلغاء' : 'Yes, cancel', danger: true, input: { label: ar ? 'سبب الإلغاء (اختياري)' : 'Reason (optional)', max: 500 } });
+    if (v === false) return;
+    try { await C.rpc('consult_cancel', { p_id: id, p_reason: v || null }); C.toast(ar ? 'تم إلغاء الطلب' : 'Request cancelled'); await csReload(); }
+    catch (e) { C.toast(C.err(e), true); }
+}
+
+function csResched(id) {
+    const C = window.CS, ar = C.isAR(), today = C.todayKey();
+    const m = C.modal(`<div class="cs-modal-h"><h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--cs-cyan)"></i> ${ar ? 'طلب تغيير الموعد' : 'Request a new time'}</h3><button class="cs-x" data-cs-close>✕</button></div>
+        <p class="cs-hint" style="margin:0 0 12px">${ar ? 'سيراجع الفريق طلبك. إلى أن يتم الرد يظل الموعد الحالي ساريًا.' : 'The team will review it. Until then the current time stands.'}</p>
+        <div class="cs-grid2"><div class="cs-f"><label>${ar ? 'اليوم المقترح' : 'Day'} <em>*</em></label><input type="date" id="csRsDay" min="${today}"></div>
+        <div class="cs-f"><label>${ar ? 'الساعة' : 'Time'} <em>*</em> (${C.cairoTxt()})</label><input type="time" id="csRsTime"></div></div>
+        <div class="cs-f"><label>${ar ? 'السبب / ملاحظات' : 'Reason / notes'}</label><textarea id="csRsNote" maxlength="500" style="min-height:70px"></textarea></div>
+        <div class="cs-actions"><button class="cs-btn" id="csRsOk"><i class="fa-solid fa-paper-plane"></i> ${ar ? 'إرسال الطلب' : 'Send'}</button><button class="cs-btn ghost" data-cs-close>${ar ? 'رجوع' : 'Back'}</button></div>`);
+    m.q('#csRsOk').addEventListener('click', async () => {
+        const day = m.q('#csRsDay').value, time = m.q('#csRsTime').value;
+        if (!day || day < today) { C.toast(C.err({ code: 'invalid_day' }), true); return; }
+        if (!time) { C.toast(C.err({ code: 'invalid_time' }), true); return; }
+        const b = m.q('#csRsOk'); b.disabled = true;
+        try { await C.rpc('consult_request_reschedule', { p_id: id, p_day: day, p_time: time, p_note: m.q('#csRsNote').value.trim() || null }); m.close(); C.toast(ar ? 'تم إرسال طلب تغيير الموعد' : 'Reschedule request sent'); await csReload(); }
+        catch (e) { b.disabled = false; C.toast(C.err(e), true); }
+    });
+}
+
+function csStar(id, n) {
+    _csState.rate[id] = n;
+    document.querySelectorAll(`[data-rate="${id}"] .cs-stars button`).forEach(b => b.classList.toggle('on', Number(b.dataset.n) <= n));
+}
+async function csRate(id) {
+    const C = window.CS, ar = C.isAR(), n = _csState.rate[id] || 0;
+    if (!n) { C.toast(C.err({ code: 'invalid_rating' }), true); return; }
+    const c = (document.getElementById('csRc_' + id)?.value || '').trim();
+    try { await C.rpc('consult_rate', { p_id: id, p_rating: n, p_comment: c || null }); delete _csState.rate[id]; C.toast(ar ? 'شكرًا على تقييمك 🌟' : 'Thanks for your feedback 🌟'); await csReload(); }
+    catch (e) { C.toast(C.err(e), true); if (e && e.code === 'already_rated') await csReload(); }
+}
+// توافق مع أي استدعاء قديم
+window.openConsultationModal = function () { csTab('book'); };
+
 
         /* ─── SOON ─── */
         /* ══════════════════════════════════════════════════════
@@ -14337,119 +14689,326 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             }
         };
 
-        /* ─── ADMIN: MENTORSHIP REQUESTS ─── */
-        async function renderAdminMentorship(area) {
-            area = area || document.getElementById('contentArea');
-            const isAR = lang === 'AR';
-            area.innerHTML = `
-            <div class="page-header">
-                <h2>${isAR ? 'إدارة الاستشارات' : 'Consultation Management'}</h2>
-                <p>${isAR ? 'شوف طلبات الطلاب ورد عليهم بمواعيد التوفر ولينك الجلسة' : 'View student requests and reply with available times and a session link'}</p>
-            </div>
+        /* ─── ADMIN: CONSULTATIONS ─── */
+/* ─── CONSULTATIONS: ADMIN ─── */
+const _csAdm = { all: [], err: false, q: '', status: '', topic: '', from: '', to: '', sort: 'new', view: 'list', cal: null, day: '', limit: 20, experts: null, openId: '', modal: null };
 
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
-                <h4 style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px;margin:0;">
-                    <i class="fa-solid fa-comments" style="color:var(--gold3);"></i>
-                    ${isAR ? 'طلبات الاستشارة' : 'Consultation Requests'}
-                    <span id="adminRequestsCountBadge" style="background:var(--gold3);color:#000;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;"></span>
-                </h4>
-                <button onclick="adminLoadMentorshipRequests()" style="margin-right:auto;display:flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:10px;color:var(--gold3);font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;" onmouseover="this.style.background='rgba(212,160,23,0.22)'" onmouseout="this.style.background='rgba(212,160,23,0.1)'">
-                    <i class="fa-solid fa-rotate"></i> ${isAR ? 'تحديث' : 'Refresh'}
-                </button>
-            </div>
-            <div id="adminRequestsList" style="display:flex;flex-direction:column;gap:12px;">
-                <div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
-            </div>`;
+function csAdmIsManager() {
+    const p = window._adminPermissions;
+    return window._adminIsSuper === true || p === 'all' || (Array.isArray(p) && p.includes('mentorship'));
+}
 
-            setTimeout(() => adminLoadMentorshipRequests(), 100);
+async function renderAdminMentorship(area) {
+    area = area || document.getElementById('contentArea');
+    const C = window.CS, ar = C.isAR();
+    area.innerHTML = `
+        <div class="page-header">
+            <h2>${ar ? 'إدارة الاستشارات' : 'Consultation Management'}</h2>
+            <p>${csAdmIsManager() ? (ar ? 'راجع الطلبات، حدّد المواعيد والخبراء، وتابع الجلسات حتى التقييم' : 'Review requests, schedule experts and follow sessions through to feedback') : (ar ? 'الاستشارات المسندة إليك' : 'Consultations assigned to you')}</p>
+        </div>
+        <div class="cs-wrap" id="csAdmRoot"><div class="cs-loading"><i class="fa-solid fa-spinner fa-spin"></i></div></div>`;
+    await csAdmLoad();
+    csAdmRender();
+}
+
+async function csAdmLoad() {
+    try { _csAdm.all = await window._loadMentorshipRequests(); _csAdm.err = false; }
+    catch (e) { _csAdm.all = []; _csAdm.err = true; }
+}
+async function csAdmRefresh() {
+    const r = document.getElementById('csAdmRoot'); if (!r) return;
+    await csAdmLoad(); csAdmRender();
+}
+async function csAdmExperts() {
+    if (_csAdm.experts) return _csAdm.experts;
+    try { _csAdm.experts = await window._consultLoadExperts(); } catch (e) { _csAdm.experts = []; }
+    return _csAdm.experts;
+}
+
+function csAdmStats() {
+    const now = Date.now(), a = _csAdm.all, by = (s) => a.filter(r => r.status === s);
+    return {
+        pending: by('pending').length,
+        accepted: by('accepted').length,
+        upcoming: by('confirmed').filter(r => (window.CS.endMs(r) || 0) > now).length,
+        completed: by('completed').length,
+        cancelled: by('cancelled').length,
+        rejected: by('rejected').length,
+        resch: a.filter(r => ['accepted', 'confirmed'].includes(r.status) && r.rescheduleRequest && r.rescheduleRequest.status === 'pending').length
+    };
+}
+
+function csAdmFiltered() {
+    const C = window.CS, s = _csAdm, q = s.q.trim().toLowerCase();
+    let list = s.all.filter(r => {
+        const st = C.stOf(r);
+        if (s.status === 'resch') { if (!(['accepted', 'confirmed'].includes(st) && r.rescheduleRequest && r.rescheduleRequest.status === 'pending')) return false; }
+        else if (s.status === 'upcoming') { if (!(st === 'confirmed' && (C.endMs(r) || 0) > Date.now())) return false; }
+        else if (s.status && st !== s.status) return false;
+        if (s.topic && r.topic !== s.topic) return false;
+        const ck = C.cairoDayKey(r.createdAt);
+        if (s.from && (!ck || ck < s.from)) return false;
+        if (s.to && (!ck || ck > s.to)) return false;
+        if (s.day && C.cairoDayKey(r.scheduledAt) !== s.day) return false;
+        if (q) {
+            const hay = [r.authorName, r.email, r.phone, r.title, r.message, r.expertName, r.id, C.topicLabel(r.topic)].join(' ').toLowerCase();
+            if (hay.indexOf(q) < 0) return false;
         }
+        return true;
+    });
+    const t = (r) => C.toDate(r.createdAt)?.getTime() || 0;
+    if (s.sort === 'old') list.sort((a, b) => t(a) - t(b));
+    else if (s.sort === 'session') list.sort((a, b) => (C.startMs(a) ?? Infinity) - (C.startMs(b) ?? Infinity));
+    else list.sort((a, b) => t(b) - t(a));
+    return list;
+}
 
-        window.adminLoadMentorshipRequests = async function() {
-            const isAR = lang === 'AR';
-            const list = document.getElementById('adminRequestsList');
-            const badge = document.getElementById('adminRequestsCountBadge');
-            if (!list) return;
-            list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
-            try {
-                const reqs = await window._loadMentorshipRequests();
-                if (badge) { badge.textContent = reqs.length; badge.style.display = reqs.length ? 'inline-flex' : 'none'; }
-                if (!reqs.length) {
-                    list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;"><i class="fa-solid fa-comments" style="display:block;font-size:24px;opacity:0.3;margin-bottom:8px;"></i>${isAR?'لا توجد طلبات بعد':'No requests yet'}</div>`;
-                    return;
-                }
-                list.innerHTML = reqs.map(r => {
-                    const timeStr = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-                    const waLink = r.phone ? `https://wa.me/${r.phone.replace(/\D/g,'')}` : null;
-                    const mailLink = r.email ? `mailto:${r.email}` : null;
-                    return `<div id="request_${r.id}" style="padding:16px 18px;background:rgba(212,160,23,0.04);border:1px solid rgba(212,160,23,0.18);border-radius:14px;">
-                        <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-                            <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--gold2),var(--gold3));display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;font-size:16px;flex-shrink:0;">${(r.authorName||'U')[0].toUpperCase()}</div>
-                            <div style="flex:1;min-width:200px;">
-                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                    <div style="font-size:14px;font-weight:700;color:var(--text);">${r.authorName||'—'}</div>
-                                    <span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:${r.replied ? 'rgba(var(--brand-rgb,30,122,52),0.15)' : 'rgba(212,160,23,0.15)'};color:${r.replied ? 'var(--green4)' : 'var(--gold3)'};">${r.replied ? (isAR?'تم الرد':'Replied') : (isAR?'قيد الانتظار':'Pending')}</span>
-                                </div>
-                                <div style="font-size:12px;margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                                    ${mailLink ? `<a href="${mailLink}" style="color:var(--gold3);font-weight:700;text-decoration:none;font-size:12px;"><i class="fa-solid fa-envelope"></i> ${r.email}</a>` : ''}
-                                    ${r.phone ? `<span style="color:var(--muted);font-size:11px;">· ${r.phone}</span>` : ''}
-                                </div>
-                                <div style="font-size:13px;color:var(--text);line-height:1.75;margin-top:9px;white-space:pre-wrap;">${(r.message||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-                                ${(r.preferredDay || r.preferredTime) ? `<div style="font-size:11px;font-weight:700;color:var(--gold3);margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><i class="fa-regular fa-calendar-check"></i> ${isAR ? 'الوقت المطلوب:' : 'Requested time:'} ${r.preferredDay || ''} ${r.preferredTime ? '— ' + r.preferredTime : ''}</div>` : ''}
-                                ${timeStr ? `<div style="font-size:11px;color:var(--muted);margin-top:7px;"><i class="fa-regular fa-clock"></i> ${timeStr}</div>` : ''}
-                                ${r.replied ? `<div style="margin-top:11px;padding:10px 12px;background:rgba(var(--brand-rgb,30,122,52),0.07);border:1px solid rgba(var(--brand-rgb,30,122,52),0.22);border-radius:10px;">
-                                    <div style="font-size:11px;font-weight:700;color:var(--green4);margin-bottom:4px;">${isAR?'ردك':'Your Reply'}</div>
-                                    <div style="font-size:12px;color:var(--text);line-height:1.65;white-space:pre-wrap;">${(r.reply||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-                                </div>` : `
-                                <div id="replyBox_${r.id}" style="margin-top:11px;">
-                                    <textarea id="replyInput_${r.id}" rows="3" placeholder="${isAR?'اكتب ردك هنا (لينك الجلسة والمواعيد المتاحة)...':'Write your reply here (session link and available times)...'}" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(212,160,23,0.25);border-radius:10px;color:var(--text);font-size:13px;font-family:'Tajawal',sans-serif;outline:none;resize:vertical;margin-bottom:8px;"></textarea>
-                                    <button onclick="adminSendMentorshipReply('${r.id}')" style="padding:9px 18px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:9px;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-                                        <i class="fa-solid fa-paper-plane"></i> ${isAR?'إرسال الرد':'Send Reply'}
-                                    </button>
-                                </div>`}
-                            </div>
-                            <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
-                                ${waLink ? `<a href="${waLink}" target="_blank" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);border-radius:8px;color:#25d366;" title="${isAR?'واتساب':'WhatsApp'}"><i class="fa-brands fa-whatsapp"></i></a>` : ''}
-                                <button onclick="adminDeleteMentorshipRequest('${r.id}')" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.22);border-radius:8px;color:#ff6b6b;cursor:pointer;transition:0.2s;" onmouseover="this.style.background='rgba(220,50,50,0.22)'" onmouseout="this.style.background='rgba(220,50,50,0.08)'" title="${isAR?'حذف':'Delete'}">
-                                    <i class="fa-solid fa-trash" style="font-size:13px;"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>`;
-                }).join('');
-            } catch(e) {
-                list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">${isAR?'خطأ في التحميل':'Loading error'}</div>`;
-            }
-        };
+function csAdmRender() {
+    const root = document.getElementById('csAdmRoot'); if (!root) return;
+    const C = window.CS, ar = C.isAR(), s = _csAdm, st = csAdmStats();
+    if (s.err) { root.innerHTML = `<div class="cs-empty"><i class="fa-solid fa-plug-circle-xmark"></i>${ar ? 'تعذّر تحميل الطلبات' : 'Could not load requests'}<br><button class="cs-btn ghost sm" style="margin-top:12px" onclick="csAdmRefresh()"><i class="fa-solid fa-rotate"></i> ${ar ? 'إعادة المحاولة' : 'Retry'}</button></div>`; return; }
+    const stat = (n, label, sub, color, key) => `<div class="cs-stat" onclick="csAdmSet('status','${key}')" style="border-top:3px solid ${color}"><div class="n" style="color:${color}">${n}</div><div class="l">${label}</div>${sub ? `<div class="s">${sub}</div>` : '<div class="s">&nbsp;</div>'}</div>`;
+    const opts = (arr, cur) => arr.map(o => `<option value="${o[0]}" ${cur === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('');
+    const stOpts = [['', ar ? 'كل الحالات' : 'All statuses']].concat(Object.keys(C.STATUS).map(k => [k, ar ? C.STATUS[k].ar : C.STATUS[k].en]), [['resch', ar ? 'طلبات تغيير موعد' : 'Reschedule requests']]);
+    const tpOpts = [['', ar ? 'كل المجالات' : 'All topics']].concat(C.TOPICS.map(t => [t.k, ar ? t.ar : t.en]));
+    const list = csAdmFiltered(), shown = list.slice(0, s.limit);
+    root.innerHTML = `
+        <div class="cs-stats">
+            ${stat(st.pending, ar ? 'طلبات معلّقة' : 'Pending', ar ? 'قيد المراجعة' : 'awaiting review', '#f59e0b', 'pending')}
+            ${stat(st.accepted, ar ? 'بانتظار التأكيد' : 'Awaiting schedule', ar ? 'مقبولة بلا موعد' : 'accepted, no time yet', '#22d3ee', 'accepted')}
+            ${stat(st.upcoming, ar ? 'استشارات قادمة' : 'Upcoming', ar ? 'مؤكدة' : 'confirmed', '#27a346', 'upcoming')}
+            ${stat(st.completed, ar ? 'جلسات مكتملة' : 'Completed', '', '#1abc9c', 'completed')}
+            ${stat(st.cancelled, ar ? 'طلبات ملغاة' : 'Cancelled', st.rejected ? (ar ? `+ ${st.rejected} مرفوضة` : `+ ${st.rejected} rejected`) : '', '#8a8fa0', 'cancelled')}
+        </div>
+        ${st.resch ? `<div class="cs-box warn" style="margin:0 0 14px;cursor:pointer" onclick="csAdmSet('status','resch')"><i class="fa-solid fa-clock-rotate-left"></i> ${ar ? `يوجد ${st.resch} طلب تغيير موعد بانتظار ردك — اضغط للعرض` : `${st.resch} reschedule request(s) waiting — click to view`}</div>` : ''}
+        <div class="cs-tools">
+            <div class="cs-f"><label>${ar ? 'بحث' : 'Search'}</label><input id="csAdmQ" value="${C.esc(s.q)}" placeholder="${ar ? 'اسم الطالب، البريد، العنوان، رقم الطلب…' : 'Student, email, title, request id…'}" oninput="csAdmSearch(this.value)"></div>
+            <div class="cs-f"><label>${ar ? 'الحالة' : 'Status'}</label><select onchange="csAdmSet('status',this.value)">${opts(stOpts, s.status)}</select></div>
+            <div class="cs-f"><label>${ar ? 'المجال' : 'Topic'}</label><select onchange="csAdmSet('topic',this.value)">${opts(tpOpts, s.topic)}</select></div>
+            <div class="cs-f"><label>${ar ? 'من تاريخ' : 'From'}</label><input type="date" value="${s.from}" onchange="csAdmSet('from',this.value)"></div>
+            <div class="cs-f"><label>${ar ? 'إلى تاريخ' : 'To'}</label><input type="date" value="${s.to}" onchange="csAdmSet('to',this.value)"></div>
+        </div>
+        <div class="cs-row" style="margin-bottom:14px">
+            <div class="cs-pills" style="margin:0">
+                <button class="cs-pill ${s.view === 'list' ? 'on' : ''}" onclick="csAdmSet('view','list')"><i class="fa-solid fa-list"></i> ${ar ? 'قائمة' : 'List'}</button>
+                <button class="cs-pill ${s.view === 'cal' ? 'on' : ''}" onclick="csAdmSet('view','cal')"><i class="fa-solid fa-calendar-days"></i> ${ar ? 'تقويم' : 'Calendar'}</button>
+            </div>
+            <select class="cs-in" style="width:auto;padding:7px 12px;font-size:12px" onchange="csAdmSet('sort',this.value)">${opts([['new', ar ? 'الأحدث أولًا' : 'Newest first'], ['old', ar ? 'الأقدم أولًا' : 'Oldest first'], ['session', ar ? 'حسب موعد الجلسة' : 'By session time']], s.sort)}</select>
+            ${(s.status || s.topic || s.from || s.to || s.q || s.day) ? `<button class="cs-btn ghost sm" onclick="csAdmClear()"><i class="fa-solid fa-filter-circle-xmark"></i> ${ar ? 'مسح الفلاتر' : 'Clear filters'}</button>` : ''}
+            <span style="margin-inline-start:auto;font-size:12px;color:var(--muted)">${list.length} / ${s.all.length}</span>
+            <button class="cs-btn ghost sm" onclick="csAdmRefresh()"><i class="fa-solid fa-rotate"></i> ${ar ? 'تحديث' : 'Refresh'}</button>
+        </div>
+        ${s.view === 'cal' ? csAdmCalHtml() : ''}
+        <div id="csAdmList">${shown.length ? shown.map(csAdmItemHtml).join('') : `<div class="cs-empty"><i class="fa-solid fa-inbox"></i>${s.all.length ? (ar ? 'لا توجد نتائج مطابقة' : 'No matching requests') : (ar ? 'لا توجد طلبات بعد' : 'No requests yet')}</div>`}</div>
+        ${list.length > shown.length ? `<div style="text-align:center"><button class="cs-btn ghost" onclick="csAdmMore()">${ar ? 'عرض المزيد' : 'Show more'} (${list.length - shown.length})</button></div>` : ''}`;
+}
 
-        window.adminSendMentorshipReply = async function(requestId) {
-            const isAR = lang === 'AR';
-            const input = document.getElementById('replyInput_' + requestId);
-            const text = input?.value.trim();
-            if (!text) {
-                showToast(isAR ? 'من فضلك اكتب الرد الأول' : 'Please write a reply first', true);
-                return;
-            }
-            try {
-                await window._replyMentorshipRequest(requestId, text);
-                showToast(isAR ? '✓ تم إرسال الرد للطالب' : '✓ Reply sent to the student');
-                adminLoadMentorshipRequests();
-            } catch(e) {
-                showToast(isAR ? 'خطأ في الإرسال، حاول مرة ثانية' : 'Failed to send, please try again', true);
-            }
-        };
+let _csQT;
+function csAdmSearch(v) { _csAdm.q = v; _csAdm.limit = 20; clearTimeout(_csQT); _csQT = setTimeout(() => { const f = document.getElementById('csAdmQ'); const pos = f ? f.selectionStart : 0; csAdmRender(); const n = document.getElementById('csAdmQ'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }, 250); }
+function csAdmSet(k, v) { _csAdm[k] = v; _csAdm.limit = 20; if (k === 'view' && v === 'cal' && !_csAdm.cal) { const d = new Date(); _csAdm.cal = { y: d.getFullYear(), m: d.getMonth() }; } if (k === 'view' && v === 'list') _csAdm.day = ''; csAdmRender(); }
+function csAdmClear() { Object.assign(_csAdm, { q: '', status: '', topic: '', from: '', to: '', day: '', limit: 20 }); csAdmRender(); }
+function csAdmMore() { _csAdm.limit += 20; csAdmRender(); }
 
-        window.adminDeleteMentorshipRequest = async function(requestId) {
-            const isAR = lang === 'AR';
-            if (!confirm(isAR ? 'حذف هذا الطلب نهائياً؟' : 'Delete this request permanently?')) return;
-            try {
-                await window._deleteMentorshipRequest(requestId);
-                showToast(isAR ? '🗑️ تم حذف الطلب' : '🗑️ Request deleted');
-                const el = document.getElementById('request_' + requestId);
-                if (el) { el.style.opacity='0'; el.style.transition='0.3s'; setTimeout(()=>el.remove(),300); }
-            } catch(e) {
-                showToast(isAR ? 'خطأ في الحذف' : 'Delete failed', true);
-            }
-        };
+/* ── التقويم ── */
+function csAdmCalHtml() {
+    const C = window.CS, ar = C.isAR(), cal = _csAdm.cal, y = cal.y, m = cal.m;
+    const first = new Date(Date.UTC(y, m, 1)).getUTCDay(), days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    const lead = ar ? (first + 1) % 7 : first;
+    const names = ar ? ['س', 'ح', 'ن', 'ث', 'ر', 'خ', 'ج'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    const ev = {};
+    _csAdm.all.filter(r => ['confirmed', 'completed'].includes(r.status) && r.scheduledAt).forEach(r => { const k = C.cairoDayKey(r.scheduledAt); (ev[k] = ev[k] || []).push(r); });
+    let cells = ''; for (let i = 0; i < lead; i++) cells += '<div class="cs-cal-c out"></div>';
+    for (let d = 1; d <= days; d++) {
+        const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`, e = (ev[key] || []).sort((a, b) => C.startMs(a) - C.startMs(b));
+        cells += `<button type="button" class="cs-cal-c ${key === C.todayKey() ? 'today' : ''} ${_csAdm.day === key ? 'sel' : ''}" onclick="csAdmDay('${key}')"><span>${d}</span>${e.slice(0, 2).map(r => `<b>${C.esc(C.fmtShort(r.scheduledAt).split(' ').pop())} ${C.esc((r.authorName || '').split(' ')[0])}</b>`).join('')}${e.length > 2 ? `<b>+${e.length - 2}</b>` : ''}</button>`;
+    }
+    const title = new Date(Date.UTC(y, m, 1)).toLocaleDateString(ar ? 'ar-EG' : 'en-GB', { timeZone: 'UTC', month: 'long', year: 'numeric' });
+    return `<div class="cs-cal"><div class="cs-cal-h"><button class="cs-x" onclick="csAdmMonth(-1)">‹</button><span>${title}${_csAdm.day ? ` <button class="cs-btn ghost sm" onclick="csAdmDay('${_csAdm.day}')">${ar ? 'إلغاء تحديد اليوم' : 'Clear day'}</button>` : ''}</span><button class="cs-x" onclick="csAdmMonth(1)">›</button></div>
+        <div class="cs-cal-g">${names.map(n => `<div class="cs-cal-d">${n}</div>`).join('')}${cells}</div></div>`;
+}
+function csAdmMonth(d) { const c = _csAdm.cal; let m = c.m + d, y = c.y; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } _csAdm.cal = { y, m }; csAdmRender(); }
+function csAdmDay(k) { _csAdm.day = _csAdm.day === k ? '' : k; _csAdm.limit = 20; csAdmRender(); }
+
+/* ── عنصر القائمة ── */
+function csAdmItemHtml(r) {
+    const C = window.CS, ar = C.isAR(), e = C.esc, st = C.stOf(r), name = r.authorName || '—';
+    const resch = r.rescheduleRequest && r.rescheduleRequest.status === 'pending' && ['accepted', 'confirmed'].includes(st);
+    return `<div class="cs-item click ${st}" onclick="csAdmOpen('${e(r.id)}')">
+        <div class="cs-row">
+            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--green4),var(--cs-cyan));display:flex;align-items:center;justify-content:center;font-weight:800;color:#04120a;flex-shrink:0">${e(name[0].toUpperCase())}</div>
+            <div style="min-width:0"><div style="font-weight:800;font-size:14px">${e(name)}</div><div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis">${e(r.email || '')}</div></div>
+            <span style="margin-inline-start:auto" class="cs-row">${resch ? `<span class="cs-chip pending"><i class="fa-solid fa-clock-rotate-left" style="font-size:10px"></i> ${ar ? 'تغيير موعد' : 'Reschedule'}</span>` : ''}${C.chip(st)}</span>
+        </div>
+        <div class="cs-title">${e(r.title || (r.message || '').slice(0, 80))}</div>
+        <div class="cs-meta">
+            <span><i class="fa-solid ${C.topic(r.topic).ic}"></i>${e(C.topicLabel(r.topic))}</span>
+            <span><i class="fa-regular fa-clock"></i>${e(C.fmtCreated(r.createdAt))}</span>
+            ${r.scheduledAt && ['confirmed', 'completed'].includes(st) ? `<span><i class="fa-solid fa-calendar-check"></i>${e(C.fmtShort(r.scheduledAt))}</span>` : ''}
+            ${r.expertName ? `<span><i class="fa-solid fa-user-tie"></i>${e(r.expertName)}</span>` : ''}
+            ${r.rating ? `<span>${C.stars(r.rating)}</span>` : ''}
+            ${r.legacy ? `<span style="opacity:.7"><i class="fa-solid fa-clock-rotate-left"></i>${ar ? 'طلب قديم' : 'legacy'}</span>` : ''}
+        </div></div>`;
+}
+
+/* ── تفاصيل الطلب ── */
+async function csAdmOpen(id) {
+    const C = window.CS, ar = C.isAR(), e = C.esc, r = _csAdm.all.find(x => x.id === id); if (!r) return;
+    if (_csAdm.modal) { _csAdm.modal.close(); _csAdm.modal = null; }
+    const mgr = csAdmIsManager(), st = C.stOf(r), experts = mgr ? await csAdmExperts() : [];
+    const start = C.startMs(r), started = start != null && Date.now() >= start;
+    const kv = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+    const wa = r.phone ? `https://wa.me/${String(r.phone).replace(/\D/g, '')}` : '';
+    const resch = r.rescheduleRequest && r.rescheduleRequest.status === 'pending' && ['accepted', 'confirmed'].includes(st) ? r.rescheduleRequest : null;
+    const expOpts = (cur) => `<option value="">${ar ? '— اختر الخبير —' : '— choose expert —'}</option>` + experts.map(x => `<option value="${e(x.id)}" ${cur === x.id ? 'selected' : ''}>${e(x.name)}</option>`).join('');
+    const needSchedule = mgr && ['pending', 'accepted', 'confirmed'].includes(st);
+    const preset = resch ? `${resch.day}T${resch.time}` : (r.scheduledAt ? C.isoToCairoInput(r.scheduledAt) : (r.preferredDay && /^\d{4}-/.test(r.preferredDay) && r.preferredTime ? `${r.preferredDay}T${r.preferredTime}` : ''));
+    let h = `<div class="cs-modal-h"><div><h3>${e(r.title || (ar ? 'طلب استشارة' : 'Consultation request'))}</h3><div class="cs-row" style="margin-top:6px">${C.chip(st)}<span style="font-size:11px;color:var(--muted)">#${e(String(r.id).slice(0, 8))}</span></div></div><button class="cs-x" data-cs-close>✕</button></div>`;
+
+    h += `<div class="cs-sec"><i class="fa-solid fa-user"></i> ${ar ? 'بيانات الطالب' : 'Student'}</div><dl class="cs-kv">
+        ${kv(ar ? 'الاسم' : 'Name', e(r.authorName || '—'))}${kv(ar ? 'البريد' : 'Email', r.email ? `<a href="mailto:${e(r.email)}" style="color:var(--cs-cyan)">${e(r.email)}</a>` : '')}
+        ${kv(ar ? 'الهاتف' : 'Phone', r.phone ? `${e(r.phone)} ${wa ? `<a href="${wa}" target="_blank" rel="noopener noreferrer" style="color:#25d366;margin-inline-start:8px"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>` : ''}` : '')}
+        ${kv(ar ? 'تاريخ الطلب' : 'Requested', e(C.fmtDT(r.createdAt)))}</dl>`;
+
+    h += `<div class="cs-sec"><i class="fa-solid fa-file-lines"></i> ${ar ? 'تفاصيل الطلب' : 'Request'}</div><dl class="cs-kv">
+        ${kv(ar ? 'المجال' : 'Topic', e(C.topicLabel(r.topic)))}${kv(ar ? 'المدة المتوقعة' : 'Expected', r.duration ? r.duration + (ar ? ' دقيقة' : ' min') : '')}
+        ${kv(ar ? 'الوقت المطلوب' : 'Preferred', (r.preferredDay || r.preferredTime) ? e((/^\d{4}-/.test(r.preferredDay || '') ? C.fmtDay(r.preferredDay) : (r.preferredDay || '')) + (r.preferredTime ? ' — ' + r.preferredTime : '')) + ` (${C.cairoTxt()})` : '')}</dl>
+        <div class="cs-box" style="margin-top:10px"><b class="t">${ar ? 'وصف المشكلة' : 'Problem'}</b><div class="cs-text">${e(r.message || '')}</div></div>
+        ${r.goal ? `<div class="cs-box"><b class="t">${ar ? 'الهدف المطلوب' : 'Goal'}</b><div class="cs-text">${e(r.goal)}</div></div>` : ''}
+        ${Array.isArray(r.attachments) && r.attachments.length ? `<div class="cs-res" style="margin-top:8px">${r.attachments.map((u, i) => C.safeUrl(u) ? `<a href="${C.safeUrl(u)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-paperclip"></i> ${ar ? 'مرفق' : 'Attachment'} ${i + 1}</a>` : '').join('')}</div>` : ''}
+        ${r.legacy && r.reply ? `<div class="cs-box ok"><b class="t">${ar ? 'الرد السابق (نظام قديم)' : 'Previous reply (legacy)'}</b><div class="cs-text">${_linkifyText(r.reply)}</div></div>` : ''}`;
+
+    if (resch) h += `<div class="cs-box warn"><b class="t"><i class="fa-solid fa-clock-rotate-left"></i> ${ar ? 'الطالب طلب تغيير الموعد' : 'Student asked to reschedule'}</b><div class="cs-text">${e(C.fmtDay(resch.day))} — ${e(resch.time || '')} (${C.cairoTxt()})${resch.note ? '\n' + e(resch.note) : ''}</div>
+        ${mgr ? `<div class="cs-actions"><button class="cs-btn sm" onclick="csAdmUseResch()"><i class="fa-solid fa-calendar-plus"></i> ${ar ? 'اعتماد الموعد المقترح' : 'Use suggested time'}</button><button class="cs-btn danger sm" onclick="csAdmDeclineResch('${e(r.id)}')">${ar ? 'رفض الطلب' : 'Decline'}</button></div>` : ''}</div>`;
+
+    if (['confirmed', 'completed'].includes(st) && r.scheduledAt) {
+        h += `<div class="cs-sec"><i class="fa-solid fa-video"></i> ${ar ? 'الجلسة' : 'Session'}</div><dl class="cs-kv">
+            ${kv(ar ? 'الموعد' : 'Time', e(C.fmtDT(r.scheduledAt)) + ` (${C.cairoTxt()})`)}${kv(ar ? 'المدة' : 'Duration', (r.durationMin || 60) + (ar ? ' دقيقة' : ' min'))}${kv(ar ? 'الخبير' : 'Expert', e(r.expertName || ''))}
+            ${st === 'confirmed' ? kv(ar ? 'رابط الاجتماع' : 'Link', `<button class="cs-btn ghost sm" onclick="csAdmShowLink('${e(r.id)}',this)"><i class="fa-solid fa-eye"></i> ${ar ? 'إظهار الرابط' : 'Show link'}</button>`) : ''}
+            ${kv(ar ? 'ملاحظة للطالب' : 'Student note', e(r.adminNote || ''))}</dl>`;
+    } else if (st === 'accepted' && (r.expertName || r.adminNote)) {
+        h += `<dl class="cs-kv" style="margin-top:10px">${kv(ar ? 'الخبير' : 'Expert', e(r.expertName || ''))}${kv(ar ? 'ملاحظة للطالب' : 'Student note', e(r.adminNote || ''))}</dl>`;
+    }
+    if (st === 'rejected') h += `<div class="cs-box bad"><b class="t">${ar ? 'سبب الرفض' : 'Reason'}</b><div class="cs-text">${e(r.rejectReason || '')}</div></div>`;
+    if (st === 'cancelled') h += `<div class="cs-box"><b class="t">${ar ? (r.cancelledBy === 'admin' ? 'أُلغيت بواسطة الإدارة' : 'ألغاها الطالب') : (r.cancelledBy === 'admin' ? 'Cancelled by admin' : 'Cancelled by student')}</b><div class="cs-text">${e(r.cancelReason || '')}</div></div>`;
+
+    // إجراءات المدير
+    if (mgr && st === 'pending') h += `<div class="cs-sec"><i class="fa-solid fa-gavel"></i> ${ar ? 'القرار' : 'Decision'}</div><div class="cs-actions" style="margin-top:0">
+        <button class="cs-btn" onclick="csAdmAcceptDlg('${e(r.id)}')"><i class="fa-solid fa-check"></i> ${ar ? 'قبول الطلب' : 'Accept'}</button>
+        <button class="cs-btn cyan" onclick="document.getElementById('csSchedBox').scrollIntoView({behavior:'smooth'})"><i class="fa-solid fa-calendar-check"></i> ${ar ? 'قبول وتأكيد الموعد' : 'Accept & schedule'}</button>
+        <button class="cs-btn danger" onclick="csAdmReject('${e(r.id)}')"><i class="fa-solid fa-xmark"></i> ${ar ? 'رفض مع السبب' : 'Reject'}</button></div>`;
+    if (needSchedule) h += `<div class="cs-sec" id="csSchedBox"><i class="fa-solid fa-calendar-plus"></i> ${st === 'confirmed' ? (ar ? 'تعديل الموعد أو الرابط' : 'Edit time or link') : (ar ? 'تأكيد الموعد' : 'Confirm the session')}</div>
+        <div class="cs-card" style="margin:0"><div class="cs-grid2">
+            <div class="cs-f"><label>${ar ? 'الخبير المسؤول' : 'Expert'} <em>*</em></label><select id="csAdmExp">${expOpts(r.expertId || '')}</select></div>
+            <div class="cs-f"><label>${ar ? 'الموعد النهائي' : 'Final time'} <em>*</em> (${C.cairoTxt()})</label><input type="datetime-local" id="csAdmWhen" value="${e(preset)}"></div>
+            <div class="cs-f"><label>${ar ? 'المدة' : 'Duration'} <em>*</em></label><select id="csAdmDur">${[30, 45, 60, 90, 120].map(m => `<option value="${m}" ${(Number(r.durationMin) || Number(r.duration) || 60) === m ? 'selected' : ''}>${m} ${ar ? 'دقيقة' : 'min'}</option>`).join('')}</select></div>
+            <div class="cs-f"><label>${ar ? 'رابط الاجتماع (Zoom / Meet / Teams)' : 'Meeting link'} <em>*</em></label><input id="csAdmLink" dir="ltr" placeholder="https://meet.google.com/…" value=""><div class="cs-hint">${st === 'confirmed' ? (ar ? 'الرابط الحالي محفوظ بأمان — أدخل رابطًا جديدًا فقط لتغييره (مطلوب عند الحفظ).' : 'The current link is stored securely — enter a link to save.') : (ar ? 'يبدأ بـ https:// ولا يظهر للطالب إلا بعد التأكيد.' : 'Starts with https:// — hidden from the student until confirmed.')}</div></div></div>
+            <div class="cs-f"><label>${ar ? 'ملاحظة تصل للطالب (اختياري)' : 'Note for the student (optional)'}</label><textarea id="csAdmNote" maxlength="1000" style="min-height:64px">${e(r.adminNote || '')}</textarea></div>
+            <button class="cs-btn" onclick="csAdmSaveSchedule('${e(r.id)}')"><i class="fa-solid fa-calendar-check"></i> ${st === 'confirmed' ? (ar ? 'حفظ التعديلات' : 'Save changes') : (ar ? 'تأكيد الموعد' : 'Confirm session')}</button></div>`;
+    if (mgr && st === 'accepted') h += `<div class="cs-sec"><i class="fa-solid fa-user-tie"></i> ${ar ? 'إسناد الخبير' : 'Assign expert'}</div><div class="cs-row"><select id="csAdmAssign" class="cs-in" style="max-width:280px">${expOpts(r.expertId || '')}</select><button class="cs-btn ghost sm" onclick="csAdmAssign('${e(r.id)}')">${ar ? 'حفظ' : 'Save'}</button></div>`;
+
+    // اكتمال / ملخص
+    if (st === 'confirmed') h += `<div class="cs-actions"><button class="cs-btn" ${started ? '' : 'disabled'} onclick="csAdmComplete('${e(r.id)}')"><i class="fa-solid fa-flag-checkered"></i> ${ar ? 'تسجيل اكتمال الجلسة' : 'Mark completed'}</button>${mgr ? `<button class="cs-btn danger" onclick="csAdmCancel('${e(r.id)}')"><i class="fa-solid fa-ban"></i> ${ar ? 'إلغاء الجلسة' : 'Cancel session'}</button>` : ''}</div>${started ? '' : `<div class="cs-hint">${ar ? 'يمكن تسجيل الاكتمال بعد وقت بدء الجلسة.' : 'Completion is available once the session has started.'}</div>`}`;
+    else if (mgr && ['pending', 'accepted'].includes(st)) h += `<div class="cs-actions"><button class="cs-btn danger sm" onclick="csAdmCancel('${e(r.id)}')"><i class="fa-solid fa-ban"></i> ${ar ? 'إلغاء الطلب' : 'Cancel request'}</button></div>`;
+
+    if (st === 'completed' && !r.legacy) {
+        const res = Array.isArray(r.resources) ? r.resources.map(x => `${x.title || ''} | ${x.url}`).join('\n') : '';
+        h += `<div class="cs-sec"><i class="fa-solid fa-clipboard-check"></i> ${ar ? 'ملخص الاستشارة (يراه الطالب)' : 'Session summary (visible to the student)'}</div>
+        <div class="cs-card" style="margin:0"><div class="cs-f"><label>${ar ? 'الملخص' : 'Summary'} <em>*</em></label><textarea id="csSmSum" maxlength="4000">${e(r.summary || '')}</textarea></div>
+        <div class="cs-f"><label>${ar ? 'التوصيات' : 'Recommendations'}</label><textarea id="csSmRec" maxlength="3000" style="min-height:70px">${e(r.recommendations || '')}</textarea></div>
+        <div class="cs-f"><label>${ar ? 'الخطوات التالية' : 'Next steps'}</label><textarea id="csSmNext" maxlength="3000" style="min-height:70px">${e(r.nextSteps || '')}</textarea></div>
+        <div class="cs-f"><label>${ar ? 'مصادر مفيدة (سطر لكل مصدر: العنوان | https://رابط)' : 'Resources (one per line: Title | https://link)'}</label><textarea id="csSmRes" dir="ltr" style="min-height:70px">${e(res)}</textarea></div>
+        <button class="cs-btn" onclick="csAdmSaveSummary('${e(r.id)}')"><i class="fa-solid fa-floppy-disk"></i> ${ar ? 'حفظ الملخص' : 'Save summary'}</button></div>
+        ${r.rating ? `<div class="cs-box"><b class="t">${ar ? 'تقييم الطالب' : 'Student rating'}</b>${C.stars(r.rating)}${r.ratingComment ? `<div class="cs-text" style="margin-top:6px">${e(r.ratingComment)}</div>` : ''}</div>` : `<div class="cs-hint" style="margin-top:8px">${ar ? 'لم يقيّم الطالب الجلسة بعد.' : 'The student has not rated yet.'}</div>`}`;
+    }
+
+    if (Array.isArray(r.history) && r.history.length) {
+        const L = { created: ar ? 'تم إنشاء الطلب' : 'Created', accepted: ar ? 'تم القبول' : 'Accepted', rejected: ar ? 'تم الرفض' : 'Rejected', confirmed: ar ? 'تم تأكيد الموعد' : 'Confirmed', edited: ar ? 'تعديل الموعد/الرابط' : 'Edited', cancelled: ar ? 'إلغاء' : 'Cancelled', completed: ar ? 'اكتملت الجلسة' : 'Completed', summary_saved: ar ? 'حفظ الملخص' : 'Summary saved', rated: ar ? 'تقييم الطالب' : 'Rated', reschedule_requested: ar ? 'طلب تغيير موعد' : 'Reschedule requested', reschedule_declined: ar ? 'رفض تغيير الموعد' : 'Reschedule declined', assigned: ar ? 'إسناد الخبير' : 'Expert assigned' };
+        h += `<div class="cs-sec"><i class="fa-solid fa-timeline"></i> ${ar ? 'سجل الحالة' : 'Timeline'}</div><ul class="cs-tl">${r.history.slice().reverse().map(x => `<li><b>${e(L[x.action] || x.action)}</b> · ${e(C.fmtShort(x.at))} · ${x.by === 'student' ? (ar ? 'الطالب' : 'student') : (ar ? 'الإدارة' : 'admin')}${x.note ? `<br>${e(x.note)}` : ''}</li>`).join('')}</ul>`;
+    }
+    if (mgr && st !== 'confirmed') h += `<div class="cs-actions" style="border-top:1px solid var(--border);padding-top:12px"><button class="cs-btn danger sm" onclick="csAdmDelete('${e(r.id)}')"><i class="fa-solid fa-trash"></i> ${ar ? 'حذف نهائي' : 'Delete permanently'}</button></div>`;
+
+    _csAdm.openId = id; _csAdm.resch = resch;
+    _csAdm.modal = C.modal(h, { wide: true, onClose: () => { _csAdm.modal = null; } });
+}
+
+/* ── إجراءات ── */
+async function csAdmDo(fn, okMsg, reopen) {
+    const C = window.CS;
+    try { await fn(); C.toast(okMsg); const id = _csAdm.openId; await csAdmRefresh(); if (reopen && id) csAdmOpen(id); else if (_csAdm.modal) { _csAdm.modal.close(); _csAdm.modal = null; } }
+    catch (e) { C.toast(C.err(e), true); }
+}
+function csAdmUseResch() {
+    const r = _csAdm.resch; if (!r) return;
+    const w = document.getElementById('csAdmWhen'); if (w) w.value = `${r.day}T${r.time}`;
+    document.getElementById('csSchedBox')?.scrollIntoView({ behavior: 'smooth' });
+}
+async function csAdmDeclineResch(id) {
+    const C = window.CS, ar = C.isAR();
+    const v = await C.confirmBox({ title: ar ? 'رفض طلب تغيير الموعد' : 'Decline reschedule', ok: ar ? 'رفض' : 'Decline', danger: true, input: { label: ar ? 'ملاحظة للطالب (اختياري)' : 'Note for the student (optional)' } });
+    if (v === false) return;
+    csAdmDo(() => C.rpc('consult_decide', { p_id: id, p_action: 'decline_reschedule', p: { note: v || null } }), ar ? 'تم رفض طلب التغيير' : 'Declined', true);
+}
+async function csAdmAcceptDlg(id) {
+    const C = window.CS, ar = C.isAR(), experts = await csAdmExperts();
+    const m = C.modal(`<div class="cs-modal-h"><h3>${ar ? 'قبول الطلب' : 'Accept request'}</h3><button class="cs-x" data-cs-close>✕</button></div>
+        <p class="cs-hint" style="margin:0 0 12px">${ar ? 'سيتحول الطلب إلى «مقبولة بانتظار تأكيد الموعد». يمكنك تحديد الموعد والرابط لاحقًا.' : 'The request becomes “Accepted — awaiting schedule”. You can set time and link afterwards.'}</p>
+        <div class="cs-f"><label>${ar ? 'الخبير المسؤول (اختياري الآن)' : 'Expert (optional now)'}</label><select id="csAcExp"><option value="">—</option>${experts.map(x => `<option value="${C.esc(x.id)}">${C.esc(x.name)}</option>`).join('')}</select></div>
+        <div class="cs-f"><label>${ar ? 'ملاحظة للطالب (اختياري)' : 'Note for the student (optional)'}</label><textarea id="csAcNote" maxlength="1000" style="min-height:70px"></textarea></div>
+        <div class="cs-actions"><button class="cs-btn" id="csAcOk"><i class="fa-solid fa-check"></i> ${ar ? 'قبول' : 'Accept'}</button><button class="cs-btn ghost" data-cs-close>${ar ? 'رجوع' : 'Back'}</button></div>`);
+    m.q('#csAcOk').addEventListener('click', () => { const b = m.q('#csAcOk'); b.disabled = true; const p = { expertId: m.q('#csAcExp').value || null, note: m.q('#csAcNote').value.trim() || null }; m.close();
+        csAdmDo(() => C.rpc('consult_decide', { p_id: id, p_action: 'accept', p }), ar ? '✓ تم قبول الطلب' : '✓ Accepted', true); });
+}
+async function csAdmReject(id) {
+    const C = window.CS, ar = C.isAR();
+    const v = await C.confirmBox({ title: ar ? 'رفض الطلب' : 'Reject request', body: ar ? 'سيصل السبب للطالب.' : 'The reason is sent to the student.', ok: ar ? 'رفض الطلب' : 'Reject', danger: true, input: { label: ar ? 'سبب الرفض' : 'Reason', required: true, min: 5, max: 500 } });
+    if (v === false) return;
+    csAdmDo(() => C.rpc('consult_decide', { p_id: id, p_action: 'reject', p: { reason: v } }), ar ? 'تم رفض الطلب' : 'Rejected', false);
+}
+async function csAdmSaveSchedule(id) {
+    const C = window.CS, ar = C.isAR(), g = (i) => document.getElementById(i);
+    const when = g('csAdmWhen').value, link = g('csAdmLink').value.trim(), exp = g('csAdmExp').value;
+    if (!exp) { C.toast(C.err({ code: 'expert_required' }), true); return; }
+    if (!when || new Date(C.cairoToISO(when)).getTime() <= Date.now() + 5 * 60000) { C.toast(C.err({ code: 'invalid_time' }), true); return; }
+    if (!/^https:\/\/\S+\.\S+/.test(link)) { C.toast(C.err({ code: 'invalid_link' }), true); return; }
+    csAdmDo(() => C.rpc('consult_schedule', { p_id: id, p: { scheduledAt: C.cairoToISO(when), durationMin: Number(g('csAdmDur').value), meetingLink: link, expertId: exp, note: g('csAdmNote').value.trim() || null } }), ar ? '✓ تم حفظ الموعد وإشعار الطالب' : '✓ Saved and student notified', true);
+}
+async function csAdmAssign(id) {
+    const C = window.CS, ar = C.isAR(), v = document.getElementById('csAdmAssign').value;
+    if (!v) { C.toast(C.err({ code: 'expert_required' }), true); return; }
+    csAdmDo(() => C.rpc('consult_assign', { p_id: id, p_expert: v }), ar ? '✓ تم إسناد الخبير' : '✓ Expert assigned', true);
+}
+async function csAdmCancel(id) {
+    const C = window.CS, ar = C.isAR();
+    const v = await C.confirmBox({ title: ar ? 'إلغاء الاستشارة' : 'Cancel consultation', body: ar ? 'سيتم إشعار الطالب بالسبب.' : 'The student is notified with the reason.', ok: ar ? 'تأكيد الإلغاء' : 'Cancel it', danger: true, input: { label: ar ? 'سبب الإلغاء' : 'Reason', required: true, min: 5, max: 500 } });
+    if (v === false) return;
+    csAdmDo(() => C.rpc('consult_cancel', { p_id: id, p_reason: v }), ar ? 'تم الإلغاء' : 'Cancelled', false);
+}
+async function csAdmComplete(id) {
+    const C = window.CS, ar = C.isAR();
+    const v = await C.confirmBox({ title: ar ? 'تسجيل اكتمال الجلسة؟' : 'Mark as completed?', body: ar ? 'سيتمكن الطالب من تقييم الجلسة، ويمكنك بعدها إضافة الملخص والتوصيات.' : 'The student can then rate it, and you can add the summary.', ok: ar ? 'تسجيل الاكتمال' : 'Complete' });
+    if (v === false) return;
+    csAdmDo(() => C.rpc('consult_complete', { p_id: id }), ar ? '✓ تم تسجيل الاكتمال' : '✓ Completed', true);
+}
+async function csAdmDelete(id) {
+    const C = window.CS, ar = C.isAR();
+    const v = await C.confirmBox({ title: ar ? 'حذف الطلب نهائيًا؟' : 'Delete permanently?', body: ar ? 'لا يمكن التراجع، وسيُحذف معه أي تقييم أو ملخص.' : 'This cannot be undone and removes any rating or summary.', ok: ar ? 'حذف' : 'Delete', danger: true });
+    if (v === false) return;
+    csAdmDo(() => C.rpc('consult_delete', { p_id: id }), ar ? '🗑️ تم الحذف' : '🗑️ Deleted', false);
+}
+async function csAdmSaveSummary(id) {
+    const C = window.CS, ar = C.isAR(), g = (i) => document.getElementById(i).value.trim();
+    const resources = g('csSmRes').split('\n').map(l => l.trim()).filter(Boolean).map(l => { const i = l.lastIndexOf('|'); return i < 0 ? { title: l, url: l } : { title: l.slice(0, i).trim(), url: l.slice(i + 1).trim() }; });
+    if (g('csSmSum').length < 10) { C.toast(C.err({ code: 'invalid_summary' }), true); return; }
+    csAdmDo(() => C.rpc('consult_save_summary', { p_id: id, p: { summary: g('csSmSum'), recommendations: g('csSmRec') || null, nextSteps: g('csSmNext') || null, resources } }), ar ? '✓ تم حفظ الملخص' : '✓ Summary saved', true);
+}
+async function csAdmShowLink(id, btn) {
+    const C = window.CS;
+    try {
+        const url = await C.rpc('consult_get_link', { p_id: id });
+        btn.outerHTML = `<a href="${C.safeUrl(url)}" target="_blank" rel="noopener noreferrer" dir="ltr" style="color:var(--cs-cyan);word-break:break-all">${C.esc(url)}</a>`;
+    } catch (e) { C.toast(C.err(e), true); }
+}
+
 
         function renderAccount(area) {
             area = area || document.getElementById('contentArea');
@@ -17041,6 +17600,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             { key:'cv',         labelAR:'عمل cv',             labelEN:'CV Requests',           icon:'fa-file-invoice' },
             { key:'portfolio',  labelAR:'خرائط طلبة',         labelEN:'Student Maps',          icon:'fa-map-location-dot' },
             { key:'mentorship', labelAR:'حجوزات استشارات',    labelEN:'Consultation Bookings', icon:'fa-user-tie' },
+            { key:'mentorship_own', labelAR:'استشاراتي المسندة فقط', labelEN:'Assigned Consultations Only', icon:'fa-user-check' },
         ];
 
         // Which DOM elements each permission key controls the visibility of
@@ -17074,6 +17634,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     if (el) el.style.display = allowed ? '' : 'none';
                 });
             });
+            if (Array.isArray(perms) && perms.includes('mentorship_own')) { (ADMIN_PERMISSION_ELEMENT_IDS.mentorship || []).forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; }); }
             document.querySelectorAll('.nav-section').forEach(sec => {
                 const visibleItems = sec.querySelectorAll('.nav-item:not([style*="display: none"])');
                 const label = sec.querySelector('.nav-label');
