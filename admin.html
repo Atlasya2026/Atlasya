@@ -3734,10 +3734,19 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         (snap) => cb(snap.exists() ? snap.data() : {}, null),
         (err) => cb(null, err)
     );
-    window._setPlatformStatus = (maintenance) => setDoc(doc(db, 'settings', 'platformStatus'), {
+    window._setPlatformStatus = (maintenance, clearSchedule) => setDoc(doc(db, 'settings', 'platformStatus'), {
         maintenance: !!maintenance,
+        ...(clearSchedule ? { returnAtMs: null } : {}),
         updatedAt: serverTimestamp(),
         updatedBy: (window._adminProfile && (window._adminProfile.displayName || window._adminProfile.username)) || ''
+    }, { merge: true });
+    // جدول الصيانة: وقت الرجوع المتوقع + رسالة للطلاب + "اللي جاي بعد التحديث" (الطالب بيقراها من نفس المستند)
+    window._setPlatformSchedule = (o) => setDoc(doc(db, 'settings', 'platformStatus'), {
+        returnAtMs: o.returnAtMs ? Number(o.returnAtMs) : null,
+        statusMessage: String(o.message || ''),
+        upNext: Array.isArray(o.upNext) ? o.upNext : [],
+        autoOpen: o.autoOpen !== false,
+        scheduleUpdatedAt: serverTimestamp()
     }, { merge: true });
     // إيميل تجريبي مستثنى من إيقاف المنصة (بيتخزّن في نفس المستند عشان صفحة الطالب بتسمع له أصلًا)
     window._setPlatformTester = (email) => setDoc(doc(db, 'settings', 'platformStatus'), {
@@ -11730,7 +11739,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
     /* ─── PLATFORM ON/OFF (حسابي ← التحكم في المنصة) ───
        الحالة في Firestore: settings/platformStatus { maintenance: true|false }.
        المشرف العام بس هو اللي بيشوف الكارت ده وبيقدر يغيّره. */
-    window._platformState = { loaded: false, maintenance: false, error: '', updatedBy: '', updatedAtMs: 0, testerEmail: '' };
+    window._platformState = { loaded: false, maintenance: false, error: '', updatedBy: '', updatedAtMs: 0, testerEmail: '', returnAtMs: 0, message: '', upNext: [], autoOpen: true };
     let _platformUnsub = null;
 
     function startPlatformWatch() {
@@ -11738,18 +11747,34 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         _platformUnsub = window._watchPlatformStatus((data, err) => {
             if (err) {
                 _platformUnsub = null; // الـ listener اتقفل بالخطأ — نسمح بإعادة المحاولة
-                window._platformState = { loaded: false, maintenance: false, error: err.code || String(err), updatedBy: '', updatedAtMs: 0, testerEmail: '' };
+                window._platformState = { loaded: false, maintenance: false, error: err.code || String(err), updatedBy: '', updatedAtMs: 0, testerEmail: '', returnAtMs: 0, message: '', upNext: [], autoOpen: true };
             } else {
                 window._platformState = {
                     loaded: true, error: '',
                     maintenance: data.maintenance === true,
                     testerEmail: String(data.testerEmail || '').trim().toLowerCase(),
+                    returnAtMs: Number(data.returnAtMs) || 0,
+                    message: String(data.statusMessage || ''),
+                    upNext: Array.isArray(data.upNext) ? data.upNext.map(String) : [],
+                    autoOpen: data.autoOpen !== false,
                     updatedBy: data.updatedBy || '',
                     updatedAtMs: (data.updatedAt && data.updatedAt.toMillis) ? data.updatedAt.toMillis() : 0
                 };
             }
             renderPlatformControlUI();
         });
+        // لو وقت الرجوع عدّى والإدارة مفتوحة: نقفل الإيقاف فعليًا (الطلاب أصلًا بيفتحوا تلقائيًا من عندهم)
+        if (!window._platformAutoTimer) window._platformAutoTimer = setInterval(async () => {
+            const st = window._platformState;
+            if (!st.loaded || !st.maintenance || !st.returnAtMs || st.autoOpen === false || Date.now() < st.returnAtMs) return;
+            if (window._adminIsSuper !== true || window._platformAutoBusy) return;
+            window._platformAutoBusy = true;
+            try { await window._setPlatformStatus(false, true); showToast((typeof lang === 'undefined' || lang === 'AR') ? 'انتهى وقت الصيانة — المنصة اتفتحت تلقائيًا ✓' : 'Maintenance time ended — platform reopened ✓'); }
+            catch (e) { console.warn('auto reopen failed', e); }
+            finally { window._platformAutoBusy = false; }
+        }, 5000);
+        // عدّاد "الوقت المتبقي" في الكارت
+        if (!window._platformTickTimer) window._platformTickTimer = setInterval(() => { const st = window._platformState; if (st && st.loaded && st.maintenance && st.returnAtMs) renderPlatformControlUI(); }, 1000);
     }
 
     function renderPlatformControlUI() {
@@ -11791,6 +11816,28 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             if (off && st.testerEmail) line += (isAR ? '  — مستثنى للتجربة: ' : '  — Test exception: ') + st.testerEmail;
             sub.textContent = line;
         }
+        // جدول الصيانة
+        const rIn = document.getElementById('platformReturnAt');
+        if (rIn && !window._platformSchedDirty && document.activeElement !== rIn
+            && !['platformMsg', 'platformUpNext'].includes((document.activeElement || {}).id)) {
+            rIn.value = st.returnAtMs ? _pfToLocalInput(st.returnAtMs) : '';
+            const m = document.getElementById('platformMsg'); if (m) m.value = st.message || '';
+            const u = document.getElementById('platformUpNext'); if (u) u.value = (st.upNext || []).join('\n');
+            const a = document.getElementById('platformAutoOpen'); if (a) a.checked = st.autoOpen !== false;
+        }
+        const sNote = document.getElementById('platformSchedNote');
+        if (sNote) {
+            if (!st.returnAtMs) sNote.textContent = isAR ? 'مفيش وقت رجوع محدد — الطلاب مش هيشوفوا عدّاد.' : 'No return time set — students will not see a countdown.';
+            else {
+                const left = st.returnAtMs - Date.now();
+                const when = new Date(st.returnAtMs).toLocaleString(isAR ? 'ar-EG' : 'en-GB');
+                if (left <= 0) sNote.textContent = (isAR ? 'الوقت المحدد عدّى: ' : 'Time has passed: ') + when;
+                else {
+                    const h = Math.floor(left / 3600000), mi = Math.floor(left % 3600000 / 60000), se = Math.floor(left % 60000 / 1000);
+                    sNote.textContent = (isAR ? 'المنصة ' + (st.autoOpen !== false ? 'هتفتح تلقائيًا' : 'مجدولة') + ' يوم ' : 'Scheduled: ') + when + (isAR ? '  — فاضل ' : '  — left ') + h + ':' + String(mi).padStart(2, '0') + ':' + String(se).padStart(2, '0');
+                }
+            }
+        }
         // خانة الإيميل التجريبي
         const tIn = document.getElementById('platformTesterEmail');
         const tNote = document.getElementById('platformTesterNote');
@@ -11831,6 +11878,47 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
     }
     window.savePlatformTester = savePlatformTester;
 
+    function _pfToLocalInput(ms) {
+        const d = new Date(ms), p = n => String(n).padStart(2, '0');
+        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+    window.platformSchedMark = function () { window._platformSchedDirty = true; };
+    window.platformQuickTime = function (mins) {
+        const el = document.getElementById('platformReturnAt'); if (!el) return;
+        el.value = _pfToLocalInput(Date.now() + mins * 60000);
+        window._platformSchedDirty = true;
+    };
+    async function savePlatformSchedule(clear) {
+        const isAR = typeof lang === 'undefined' || lang === 'AR';
+        if (!window._adminIsSuper) return;
+        const rIn = document.getElementById('platformReturnAt');
+        let returnAtMs = 0;
+        if (!clear && rIn && rIn.value) {
+            returnAtMs = new Date(rIn.value).getTime();
+            if (!isFinite(returnAtMs) || returnAtMs <= Date.now()) { showToast(isAR ? 'وقت الرجوع لازم يكون في المستقبل' : 'Return time must be in the future', true); return; }
+        }
+        const msg = clear ? '' : (((document.getElementById('platformMsg') || {}).value) || '').trim().slice(0, 300);
+        const up = clear ? [] : (((document.getElementById('platformUpNext') || {}).value) || '').split('\n').map(x => x.trim().slice(0, 120)).filter(Boolean).slice(0, 6);
+        const auto = clear ? true : !!((document.getElementById('platformAutoOpen') || {}).checked);
+        const btns = [document.getElementById('platformSchedSave'), document.getElementById('platformSchedClear')];
+        btns.forEach(b => { if (b) b.disabled = true; });
+        try {
+            await window._setPlatformSchedule({ returnAtMs, message: msg, upNext: up, autoOpen: auto });
+            window._platformSchedDirty = false;
+            if (clear) { ['platformReturnAt', 'platformMsg', 'platformUpNext'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; }); }
+            showToast(clear ? (isAR ? 'تم مسح جدول الصيانة' : 'Schedule cleared') : (isAR ? 'تم حفظ بيانات الصيانة ✓ (بتظهر للطلاب لما المنصة تكون متوقفة)' : 'Maintenance info saved ✓ (students see it while the platform is stopped)'));
+        } catch (e) {
+            console.error('schedule save failed:', e);
+            showToast(e && e.code === 'permission-denied'
+                ? (isAR ? 'مفيش صلاحية كتابة على settings/platformStatus — راجع قواعد Firestore' : 'No write permission on settings/platformStatus — check Firestore rules')
+                : (isAR ? 'تعذّر الحفظ، جرّب تاني' : 'Could not save, try again'), true);
+        } finally {
+            btns.forEach(b => { if (b) b.disabled = false; });
+            renderPlatformControlUI();
+        }
+    }
+    window.savePlatformSchedule = savePlatformSchedule;
+
     async function onPlatformSwitch(cb) {
         const isAR = typeof lang === 'undefined' || lang === 'AR';
         if (!window._adminIsSuper) { renderPlatformControlUI(); return; }
@@ -11843,7 +11931,10 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         }
         cb.disabled = true;
         try {
-            await window._setPlatformStatus(!wantRunning);
+            const _st = window._platformState || {};
+            // لما نشغّل المنصة نمسح وقت الرجوع القديم، ولو بنوقف ووقت قديم عدّى نمسحه برضو (عشان ما تتفتحش لوحدها فورًا)
+            await window._setPlatformStatus(!wantRunning, wantRunning || (_st.returnAtMs && _st.returnAtMs <= Date.now()));
+            if (wantRunning) window._platformSchedDirty = false;
             showToast(wantRunning
                 ? (isAR ? 'تم تشغيل المنصة ✓' : 'Platform is running again ✓')
                 : (isAR ? 'تم إيقاف المنصة — الطلاب هيشوفوا صفحة الصيانة' : 'Platform stopped — students now see the maintenance page'));
@@ -11933,6 +12024,36 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                         <input type="checkbox" id="platformSwitch" onchange="onPlatformSwitch(this)" disabled>
                         <span class="pf-slider"></span>
                     </label>
+                </div>
+                <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
+                    <label style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;"><i class="fa-solid fa-hourglass-half" style="color:var(--gold3);margin-${isAR ? 'left' : 'right'}:6px;"></i>${isAR ? 'وقت الرجوع المتوقع + إعلان للطلاب' : 'Expected return time + announcement'}</label>
+                    <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.7;">${isAR
+                        ? 'اللي هتكتبه هنا بيظهر للطلاب في صفحة الصيانة (عدّاد تنازلي + رسالة + "اللي جاي بعد التحديث"). لما الوقت يخلص المنصة بتفتح لوحدها.'
+                        : 'What you write here appears on the maintenance page (countdown + message + "what is coming next"). When the time ends the platform reopens by itself.'}</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+                        <input type="datetime-local" id="platformReturnAt" oninput="platformSchedMark()" style="flex:1;min-width:210px;">
+                        <button class="btn-save" type="button" onclick="platformQuickTime(30)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 12px;">${isAR ? '+30 د' : '+30m'}</button>
+                        <button class="btn-save" type="button" onclick="platformQuickTime(60)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 12px;">${isAR ? '+ساعة' : '+1h'}</button>
+                        <button class="btn-save" type="button" onclick="platformQuickTime(180)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 12px;">${isAR ? '+3 ساعات' : '+3h'}</button>
+                        <button class="btn-save" type="button" onclick="platformQuickTime(1440)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 12px;">${isAR ? '+يوم' : '+1d'}</button>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px;cursor:pointer;">
+                        <input type="checkbox" id="platformAutoOpen" checked onchange="platformSchedMark()">
+                        ${isAR ? 'افتح المنصة تلقائيًا لما الوقت يخلص' : 'Reopen the platform automatically when the time ends'}
+                    </label>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label>${isAR ? 'رسالة للطلاب (اختياري — حتى 300 حرف)' : 'Message to students (optional — up to 300 chars)'}</label>
+                        <textarea id="platformMsg" maxlength="300" oninput="platformSchedMark()" placeholder="${isAR ? 'مثال: بنضيف كورس الاستشعار عن بُعد الجديد وبنحسّن سرعة الخرائط.' : 'e.g. We are adding the new Remote Sensing course.'}"></textarea>
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label>${isAR ? 'اللي جاي بعد التحديث (سطر لكل بند — حتى 6)' : 'What is coming next (one per line — up to 6)'}</label>
+                        <textarea id="platformUpNext" oninput="platformSchedMark()" style="height:110px;" placeholder="${isAR ? 'كورس جديد: أساسيات الاستشعار عن بُعد\nمعمل خرائط تفاعلي\nتحدّي يومي جديد' : 'New course: Remote Sensing basics\nInteractive map lab'}"></textarea>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        <button class="btn-save" id="platformSchedSave" type="button" onclick="savePlatformSchedule(false)"><i class="fa-solid fa-floppy-disk"></i> <span>${isAR ? 'حفظ بيانات الصيانة' : 'Save maintenance info'}</span></button>
+                        <button class="btn-save" id="platformSchedClear" type="button" onclick="savePlatformSchedule(true)" style="background:transparent;border:1px solid var(--border);color:var(--muted);"><i class="fa-solid fa-xmark"></i> <span>${isAR ? 'مسح' : 'Clear'}</span></button>
+                    </div>
+                    <div id="platformSchedNote" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
                 </div>
                 <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
                     <label style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;">${isAR ? 'إيميل تجريبي (مستثنى من الإيقاف)' : 'Test email (exempt from the stop)'}</label>
