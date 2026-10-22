@@ -1,6 +1,6 @@
 /* ATLASYA service worker — network-first, offline fallback to cache.
    غيّر رقم النسخة لما تعدّل الملفات عشان الكاش القديم يتمسح. */
-const VERSION = 'atlasya-v3';
+const VERSION = 'atlasya-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -19,7 +19,7 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  // Firebase / APIs / أي دومين تاني: سيبه للمتصفح (بيانات لايف)
+  // Supabase / APIs / الخطوط / أي دومين تاني: سيبه للمتصفح (بيانات لايف)
   if (url.origin !== location.origin) return;
 
   e.respondWith(
