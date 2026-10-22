@@ -2,7 +2,11 @@
     <html lang="en" dir="ltr">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script>
+/* Old GitHub Pages address → show the "we moved" page and stop loading the app */
+(function(){ if(/(^|\.)github\.io$/i.test(location.hostname)){ window.stop(); location.replace('moved.html'+location.search+location.hash); } })();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ATLASYA — GIS Learning Portal</title>
         <!-- PWA -->
         <meta name="theme-color" content="#161920">
@@ -7085,7 +7089,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         /* Real, public URL of the deployed platform — used to build the
            student invite/referral link so it always points at the live
            site regardless of where this page happens to be loaded from. */
-        const PLATFORM_BASE_URL = 'https://atlasya2026.github.io/Atlasya/';
+        const PLATFORM_BASE_URL = 'https://atlasya.vercel.app/';
         const T = {
             AR: {
                 navLbl1: 'الرئيسية', navLbl2: 'المحتوى',
@@ -9637,7 +9641,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             { id:'seed14', icon:'fa-code', color:'#d4a017', categoryAR:'برمجة', categoryEN:'Programming', titleAR:'اتعلّم Python وGIS', titleEN:'Learn Python for GIS', bodyAR:'البرمجة مهمة جدًا في GIS:<ul><li>استخدم <strong>Python + ArcPy</strong> لتسريع التحليل المكرّر</li><li>جرّب <strong>QGIS Python Plugins</strong></li><li>كتابة سكربتات صغيرة هتوفر وقتك وتديك قوة في تحليل البيانات الكبيرة</li></ul>', bodyEN:'Programming is very important in GIS:<ul><li>Use <strong>Python + ArcPy</strong> to automate repetitive analysis</li><li>Try <strong>QGIS Python Plugins</strong></li><li>Writing small scripts saves time and gives you power over large datasets</li></ul>' },
             { id:'seed15', icon:'fa-users', color:'#1e7a34', categoryAR:'مجتمع', categoryEN:'Community', titleAR:'شارك في مجتمعات GIS', titleEN:'Join GIS Communities', bodyAR:'المجتمع هيساعدك تتعلم أسرع:<ul><li>انضم لمجموعات GIS على Facebook، LinkedIn، Reddit</li><li>اسأل، شارك مشاريعك، خذ نصايح من محترفين</li><li>ده هيوصلك لفرص تدريبية وشغل أكثر</li></ul>', bodyEN:'Community will help you learn faster:<ul><li>Join GIS groups on Facebook, LinkedIn, Reddit</li><li>Ask questions, share your projects, get advice from professionals</li><li>This connects you to more training and job opportunities</li></ul>' }
         ];
-        const INS_SHARE_LINK = 'https://atlasya2026.github.io/Atlasya/';
+        const INS_SHARE_LINK = 'https://atlasya.vercel.app/';
         const INS_STAGE_HOURS = 24; // hours between each box unlocking
         let _insTips = null;      // combined seed + Firestore tips, loaded once per session
         let _insCountdownTimer = null;
