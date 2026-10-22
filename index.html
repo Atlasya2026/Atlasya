@@ -6440,6 +6440,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                         const parts = nm.split(' ');
                         await updateDoc(doc(db, 'users', (auth.currentUser || user).uid), { firstName: parts.shift() || '', lastName: parts.join(' '), phone: ph });
                     } catch (e) { throw new Error('profile-failed'); }
+                    try { await rpc(db, 'sync_auth_profile', { p_name: nm, p_phone: ph }); localStorage.setItem('authSynced_' + (auth.currentUser || user).uid, '1'); } catch (e) { console.warn('auth profile sync skipped', e); }
                     // 2) كلمة المرور — على السيرفر مباشرة (من غير كلمة المرور القديمة)، ومسموحة بس طالما التغيير الإجباري مطلوب
                     await rpc(db, 'force_set_password', { p_new_password: a });
                     // التحقق الفعلي من السيرفر — مش بنصدّق الواجهة
@@ -6530,6 +6531,18 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 window._currentUid = user.uid; // expose for JS
                 document.getElementById('authBox').style.display = 'none';
                 document.getElementById('mainApp').style.display = 'flex';
+                // مزامنة الاسم/التليفون لجدول Authentication مرة واحدة لكل جهاز (للحسابات اللي حدّثت بياناتها قبل كده)
+                try {
+                    if (!localStorage.getItem('authSynced_' + user.uid)) {
+                        getDoc(doc(db, 'users', user.uid)).then(sn => {
+                            if (!sn.exists()) return; const d = sn.data();
+                            const nm = ((d.firstName || '') + ' ' + (d.lastName || '')).trim();
+                            if (!nm && !d.phone) return;
+                            return rpc(db, 'sync_auth_profile', { p_name: nm, p_phone: d.phone || '' })
+                                .then(() => localStorage.setItem('authSynced_' + user.uid, '1'));
+                        }).catch(() => {});
+                    }
+                } catch (e) {}
 
                 const snap = await getDoc(doc(db, "users", user.uid));
                 if (snap.exists()) {
