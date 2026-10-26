@@ -5301,7 +5301,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     const alertsQ = query(
                         collection(db, 'admin_alerts'),
                         where('toUid', '==', user.uid),
-                        limit(10)
+                        orderBy('createdAt', 'desc'), limit(30)
                     );
                     const alertSnap = await getDocs(alertsQ);
                     const unreadAlerts = alertSnap.docs
@@ -15036,7 +15036,7 @@ async function csAdmShowLink(id, btn) {
                     const alertsQ = query(
                         collection(db, 'admin_alerts'),
                         where('toUid', '==', window._currentUid),
-                        limit(10)
+                        orderBy('createdAt', 'desc'), limit(30)
                     );
                     const alertSnap = await getDocs(alertsQ);
                     personalAlerts = alertSnap.docs
