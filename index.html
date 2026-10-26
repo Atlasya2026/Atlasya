@@ -18139,6 +18139,15 @@ async function csAdmShowLink(id, btn) {
             showToast(lang === 'AR' ? '✓ تم تعليم كل الإشعارات كمقروءة' : '✓ All notifications marked as read');
         }
 
+        function notifSwitchTab(k) {
+            window._notifTab = k;
+            ['admin', 'platform'].forEach(t => {
+                const pane = document.getElementById('notifPane_' + t), btn = document.getElementById('notifTab_' + t);
+                if (pane) pane.style.display = (t === k) ? 'block' : 'none';
+                if (btn) { btn.style.borderBottomColor = (t === k) ? 'var(--green4)' : 'transparent'; btn.style.color = (t === k) ? 'var(--text)' : 'var(--muted)'; }
+            });
+        }
+
         async function loadStudentNotifs() {
             if (!window._loadAdminNotifs) return;
             const list = document.getElementById('notifList');
@@ -18180,7 +18189,7 @@ async function csAdmShowLink(id, btn) {
                 // Render personal alerts section
                 let personalAlertsHtml = '';
                 if (personalAlerts.length > 0) {
-                    personalAlertsHtml = `<div style="padding:8px 16px 4px;font-size:11px;font-weight:700;color:#6495ed;text-transform:uppercase;letter-spacing:1px;margin-top:4px;display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-envelope-circle-check"></i> ${isAR?'رسائل الإدارة':'Admin Messages'}</div>`
+                    personalAlertsHtml = ''
                     + personalAlerts.map(a => {
                         const isUnread = !a.read;
                         const date = a.createdAt?.toDate ? a.createdAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short'}) : '';
@@ -18207,7 +18216,7 @@ async function csAdmShowLink(id, btn) {
                 } catch(e) {}
 
                 const broadcastHtml = notifs.length === 0 ? '' :
-                    `<div style="padding:8px 16px 4px;font-size:11px;font-weight:700;color:var(--gold3);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-bullhorn"></i> ${isAR?'إشعارات المنصة':'Platform Notifications'}</div>`
+                    ''
                     + notifs.map(n => {
                     const isNew = !seenIds.includes(n.id);
                     const date = n.createdAt?.toDate ? n.createdAt.toDate().toLocaleDateString() : '';
@@ -18222,7 +18231,18 @@ async function csAdmShowLink(id, btn) {
                         + '</div>';
                 }).join('');
 
-                list.innerHTML = personalAlertsHtml + broadcastHtml;
+                // ── تبويبان: رسائل الإدارة | إشعارات المنصة ──
+                const _unreadP = personalAlerts.filter(a => !a.read).length;
+                const _newB = notifs.filter(n => !seenIds.includes(n.id)).length;
+                const _tab = _unreadP > 0 ? 'admin' : (_newB > 0 ? 'platform' : (window._notifTab || (personalAlerts.length ? 'admin' : 'platform')));
+                window._notifTab = _tab;
+                const _tabBtn = (k, label, icon, n) => '<button type="button" id="notifTab_' + k + '" onclick="notifSwitchTab(\'' + k + '\')" style="flex:1;padding:12px 8px;background:none;border:none;border-bottom:2px solid ' + (_tab === k ? 'var(--green4)' : 'transparent') + ';color:' + (_tab === k ? 'var(--text)' : 'var(--muted)') + ';font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"><i class="' + icon + '"></i> ' + label + (n > 0 ? ' <span style="background:var(--green4);color:#04120a;border-radius:99px;font-size:10px;padding:1px 6px;font-weight:800;">' + n + '</span>' : '') + '</button>';
+                const _empty = (txt) => '<div style="text-align:center;padding:28px 16px;color:#8a8fa0;font-size:13px;"><i class="fa-regular fa-bell-slash" style="font-size:26px;display:block;margin-bottom:10px;opacity:0.4;"></i>' + txt + '</div>';
+                list.innerHTML = '<div style="display:flex;border-bottom:1px solid ' + borderColor + ';position:sticky;top:0;z-index:2;background:var(--card);">'
+                    + _tabBtn('admin', isAR ? 'رسائل الإدارة' : 'Admin messages', 'fa-solid fa-envelope-circle-check', _unreadP)
+                    + _tabBtn('platform', isAR ? 'إشعارات المنصة' : 'Platform', 'fa-solid fa-bullhorn', _newB) + '</div>'
+                    + '<div id="notifPane_admin" style="display:' + (_tab === 'admin' ? 'block' : 'none') + ';">' + (personalAlertsHtml || _empty(isAR ? 'لا توجد رسائل من الإدارة' : 'No admin messages')) + '</div>'
+                    + '<div id="notifPane_platform" style="display:' + (_tab === 'platform' ? 'block' : 'none') + ';">' + (broadcastHtml || _empty(isAR ? 'لا توجد إشعارات للمنصة' : 'No platform notifications')) + '</div>';
             } catch(e) {
                 console.error('loadStudentNotifs error:', e);
                 list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">' + (lang==='AR'?'خطأ في التحميل':'Loading error') + (e?.message ? '<div style="margin-top:6px;font-size:11px;opacity:0.7;direction:ltr;">' + e.message + '</div>' : '') + '</div>';
