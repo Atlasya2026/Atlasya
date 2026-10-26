@@ -1,6 +1,8 @@
 /* ATLASYA service worker — network-first, offline fallback to cache.
    غيّر رقم النسخة لما تعدّل الملفات عشان الكاش القديم يتمسح. */
-const VERSION = 'atlasya-v4';
+importScripts('push-sw.js'); // الإشعارات الخارجية (Web Push)
+
+const VERSION = 'atlasya-v5';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
