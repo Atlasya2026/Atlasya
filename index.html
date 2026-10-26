@@ -13344,7 +13344,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ─── WEB PUSH: طلب السماح بالإشعارات الخارجية + حفظ اشتراك الجهاز ─── */
         // ⚠️ الصق هنا الـ VAPID Public Key (الناتج من: npx web-push generate-vapid-keys). لو سيبته كما هو الميزة بتتعطل بصمت.
-        const PUSH_VAPID_PUBLIC_KEY = 'PASTE_VAPID_PUBLIC_KEY_HERE';
+        const PUSH_VAPID_PUBLIC_KEY = 'BMvaku4mQpelD9Ks3XOY2BMkYcgJhXuIcjTImR8sZH1gIX-kkgrYw68GoAUcpiIjhRnHk9BHqnGti5iC5I5tMi8';
         const _pushAR = () => (typeof lang === 'undefined' ? true : lang === 'AR');
         const _pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
         const _pushIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
