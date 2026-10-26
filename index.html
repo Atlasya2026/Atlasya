@@ -3380,6 +3380,14 @@
 @media(max-width:900px){.cs-stats{grid-template-columns:repeat(2,1fr)}.cs-tools{grid-template-columns:1fr 1fr}.cs-tools .cs-f:first-child{grid-column:1/-1}.cs-steps{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.cs-grid2,.cs-grid3{grid-template-columns:1fr}.cs-hero{flex-direction:column}.cs-steps{grid-template-columns:1fr}.cs-kv{grid-template-columns:1fr}.cs-kv dt{margin-top:6px}.cs-modal{padding:16px}.cs-actions .cs-btn{flex:1 1 100%}.cs-cal-c{min-height:44px}}
 
+
+/* ═══ APP BAR (تثبيت / تفعيل إشعارات) ═══ */
+#appBar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99980;display:flex;align-items:center;gap:12px;width:min(520px,92vw);padding:12px 16px;background:linear-gradient(135deg,#161920,#1e2230);border:1px solid rgba(34,211,238,0.45);border-radius:16px;box-shadow:0 8px 36px rgba(0,0,0,0.65);animation:bannerSlideUp .4s cubic-bezier(.4,0,.2,1) both}
+#appBar .ab-ic{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--green2),var(--cs-cyan,#22d3ee));display:flex;align-items:center;justify-content:center;font-size:18px;color:#04120a;flex-shrink:0}
+#appBar .ab-tx{flex:1;min-width:0}
+#appBar .ab-tx strong{display:block;font-size:13.5px;font-weight:800;color:#e8e6f0;margin-bottom:2px}
+#appBar .ab-tx span{display:block;font-size:11.5px;color:#9aa0b4;line-height:1.5}
+@media(max-width:768px){#appBar{bottom:76px;left:16px;right:16px;width:auto;transform:none}}
 </style>
         <style>
             /* ===== STUDENT FULL-SCREEN BACKGROUND LOGIN ===== */
@@ -13342,15 +13350,14 @@ async function csRate(id) {
 window.openConsultationModal = function () { csTab('book'); };
 
 
-        /* ─── WEB PUSH: طلب السماح بالإشعارات الخارجية + حفظ اشتراك الجهاز ─── */
+        /* ─── WEB PUSH + شريط التثبيت/التفعيل الثابت ─── */
         // ⚠️ الصق هنا الـ VAPID Public Key (الناتج من: npx web-push generate-vapid-keys). لو سيبته كما هو الميزة بتتعطل بصمت.
         const PUSH_VAPID_PUBLIC_KEY = 'PASTE_VAPID_PUBLIC_KEY_HERE';
         const _pushAR = () => (typeof lang === 'undefined' ? true : lang === 'AR');
         const _pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
         const _pushIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const _pushStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-        const _pushSnoozed = (k, days) => { try { const t = Number(localStorage.getItem('push_snooze_' + k) || 0); return Date.now() - t < days * 864e5; } catch (e) { return false; } };
-        const _pushSnooze = (k) => { try { localStorage.setItem('push_snooze_' + k, String(Date.now())); } catch (e) {} };
+        const _pushStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+        const _pushKeyOK = () => PUSH_VAPID_PUBLIC_KEY.indexOf('PASTE') !== 0;
         function _pushKey(b) { const s = (b + '='.repeat((4 - b.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/'); const raw = atob(s); const u = new Uint8Array(raw.length); for (let i = 0; i < raw.length; i++) u[i] = raw.charCodeAt(i); return u; }
 
         async function _pushReg() {
@@ -13363,83 +13370,97 @@ window.openConsultationModal = function () { csTab('book'); };
             const reg = await _pushReg();
             let sub = await reg.pushManager.getSubscription();
             const opts = { userVisibleOnly: true, applicationServerKey: _pushKey(PUSH_VAPID_PUBLIC_KEY) };
+            // لو الاشتراك القديم اتعمل بمفتاح VAPID مختلف (بعد تغيير المفاتيح) ← الغيه واشترك من جديد
+            if (sub && sub.options && sub.options.applicationServerKey) {
+                const cur = new Uint8Array(sub.options.applicationServerKey), want = opts.applicationServerKey;
+                if (cur.length !== want.length || cur.some((v, i) => v !== want[i])) { try { await sub.unsubscribe(); } catch (e) {} sub = null; }
+            }
             if (!sub) sub = await reg.pushManager.subscribe(opts);
             let j = sub.toJSON();
-            try {
-                await window._consultRpc('push_save_subscription', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_ua: navigator.userAgent });
-            } catch (e) {
-                if (e && e.code === 'invalid_subscription') { await sub.unsubscribe(); sub = await reg.pushManager.subscribe(opts); j = sub.toJSON(); await window._consultRpc('push_save_subscription', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_ua: navigator.userAgent }); }
+            const save = () => window._consultRpc('push_save_subscription', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_ua: navigator.userAgent });
+            try { await save(); }
+            catch (e) {
+                if (e && e.code === 'invalid_subscription') { await sub.unsubscribe(); sub = await reg.pushManager.subscribe(opts); j = sub.toJSON(); await save(); }
                 else throw e;
             }
             try { localStorage.setItem('pushOK_' + window._currentUid, '1'); } catch (e) {}
             return reg;
         }
+        function _pushOK() { try { return Notification.permission === 'granted' && !!localStorage.getItem('pushOK_' + window._currentUid); } catch (e) { return false; } }
 
-        function _pushBannerClose() { document.getElementById('pnBanner')?.remove(); }
-        function _pushBanner(kind) {
-            if (document.getElementById('pnBanner')) return;
+        // ─ تعليمات (نوافذ مساعدة) ─
+        function _pushHelpModal(kind) {
             const ar = _pushAR(), ios = _pushIOS(), android = /android/i.test(navigator.userAgent);
-            let title, text, btns;
-            if (kind === 'ask') {
-                title = ar ? '🔔 فعّل الإشعارات' : '🔔 Turn on notifications';
-                text = ar ? 'فعّل الإشعارات عشان توصلك تنبيهات المنصة وإعلانات الإدارة وتحديثاتها على جهازك أول بأول، حتى لو التطبيق مقفول.' : 'Turn on notifications to get the platform’s announcements and updates from the team on your device, even when the app is closed.';
-                btns = `<button class="cs-btn sm" onclick="_pushAsk()"><i class="fa-solid fa-bell"></i> ${ar ? 'تفعيل الإشعارات' : 'Enable'}</button><button class="cs-btn ghost sm" onclick="_pushLater('ask')">${ar ? 'لاحقًا' : 'Later'}</button>`;
-            } else if (kind === 'ios') {
-                title = ar ? '📲 ثبّت التطبيق لتفعيل الإشعارات' : '📲 Install the app to get notifications';
-                text = ar ? 'على الآيفون الإشعارات بتشتغل بعد إضافة المنصة للشاشة الرئيسية: اضغط زر المشاركة (⬆️) ثم «إضافة إلى الشاشة الرئيسية»، وافتح التطبيق من الأيقونة.' : 'On iPhone, notifications work after adding the app to your Home Screen: tap Share (⬆️) → “Add to Home Screen”, then open it from the icon.';
-                btns = `<button class="cs-btn ghost sm" onclick="_pushLater('ios')">${ar ? 'تمام' : 'OK'}</button>`;
+            let title, steps;
+            if (kind === 'install') {
+                title = ar ? '📲 طريقة تثبيت التطبيق' : '📲 How to install the app';
+                steps = ios ? (ar ? 'افتح الموقع من <b>Safari</b> ← اضغط زر المشاركة ⬆️ ← اختر <b>إضافة إلى الشاشة الرئيسية</b> ← إضافة. بعدها افتح التطبيق من الأيقونة.' : 'Open in <b>Safari</b> → tap Share ⬆️ → <b>Add to Home Screen</b> → Add. Then open it from the icon.')
+                    : android ? (ar ? 'من Chrome اضغط على ⋮ أعلى الشاشة ← اختر <b>تثبيت التطبيق</b> (أو <b>إضافة إلى الشاشة الرئيسية</b>). بعدها افتح التطبيق من الأيقونة.' : 'In Chrome tap ⋮ → <b>Install app</b> (or <b>Add to Home screen</b>). Then open it from the icon.')
+                    : (ar ? 'من Chrome أو Edge اضغط على أيقونة التثبيت ⊕ في شريط العنوان ← <b>تثبيت</b>. أو من القائمة ⋮ ← <b>Install ATLASYA</b>.' : 'In Chrome/Edge click the install icon ⊕ in the address bar → <b>Install</b>, or menu ⋮ → <b>Install ATLASYA</b>.');
             } else {
-                title = ar ? '🔕 الإشعارات محظورة لهذا التطبيق' : '🔕 Notifications are blocked';
-                const steps = ios ? (ar ? 'الإعدادات ← الإشعارات ← ATLASYA ← السماح بالإشعارات.' : 'Settings → Notifications → ATLASYA → Allow.')
-                    : android ? (ar ? 'اضغط مطولًا على أيقونة التطبيق ← معلومات التطبيق ← الإشعارات ← تفعيل (سماح).' : 'Long-press the app icon → App info → Notifications → Allow.')
-                    : (ar ? 'اضغط على أيقونة القفل 🔒 يسار شريط العنوان ← الإشعارات ← سماح، ثم حدّث الصفحة.' : 'Click the lock 🔒 icon next to the address bar → Notifications → Allow, then reload.');
-                text = (ar ? 'المتصفح مش بيسمح بإعادة السؤال، فلازم تفعّلها يدويًا: ' : 'The browser will not ask again, so enable it manually: ') + steps + (ar ? ' بعدها ارجع للتطبيق وهيتفعّل تلقائيًا.' : ' Then come back and it will switch on automatically.');
-                btns = `<button class="cs-btn ghost sm" onclick="_pushLater('denied')">${ar ? 'تمام' : 'OK'}</button>`;
+                title = ar ? '🔕 الإشعارات محظورة' : '🔕 Notifications are blocked';
+                steps = (ios ? (ar ? 'الإعدادات ← الإشعارات ← ATLASYA ← السماح بالإشعارات.' : 'Settings → Notifications → ATLASYA → Allow.')
+                    : android ? (ar ? 'اضغط مطولًا على أيقونة التطبيق ← <b>معلومات التطبيق</b> ← <b>الإشعارات</b> ← تفعيل (سماح).' : 'Long-press the app icon → <b>App info</b> → <b>Notifications</b> → Allow.')
+                    : (ar ? 'اضغط على أيقونة القفل 🔒 يسار شريط العنوان ← <b>الإشعارات</b> ← سماح، ثم حدّث الصفحة.' : 'Click the lock 🔒 next to the address bar → <b>Notifications</b> → Allow, then reload.'))
+                    + (ar ? '<br><br>بعدها ارجع للتطبيق وهيتفعّل تلقائيًا.' : '<br><br>Then come back to the app and it turns on automatically.');
             }
-            const d = document.createElement('div'); d.id = 'pnBanner'; d.setAttribute('role', 'dialog');
-            d.style.cssText = 'position:fixed;inset-inline:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:99990;max-width:460px;margin-inline:auto;background:var(--card,#20242c);border:1px solid var(--green4,#27a346);border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.55);animation:fadeUp .3s ease both;';
-            d.innerHTML = `<div style="font-weight:800;font-size:14px;margin-bottom:6px">${title}</div><div style="font-size:12.5px;color:var(--muted);line-height:1.8">${text}</div><div class="cs-actions" style="margin-top:12px">${btns}</div>`;
-            document.body.appendChild(d);
+            if (window.CS && window.CS.modal) window.CS.modal(`<div class="cs-modal-h"><h3>${title}</h3><button class="cs-x" data-cs-close>✕</button></div><div class="cs-text" style="line-height:2">${steps}</div><div class="cs-actions"><button class="cs-btn" data-cs-close>${ar ? 'تمام' : 'OK'}</button></div>`);
         }
-        function _pushLater(k) { _pushSnooze(k); _pushBannerClose(); }
+
+        // ─ تفعيل الإشعارات (للي نازل التطبيق بس) ─
         async function _pushAsk() {
             const ar = _pushAR();
-            _pushBannerClose();
             try {
                 const res = await Notification.requestPermission();   // لازم يتنادى من ضغطة المستخدم
                 if (res === 'granted') {
                     const reg = await _pushSubscribeAndSave();
                     try { await reg.showNotification(ar ? 'تم تفعيل الإشعارات ✅' : 'Notifications enabled ✅', { body: ar ? 'هتوصلك تنبيهات المنصة وإعلانات الإدارة على هذا الجهاز.' : 'You will get platform updates and team announcements here.', icon: 'icons/icon-192.png' }); } catch (e) {}
                     if (typeof showToast === 'function') showToast(ar ? '🔔 تم تفعيل الإشعارات' : '🔔 Notifications enabled');
-                } else if (res === 'denied') { _pushBanner('denied'); }
-                else { _pushSnooze('ask'); }
-            } catch (e) { console.warn('push enable failed:', e); if (typeof showToast === 'function') showToast((ar ? 'تعذّر تفعيل الإشعارات: ' : 'Could not enable notifications: ') + ((e && (e.name + ' ' + (e.message || e.code || ''))) || ''), true); }
+                } else if (res === 'denied') { _pushHelpModal('denied'); }
+            } catch (e) {
+                console.warn('push enable failed:', e);
+                if (typeof showToast === 'function') showToast((ar ? 'تعذّر تفعيل الإشعارات: ' : 'Could not enable notifications: ') + ((e && (e.name + ' ' + (e.message || e.code || ''))) || ''), true);
+            }
+            _appBarRefresh();
         }
-        // زرار يدوي جوه قائمة الإشعارات (لو الجهاز لسه مش مفعّل)
-        function _pushRowHtml() {
+        function _appBarAction(mode) { if (mode === 'notify') _pushAsk(); else _pushHelpModal('denied'); }
+
+        // ─ الشريط الثابت ─
+        function _appBarMode() {
+            if (!window._currentUid) return '';
+            const app = document.getElementById('mainApp'); if (app && app.style.display === 'none') return '';
+            if (!_pushStandalone()) return '';                                          // فاتح من المتصفح ← مفيش شريط (التثبيت بيتولاه pwa-install.js زي الأول)
+            if (!_pushKeyOK() || !_pushSupported()) return '';                          // فاتح من التطبيق المنزّل ← اطلب الإشعارات
+            if (Notification.permission === 'denied') return 'denied';
+            return _pushOK() ? '' : 'notify';
+        }
+        function _appBarRefresh() {
             try {
-                if (PUSH_VAPID_PUBLIC_KEY.indexOf('PASTE') === 0 || !_pushSupported()) return '';
-                if (Notification.permission === 'granted' && localStorage.getItem('pushOK_' + window._currentUid)) return '';
+                const mode = _appBarMode(), old = document.getElementById('appBar');
+                if (!mode) { if (old) old.remove(); document.body.classList.remove('has-appbar'); return; }
+                if (old && old.dataset.mode === mode) return;
+                if (old) old.remove();
                 const ar = _pushAR();
-                return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(34,211,238,0.06);font-size:12px;"><i class="fa-solid fa-bell" style="color:var(--cs-cyan,#22d3ee)"></i><span style="flex:1;line-height:1.6;">' + (ar ? 'فعّل إشعارات هذا الجهاز لتصلك التنبيهات حتى والتطبيق مقفول' : 'Enable device notifications to get alerts even when the app is closed') + '</span><button type="button" class="cs-btn sm" onclick="_pushManual()">' + (ar ? 'تفعيل' : 'Enable') + '</button></div>';
-            } catch (e) { return ''; }
+                const T = {
+                    notify: [ar ? 'فعّل الإشعارات' : 'Turn on notifications', ar ? 'عشان توصلك تنبيهات المنصة وإعلانات الإدارة حتى والتطبيق مقفول' : 'Get platform updates and team announcements even when the app is closed', ar ? 'تفعيل' : 'Enable', 'fa-bell'],
+                    denied: [ar ? 'الإشعارات محظورة' : 'Notifications are blocked', ar ? 'فعّلها من إعدادات التطبيق عشان توصلك التنبيهات' : 'Allow them in the app settings to receive alerts', ar ? 'إزاي؟' : 'How?', 'fa-bell-slash']
+                }[mode];
+                const d = document.createElement('div'); d.id = 'appBar'; d.dataset.mode = mode; d.setAttribute('role', 'region');
+                d.innerHTML = `<div class="ab-ic"><i class="fa-solid ${T[3]}"></i></div><div class="ab-tx"><strong>${T[0]}</strong><span>${T[1]}</span></div><button type="button" class="pwa-install-btn" onclick="_appBarAction('${mode}')">${T[2]}</button>`;
+                document.body.appendChild(d); document.body.classList.add('has-appbar');
+            } catch (e) { console.warn('appbar:', e); }
         }
-        async function _pushManual() {
-            if (Notification.permission === 'denied') { _pushBanner('denied'); return; }
-            await _pushAsk();
-            const l = document.getElementById('notifList'); if (l && typeof loadStudentNotifs === 'function') loadStudentNotifs();
-        }
-        // بيتنادى بعد تسجيل دخول الطالب
+
+        // بيتنادى بعد تسجيل دخول الطالب وكل ما يرجع للتطبيق
         window._pushInit = async function () {
             try {
-                if (PUSH_VAPID_PUBLIC_KEY.indexOf('PASTE') === 0 || !window._currentUid) return;
-                if (!_pushSupported()) { if (_pushIOS() && !_pushStandalone() && !_pushSnoozed('ios', 3)) setTimeout(() => _pushBanner('ios'), 2500); return; }
-                const p = Notification.permission;
-                if (p === 'granted') { await _pushSubscribeAndSave(); return; }       // تجديد/حفظ الاشتراك بصمت
-                if (p === 'denied') { if (!_pushSnoozed('denied', 7)) setTimeout(() => _pushBanner('denied'), 3000); return; }
-                if (!_pushSnoozed('ask', 2)) setTimeout(() => _pushBanner('ask'), 3000);
+                if (!window._currentUid) return;
+                if (_pushKeyOK() && _pushSupported() && Notification.permission === 'granted') { try { await _pushSubscribeAndSave(); } catch (e) { console.warn('push save:', e); } }
+                setTimeout(_appBarRefresh, 1500);
             } catch (e) { console.warn('push init:', e); }
         };
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && window._currentUid) window._pushInit(); });
+        try { window.matchMedia('(display-mode: standalone)').addEventListener('change', _appBarRefresh); } catch (e) {}
         // الضغط على الإشعار والتطبيق مفتوح ← روح للصفحة المطلوبة
         if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (ev) => {
             if (!ev.data || ev.data.type !== 'push-nav') return;
@@ -18253,7 +18274,7 @@ async function csAdmShowLink(id, btn) {
                 window._notifTab = _tab;
                 const _tabBtn = (k, label, icon, n) => '<button type="button" id="notifTab_' + k + '" onclick="notifSwitchTab(\'' + k + '\')" style="flex:1;padding:12px 8px;background:none;border:none;border-bottom:2px solid ' + (_tab === k ? 'var(--green4)' : 'transparent') + ';color:' + (_tab === k ? 'var(--text)' : 'var(--muted)') + ';font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"><i class="' + icon + '"></i> ' + label + (n > 0 ? ' <span style="background:var(--green4);color:#04120a;border-radius:99px;font-size:10px;padding:1px 6px;font-weight:800;">' + n + '</span>' : '') + '</button>';
                 const _empty = (txt) => '<div style="text-align:center;padding:28px 16px;color:#8a8fa0;font-size:13px;"><i class="fa-regular fa-bell-slash" style="font-size:26px;display:block;margin-bottom:10px;opacity:0.4;"></i>' + txt + '</div>';
-                list.innerHTML = (typeof _pushRowHtml === 'function' ? _pushRowHtml() : '') + '<div style="display:flex;border-bottom:1px solid ' + borderColor + ';position:sticky;top:0;z-index:2;background:var(--card);">'
+                list.innerHTML = '<div style="display:flex;border-bottom:1px solid ' + borderColor + ';position:sticky;top:0;z-index:2;background:var(--card);">'
                     + _tabBtn('admin', isAR ? 'رسائل الإدارة' : 'Admin messages', 'fa-solid fa-envelope-circle-check', _unreadP)
                     + _tabBtn('platform', isAR ? 'إشعارات المنصة' : 'Platform', 'fa-solid fa-bullhorn', _newB) + '</div>'
                     + '<div id="notifPane_admin" style="display:' + (_tab === 'admin' ? 'block' : 'none') + ';">' + (personalAlertsHtml || _empty(isAR ? 'لا توجد رسائل من الإدارة' : 'No admin messages')) + '</div>'
