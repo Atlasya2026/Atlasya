@@ -13371,6 +13371,7 @@ window.openConsultationModal = function () { csTab('book'); };
                 if (e && e.code === 'invalid_subscription') { await sub.unsubscribe(); sub = await reg.pushManager.subscribe(opts); j = sub.toJSON(); await window._consultRpc('push_save_subscription', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_ua: navigator.userAgent }); }
                 else throw e;
             }
+            try { localStorage.setItem('pushOK_' + window._currentUid, '1'); } catch (e) {}
             return reg;
         }
 
@@ -13412,7 +13413,21 @@ window.openConsultationModal = function () { csTab('book'); };
                     if (typeof showToast === 'function') showToast(ar ? '🔔 تم تفعيل الإشعارات' : '🔔 Notifications enabled');
                 } else if (res === 'denied') { _pushBanner('denied'); }
                 else { _pushSnooze('ask'); }
-            } catch (e) { console.warn('push enable failed:', e); if (typeof showToast === 'function') showToast(ar ? 'تعذّر تفعيل الإشعارات، حاول مرة أخرى' : 'Could not enable notifications', true); }
+            } catch (e) { console.warn('push enable failed:', e); if (typeof showToast === 'function') showToast((ar ? 'تعذّر تفعيل الإشعارات: ' : 'Could not enable notifications: ') + ((e && (e.name + ' ' + (e.message || e.code || ''))) || ''), true); }
+        }
+        // زرار يدوي جوه قائمة الإشعارات (لو الجهاز لسه مش مفعّل)
+        function _pushRowHtml() {
+            try {
+                if (PUSH_VAPID_PUBLIC_KEY.indexOf('PASTE') === 0 || !_pushSupported()) return '';
+                if (Notification.permission === 'granted' && localStorage.getItem('pushOK_' + window._currentUid)) return '';
+                const ar = _pushAR();
+                return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(34,211,238,0.06);font-size:12px;"><i class="fa-solid fa-bell" style="color:var(--cs-cyan,#22d3ee)"></i><span style="flex:1;line-height:1.6;">' + (ar ? 'فعّل إشعارات هذا الجهاز لتصلك التنبيهات حتى والتطبيق مقفول' : 'Enable device notifications to get alerts even when the app is closed') + '</span><button type="button" class="cs-btn sm" onclick="_pushManual()">' + (ar ? 'تفعيل' : 'Enable') + '</button></div>';
+            } catch (e) { return ''; }
+        }
+        async function _pushManual() {
+            if (Notification.permission === 'denied') { _pushBanner('denied'); return; }
+            await _pushAsk();
+            const l = document.getElementById('notifList'); if (l && typeof loadStudentNotifs === 'function') loadStudentNotifs();
         }
         // بيتنادى بعد تسجيل دخول الطالب
         window._pushInit = async function () {
@@ -18238,7 +18253,7 @@ async function csAdmShowLink(id, btn) {
                 window._notifTab = _tab;
                 const _tabBtn = (k, label, icon, n) => '<button type="button" id="notifTab_' + k + '" onclick="notifSwitchTab(\'' + k + '\')" style="flex:1;padding:12px 8px;background:none;border:none;border-bottom:2px solid ' + (_tab === k ? 'var(--green4)' : 'transparent') + ';color:' + (_tab === k ? 'var(--text)' : 'var(--muted)') + ';font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"><i class="' + icon + '"></i> ' + label + (n > 0 ? ' <span style="background:var(--green4);color:#04120a;border-radius:99px;font-size:10px;padding:1px 6px;font-weight:800;">' + n + '</span>' : '') + '</button>';
                 const _empty = (txt) => '<div style="text-align:center;padding:28px 16px;color:#8a8fa0;font-size:13px;"><i class="fa-regular fa-bell-slash" style="font-size:26px;display:block;margin-bottom:10px;opacity:0.4;"></i>' + txt + '</div>';
-                list.innerHTML = '<div style="display:flex;border-bottom:1px solid ' + borderColor + ';position:sticky;top:0;z-index:2;background:var(--card);">'
+                list.innerHTML = (typeof _pushRowHtml === 'function' ? _pushRowHtml() : '') + '<div style="display:flex;border-bottom:1px solid ' + borderColor + ';position:sticky;top:0;z-index:2;background:var(--card);">'
                     + _tabBtn('admin', isAR ? 'رسائل الإدارة' : 'Admin messages', 'fa-solid fa-envelope-circle-check', _unreadP)
                     + _tabBtn('platform', isAR ? 'إشعارات المنصة' : 'Platform', 'fa-solid fa-bullhorn', _newB) + '</div>'
                     + '<div id="notifPane_admin" style="display:' + (_tab === 'admin' ? 'block' : 'none') + ';">' + (personalAlertsHtml || _empty(isAR ? 'لا توجد رسائل من الإدارة' : 'No admin messages')) + '</div>'
