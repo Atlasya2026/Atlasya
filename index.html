@@ -13353,7 +13353,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ─── WEB PUSH + شريط التثبيت/التفعيل الثابت ─── */
         // ⚠️ الصق هنا الـ VAPID Public Key (الناتج من: npx web-push generate-vapid-keys). لو سيبته كما هو الميزة بتتعطل بصمت.
-        const PUSH_VAPID_PUBLIC_KEY = 'BK9FFSsq87Gbcv8qwagFr-IIlVp9-B14ygB7PQdXL83ZOi5VxdF1vJgWfIVJF0TEBoh2Em1XSzpRiX6PkvKVSHU';
+        const PUSH_VAPID_PUBLIC_KEY = 'PASTE_VAPID_PUBLIC_KEY_HERE';
         const _pushAR = () => (typeof lang === 'undefined' ? true : lang === 'AR');
         const _pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
         const _pushIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -13367,9 +13367,10 @@ window.openConsultationModal = function () { csTab('book'); };
             await navigator.serviceWorker.ready;
             return r;
         }
-        async function _pushSubscribeAndSave() {
+        async function _pushSubscribeAndSave(force) {
             const reg = await _pushReg();
             let sub = await reg.pushManager.getSubscription();
+            if (force && sub) { try { await sub.unsubscribe(); } catch (e) {} sub = null; }   // إعادة تفعيل: اشتراك جديد من الصفر
             const opts = { userVisibleOnly: true, applicationServerKey: _pushKey(PUSH_VAPID_PUBLIC_KEY) };
             // لو الاشتراك القديم اتعمل بمفتاح VAPID مختلف (بعد تغيير المفاتيح) ← الغيه واشترك من جديد
             if (sub && sub.options && sub.options.applicationServerKey) {
@@ -13408,13 +13409,24 @@ window.openConsultationModal = function () { csTab('book'); };
             if (window.CS && window.CS.modal) window.CS.modal(`<div class="cs-modal-h"><h3>${title}</h3><button class="cs-x" data-cs-close>✕</button></div><div class="cs-text" style="line-height:2">${steps}</div><div class="cs-actions"><button class="cs-btn" data-cs-close>${ar ? 'تمام' : 'OK'}</button></div>`);
         }
 
-        // ─ تفعيل الإشعارات (للي نازل التطبيق بس) ─
-        async function _pushAsk() {
+        // ─ تثبيت التطبيق (للي فاتح من متصفح) ─
+        let _deferredInstall = null;
+        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _deferredInstall = e; _appBarRefresh(); });
+        window.addEventListener('appinstalled', () => { _deferredInstall = null; _appBarRefresh(); });
+        async function _appBarInstall() {
+            if (_deferredInstall) {
+                try { _deferredInstall.prompt(); await _deferredInstall.userChoice; _deferredInstall = null; _appBarRefresh(); return; } catch (e) { _deferredInstall = null; }
+            }
+            _pushHelpModal('install');
+        }
+
+        // ─ تفعيل الإشعارات (للي نازل التطبيق) ─
+        async function _pushAsk(force) {
             const ar = _pushAR();
             try {
                 const res = await Notification.requestPermission();   // لازم يتنادى من ضغطة المستخدم
                 if (res === 'granted') {
-                    const reg = await _pushSubscribeAndSave();
+                    const reg = await _pushSubscribeAndSave(force === true);
                     try { await reg.showNotification(ar ? 'تم تفعيل الإشعارات ✅' : 'Notifications enabled ✅', { body: ar ? 'هتوصلك تنبيهات المنصة وإعلانات الإدارة على هذا الجهاز.' : 'You will get platform updates and team announcements here.', icon: 'icons/icon-192.png' }); } catch (e) {}
                     if (typeof showToast === 'function') showToast(ar ? '🔔 تم تفعيل الإشعارات' : '🔔 Notifications enabled');
                 } else if (res === 'denied') { _pushHelpModal('denied'); }
@@ -13424,26 +13436,33 @@ window.openConsultationModal = function () { csTab('book'); };
             }
             _appBarRefresh();
         }
-        function _appBarAction(mode) { if (mode === 'notify') _pushAsk(); else _pushHelpModal('denied'); }
+        function _appBarAction(mode) { if (mode === 'install') return _appBarInstall(); if (mode === 'notify') return _pushAsk(); if (mode === 'again') return _pushAsk(true); _pushHelpModal('denied'); }
 
         // ─ الشريط الثابت ─
         function _appBarMode() {
             if (!window._currentUid) return '';
             const app = document.getElementById('mainApp'); if (app && app.style.display === 'none') return '';
-            if (!_pushStandalone()) return '';                                          // فاتح من المتصفح ← مفيش شريط (التثبيت بيتولاه pwa-install.js زي الأول)
-            if (!_pushKeyOK() || !_pushSupported()) return '';                          // فاتح من التطبيق المنزّل ← اطلب الإشعارات
+            if (!_pushStandalone()) return 'install';                                   // فاتح من أي متصفح ← زرار تثبيت التطبيق
+            if (!_pushKeyOK() || !_pushSupported()) return '';                          // فاتح من التطبيق ← زرار الإشعارات (دايمًا)
             if (Notification.permission === 'denied') return 'denied';
-            return _pushOK() ? '' : 'notify';
+            return _pushOK() ? 'again' : 'notify';
         }
         // زرار تفعيل الإشعارات جوه مربع الترحيب (بيظهر للطالب اللي فاتح من التطبيق المنزّل بس)
         function _pushWelcomeHtml() {
             try {
                 if (window._isAdmin === true) return '';
                 const mode = _appBarMode(); if (!mode) return '';
-                const ar = _pushAR(), on = mode === 'notify';
-                const label = on ? (ar ? 'فعّل الإشعارات' : 'Enable notifications') : (ar ? 'الإشعارات محظورة — إزاي أفعّلها؟' : 'Notifications blocked — how to enable?');
-                const sub = on ? (ar ? 'عشان توصلك تنبيهات المنصة وإعلانات الإدارة حتى والتطبيق مقفول' : 'Get alerts and announcements even when the app is closed') : '';
-                return `<div id="wbPush" style="position:relative;z-index:1;margin-top:16px;"><button type="button" onclick="_appBarAction('${mode}')" style="display:inline-flex;align-items:center;gap:9px;padding:10px 18px;border:none;border-radius:12px;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:800;color:${on ? '#04120a' : '#fca5a5'};background:${on ? 'linear-gradient(135deg,var(--green4),var(--cs-cyan,#22d3ee))' : 'rgba(239,68,68,0.14)'};${on ? '' : 'border:1px solid rgba(239,68,68,0.4);'}box-shadow:0 4px 18px rgba(0,0,0,0.35);"><i class="fa-solid ${on ? 'fa-bell' : 'fa-bell-slash'}"></i>${label}</button>${sub ? `<div style="font-size:11.5px;opacity:.75;margin-top:6px;">${sub}</div>` : ''}</div>`;
+                const ar = _pushAR();
+                const M = {
+                    install: { l: ar ? 'ثبّت التطبيق على جهازك' : 'Install the app', s: ar ? 'أسرع، بملء الشاشة، وتوصلك الإشعارات حتى والتطبيق مقفول' : 'Faster, full-screen, with notifications even when closed', ic: 'fa-download', st: 'primary' },
+                    notify:  { l: ar ? 'فعّل الإشعارات' : 'Enable notifications', s: ar ? 'عشان توصلك تنبيهات المنصة وإعلانات الإدارة حتى والتطبيق مقفول' : 'Get alerts and announcements even when the app is closed', ic: 'fa-bell', st: 'primary' },
+                    again:   { l: ar ? 'الإشعارات مفعّلة ✓ — إعادة التفعيل' : 'Notifications on ✓ — re-enable', s: ar ? 'لو التنبيهات مش بتوصلك اضغط هنا لإعادة تسجيل الجهاز' : 'If alerts are not arriving, tap to re-register this device', ic: 'fa-rotate', st: 'ghost' },
+                    denied:  { l: ar ? 'الإشعارات محظورة — إزاي أفعّلها؟' : 'Notifications blocked — how to enable?', s: '', ic: 'fa-bell-slash', st: 'bad' }
+                }[mode];
+                const css = M.st === 'primary' ? 'color:#04120a;background:linear-gradient(135deg,var(--green4),var(--cs-cyan,#22d3ee));border:none;'
+                    : M.st === 'ghost' ? 'color:#e9f0ed;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.25);'
+                    : 'color:#fca5a5;background:rgba(239,68,68,0.14);border:1px solid rgba(239,68,68,0.4);';
+                return `<div id="wbPush" style="position:relative;z-index:1;margin-top:16px;"><button type="button" onclick="_appBarAction('${mode}')" style="display:inline-flex;align-items:center;gap:9px;padding:10px 18px;border-radius:12px;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:800;box-shadow:0 4px 18px rgba(0,0,0,0.35);${css}"><i class="fa-solid ${M.ic}"></i>${M.l}</button>${M.s ? `<div style="font-size:11.5px;opacity:.75;margin-top:6px;">${M.s}</div>` : ''}</div>`;
             } catch (e) { return ''; }
         }
         function _appBarRefresh() {
