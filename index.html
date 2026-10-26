@@ -13344,7 +13344,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ─── WEB PUSH: طلب السماح بالإشعارات الخارجية + حفظ اشتراك الجهاز ─── */
         // ⚠️ الصق هنا الـ VAPID Public Key (الناتج من: npx web-push generate-vapid-keys). لو سيبته كما هو الميزة بتتعطل بصمت.
-        const PUSH_VAPID_PUBLIC_KEY = 'BMvaku4mQpelD9Ks3XOY2BMkYcgJhXuIcjTImR8sZH1gIX-kkgrYw68GoAUcpiIjhRnHk9BHqnGti5iC5I5tMi8';
+        const PUSH_VAPID_PUBLIC_KEY = 'PASTE_VAPID_PUBLIC_KEY_HERE';
         const _pushAR = () => (typeof lang === 'undefined' ? true : lang === 'AR');
         const _pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
         const _pushIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -13381,7 +13381,7 @@ window.openConsultationModal = function () { csTab('book'); };
             let title, text, btns;
             if (kind === 'ask') {
                 title = ar ? '🔔 فعّل الإشعارات' : '🔔 Turn on notifications';
-                text = ar ? 'هيجيلك تنبيه على جهازك لما يتقبل طلب استشارتك أو يتحدد موعدك أو تيجي رسالة من الإدارة، حتى لو التطبيق مقفول.' : 'Get an alert on your device when your consultation is accepted, scheduled, or the team messages you — even when the app is closed.';
+                text = ar ? 'فعّل الإشعارات عشان توصلك تنبيهات المنصة وإعلانات الإدارة وتحديثاتها على جهازك أول بأول، حتى لو التطبيق مقفول.' : 'Turn on notifications to get the platform’s announcements and updates from the team on your device, even when the app is closed.';
                 btns = `<button class="cs-btn sm" onclick="_pushAsk()"><i class="fa-solid fa-bell"></i> ${ar ? 'تفعيل الإشعارات' : 'Enable'}</button><button class="cs-btn ghost sm" onclick="_pushLater('ask')">${ar ? 'لاحقًا' : 'Later'}</button>`;
             } else if (kind === 'ios') {
                 title = ar ? '📲 ثبّت التطبيق لتفعيل الإشعارات' : '📲 Install the app to get notifications';
@@ -13408,7 +13408,7 @@ window.openConsultationModal = function () { csTab('book'); };
                 const res = await Notification.requestPermission();   // لازم يتنادى من ضغطة المستخدم
                 if (res === 'granted') {
                     const reg = await _pushSubscribeAndSave();
-                    try { await reg.showNotification(ar ? 'تم تفعيل الإشعارات ✅' : 'Notifications enabled ✅', { body: ar ? 'هتوصلك تنبيهات الاستشارات ورسائل الإدارة على هذا الجهاز.' : 'You will get consultation updates and team messages here.', icon: 'icons/icon-192.png' }); } catch (e) {}
+                    try { await reg.showNotification(ar ? 'تم تفعيل الإشعارات ✅' : 'Notifications enabled ✅', { body: ar ? 'هتوصلك تنبيهات المنصة وإعلانات الإدارة على هذا الجهاز.' : 'You will get platform updates and team announcements here.', icon: 'icons/icon-192.png' }); } catch (e) {}
                     if (typeof showToast === 'function') showToast(ar ? '🔔 تم تفعيل الإشعارات' : '🔔 Notifications enabled');
                 } else if (res === 'denied') { _pushBanner('denied'); }
                 else { _pushSnooze('ask'); }
