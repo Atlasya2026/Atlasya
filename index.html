@@ -4975,7 +4975,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         // تنبيهات الأدمن الشخصية للطالب (بتتحمّل من هنا لأن query/getDocs مش متاحين برّه الـ module)
         window._loadMyAdminAlerts = async () => {
             if (!currentUid) return [];
-            const snap = await getDocs(query(collection(db, 'admin_alerts'), where('toUid', '==', currentUid), limit(10)));
+            const snap = await getDocs(query(collection(db, 'admin_alerts'), where('toUid', '==', currentUid), orderBy('createdAt', 'desc'), limit(30)));
             const alerts = snap.docs.map(d => ({ id: d.id, ...d.data() }))
                 .sort((a, b) => (b.createdAt?.toMillis ? b.createdAt.toMillis() : 0) - (a.createdAt?.toMillis ? a.createdAt.toMillis() : 0));
             snap.docs.forEach(async d => {
@@ -6742,7 +6742,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                         const alertsQ = query(
                             collection(db, 'admin_alerts'),
                             where('toUid', '==', user.uid),
-                            limit(10)
+                            orderBy('createdAt', 'desc'), limit(30)
                         );
                         const alertSnap = await getDocs(alertsQ);
                         const unreadAlerts = alertSnap.docs
