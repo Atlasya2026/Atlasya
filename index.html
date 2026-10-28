@@ -4182,6 +4182,12 @@
                         <button class="nav-item" id="menuCourse" onclick="navigate('courses', this)">
                             <i class="fa-solid fa-building-shield"></i> <span id="menuCourseTxt">الكورسات</span>
                         </button>
+                        <button class="nav-item" id="menuExplore" onclick="location.href='explore.html'">
+                            <i class="fa-solid fa-compass"></i> <span id="menuExploreTxt">اكتشف المحتوى</span>
+                        </button>
+                        <button class="nav-item" id="menuAch" onclick="navigate('achievements', this)">
+                            <i class="fa-solid fa-trophy"></i> <span id="menuAchTxt">إنجازاتي</span>
+                        </button>
                         <button class="nav-item" id="menuCommunity" onclick="navigate('community', this)">
                             <i class="fa-solid fa-users"></i> <span id="menuCommunityTxt">مجتمع الطلاب</span>
                         </button>
@@ -4848,6 +4854,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         };
         window._incrementDatasetDownload = async (id, current, item) => {
+            try { window._atlTrack && window._atlTrack('dataset', id); } catch (e) {}
             await updateDoc(doc(db, 'spatial_datasets', id), { downloads: (current || 0) + 1 });
             window._notifyAdminsBot('resource_download', { studentName: window._botStudentName(), kind: 'dataset', title: window._botItemName(item, id) });
         };
@@ -4879,6 +4886,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         };
         window._incrementToolDownload = async (id, current, item) => {
+            try { window._atlTrack && window._atlTrack('tool', id); } catch (e) {}
             await updateDoc(doc(db, 'software_tools', id), { downloads: (current || 0) + 1 });
             window._notifyAdminsBot('resource_download', { studentName: window._botStudentName(), kind: 'software', title: window._botItemName(item, id) });
         };
@@ -7009,6 +7017,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         window._submitDailyChallengeAnswer = async (question, selectedIndex) => {
             if (!currentUid) throw new Error('Not logged in');
             const r = await _rpc('submit_challenge_answer', { p_question_id: question.id, p_selected: selectedIndex });  // أخطاء: already / locked ...
+            try { window._atlClaimSoon && window._atlClaimSoon(); } catch (e) {}
             if (window._userData && r.coinsAwarded > 0) {
                 window._userData.coins = (window._userData.coins || 0) + r.coinsAwarded;
                 window._userData.coinsEarnedTotal = (window._userData.coinsEarnedTotal || 0) + r.coinsAwarded;
@@ -7994,7 +8003,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool',
             jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
             community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
-            account: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
+            account: 'menuAccount', achievements: 'menuAch', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
             adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro',
             adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
             dailychallenge: 'menuDailyChallenge', wheel: 'menuWheel'
@@ -8060,6 +8069,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 mentorship:    lang==='AR'?'اسأل خبير GIS':'Ask a GIS Expert',
                 dailychallenge: lang==='AR'?'التحديات':'Challenges',
                 wheel: lang==='AR'?'عجلة الحظ':'Fortune Wheel',
+                achievements: lang==='AR'?'إنجازاتي':'My Achievements',
             };
             document.getElementById('breadcrumbTitle').textContent = titles[page] || page;
             const area = document.getElementById('contentArea');
@@ -8105,6 +8115,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             else if (page === 'library') renderLibrary(area);
             else if (page === 'dailychallenge') renderDailyChallenge(area);
             else if (page === 'wheel') renderWheel(area);
+            else if (page === 'achievements' && window.renderAchievements) window.renderAchievements(area);
             else renderSoon(area, page, titles[page]);
 
 
@@ -12477,6 +12488,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
 
         function _plPlayerHTML(isAR) {
             const v = _plCurrentVideos[_plCurrentIndex];
+            if (v && window._atlTrackVideo) { try { window._atlTrackVideo(v); } catch (e) {} }
             if (!v) return `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:16px;"><span><i class="fa-solid fa-video-slash"></i>&nbsp; ${isAR?'لا توجد فيديوهات في هذه القائمة بعد':'No videos in this playlist yet'}</span></div>`;
             const vid = extractYTVideoId(v.youtubeUrl || v.url);
             if (!vid) return `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);"><i class="fa-solid fa-triangle-exclamation"></i>&nbsp; ${isAR?'رابط الفيديو غير صالح':'Invalid video link'}</div>`;
@@ -18775,5 +18787,262 @@ async function csAdmShowLink(id, btn) {
     })();
     </script>
     <script src="pwa-install.js" defer></script>
-    </body>
+    <!-- ═══════════ ATLASYA — Shareable Achievements + Explore hooks (additive) ═══════════ -->
+<style>
+.ach-wrap{max-width:1100px}
+.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-top:6px}
+.ach-card{border:1px solid var(--border,rgba(255,255,255,.1));background:var(--card);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px;position:relative}
+.ach-card.earned{border-color:var(--gold3);background:linear-gradient(135deg,rgba(240,192,64,.12),rgba(39,163,70,.06))}
+.ach-card.locked{opacity:.78}
+.ach-ic{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-size:26px;background:rgba(128,128,128,.16)}
+.ach-card.earned .ach-ic{background:linear-gradient(135deg,#ff8a1f,var(--gold3))}
+.ach-card h4{font-size:15.5px;font-weight:800;color:var(--text);margin:0}
+.ach-card p{font-size:12.5px;color:var(--muted);margin:0;line-height:1.6}
+.ach-bar{height:6px;border-radius:9px;background:rgba(128,128,128,.2);overflow:hidden}.ach-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--green4),var(--gold3))}
+.ach-meta{font-size:11.5px;color:var(--muted)}
+.ach-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:6px}
+.ach-btn{border:1px solid var(--border,rgba(255,255,255,.14));background:transparent;color:var(--text);border-radius:10px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.ach-btn:hover{border-color:var(--green4)}
+.ach-btn.pri{background:linear-gradient(135deg,#1e7a34,#27a346);border-color:transparent;color:#fff}
+.ach-btn:disabled{opacity:.55;cursor:wait}
+.ach-revoked{font-size:11.5px;font-weight:800;color:var(--danger,#e74c3c)}
+.ach-modal{position:fixed;inset:0;z-index:99996;background:rgba(0,0,0,.7);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;padding:14px}
+.ach-box{background:var(--card);color:var(--text);border:1px solid var(--gold3);border-radius:20px;width:100%;max-width:760px;max-height:94vh;overflow:auto;padding:18px;position:relative}
+.ach-box canvas{width:100%;height:auto;border-radius:12px;display:block;background:#06151f}
+.ach-x{position:absolute;top:8px;inset-inline-end:12px;background:none;border:0;color:var(--muted);font-size:26px;cursor:pointer;z-index:2}
+.ach-sec{margin-top:14px}.ach-sec label.t{display:block;font-size:12.5px;font-weight:800;color:var(--muted);margin-bottom:6px}
+.ach-radios{display:flex;flex-wrap:wrap;gap:8px}
+.ach-radios label{display:inline-flex;gap:6px;align-items:center;font-size:13px;padding:6px 12px;border:1px solid var(--border,rgba(255,255,255,.14));border-radius:99px;cursor:pointer}
+.ach-radios input:checked+span{font-weight:800;color:var(--green4)}
+.ach-box input[type=text],.ach-box textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.14));background:transparent;color:var(--text);font:inherit;font-size:14px}
+.ach-share{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.ach-note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7}
+.ach-explore-link{display:block;text-align:center;margin-top:14px;font-size:13px;font-weight:700;color:var(--green4);text-decoration:none}
+</style>
+<script>
+(function () {
+  'use strict';
+  if (window.__atlAch) return; window.__atlAch = true;
+
+  const isAR = () => (typeof lang !== 'undefined' && lang === 'AR');
+  const T = (a, e) => isAR() ? a : e;
+  const rpc = (n, a) => window._consultRpc(n, a);
+  const toast = (m, bad) => { try { showToast(m, !!bad); } catch (e) { console.log(m); } };
+  const student = () => !window._isAdmin && !!window._currentUid;
+  function h(tag, attrs, ...kids) {
+    const e = document.createElement(tag);
+    for (const k in (attrs || {})) { const v = attrs[k]; if (v == null || v === false) continue; if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); }
+    for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+    return e;
+  }
+  const errMsg = (e) => {
+    const c = (e && (e.code || e.message)) || '';
+    if (/rate_limited/.test(c)) return T('محاولات كثيرة، حاول لاحقًا', 'Too many attempts, try later');
+    if (/invalid_name/.test(c)) return T('الاسم يجب أن يكون من 2 إلى 40 حرفًا', 'Name must be 2–40 characters');
+    if (/not_authenticated|permission/.test(c)) return T('سجّل الدخول أولًا', 'Please log in first');
+    return T('حدث خطأ، حاول مرة أخرى', 'Something went wrong, please try again');
+  };
+
+  /* ───────── تتبّع النشاط (الخادم هو من يتحقق ويمنح) ───────── */
+  let claiming = null, claimTimer = null;
+  async function claim(openModal) {
+    if (!student()) return [];
+    if (claiming) return claiming;
+    claiming = (async () => {
+      try {
+        const g = await rpc('claim_achievements');
+        if (Array.isArray(g) && g.length) { cache = null; if (openModal !== false) celebrate(g); }
+        return g || [];
+      } catch (e) { console.warn('[achievements] claim failed', e); return []; }
+      finally { claiming = null; }
+    })();
+    return claiming;
+  }
+  window._atlClaimSoon = function () { clearTimeout(claimTimer); claimTimer = setTimeout(() => claim(), 1500); };
+  window._atlTrack = function (kind, id) {           // dataset | tool
+    if (!student() || !id) return;
+    rpc('record_activity', { p_kind: kind, p_item: String(id) }).then(window._atlClaimSoon).catch(e => console.warn('[activity]', e));
+  };
+  let vidTimer = null, vidCur = null;
+  window._atlTrackVideo = function (v) {              // يُستدعى عند عرض مشغّل الفيديو
+    if (!student() || !v || !v.id || vidCur === v.id) return;
+    vidCur = v.id; clearTimeout(vidTimer); const id = String(v.id);
+    rpc('record_activity', { p_kind: 'video_start', p_item: id }).catch(e => console.warn('[activity]', e));
+    vidTimer = setTimeout(() => {                      // لا يُحتسب مشاهدة إلا بعد 60 ثانية والصفحة ظاهرة والفيديو ما زال مفتوحًا
+      if (document.visibilityState !== 'visible' || vidCur !== id || !document.getElementById('plYtIframe')) return;
+      rpc('record_activity', { p_kind: 'video_complete', p_item: id }).then(window._atlClaimSoon).catch(e => console.warn('[activity]', e));
+    }, 60000);
+  };
+  window.addEventListener('atlasya:streak', () => window._atlClaimSoon());
+
+  /* ───────── رسم بطاقة الإنجاز ───────── */
+  const W = 1200, H = 630;
+  const hasAr = (s) => /[؀-ۿ]/.test(s || '');
+  const loadImg = (src) => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+  function fit(ctx, text, maxW, px, weight) {
+    let s = px; do { ctx.font = `${weight} ${s}px Tajawal,"IBM Plex Sans Arabic","Segoe UI",system-ui,sans-serif`; s -= 2; } while (ctx.measureText(text).width > maxW && s > 18);
+  }
+  function wrap(ctx, text, maxW, maxLines) {
+    const words = String(text || '').split(/\s+/), lines = []; let cur = '';
+    for (const w of words) { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = lines[maxLines - 1].replace(/\s*\S*$/, '') + '…'; }
+    return lines;
+  }
+  function say(ctx, text, x, y) { ctx.direction = hasAr(text) ? 'rtl' : 'ltr'; ctx.textAlign = 'center'; ctx.fillText(text, x, y); }
+  async function drawCard(a, name) {
+    try { await Promise.all([document.fonts.load('700 40px Tajawal'), document.fonts.load('400 24px Tajawal')]); } catch (e) {}
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#06151f'); g.addColorStop(1, '#0d3b4a'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.strokeStyle = 'rgba(255,255,255,.045)'; x.lineWidth = 1;
+    for (let i = 0; i <= W; i += 60) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, H); x.stroke(); }
+    for (let j = 0; j <= H; j += 60) { x.beginPath(); x.moveTo(0, j); x.lineTo(W, j); x.stroke(); }
+    x.strokeStyle = 'rgba(18,163,154,.16)'; x.lineWidth = 2; [260, 380, 500].forEach(r => { x.beginPath(); x.arc(W / 2, 330, r, 0, 7); x.stroke(); });
+    const bar = x.createLinearGradient(0, 0, W, 0); bar.addColorStop(0, '#27a346'); bar.addColorStop(1, '#f0c040'); x.fillStyle = bar; x.fillRect(0, 0, W, 10);
+    const logo = await loadImg('icons/icon-512.png'); let ly = 30;
+    if (logo) { const hh = 96, ww = hh * (logo.width / logo.height); x.drawImage(logo, W / 2 - ww / 2, ly, ww, hh); }
+    x.fillStyle = '#e8f1f5'; x.font = '900 30px Tajawal,sans-serif'; x.direction = 'ltr'; x.textAlign = 'center';
+    if ('letterSpacing' in x) x.letterSpacing = '6px'; x.fillText('ATLASYA', W / 2, 160); if ('letterSpacing' in x) x.letterSpacing = '0px';
+    x.fillStyle = '#8fa6b3'; x.font = '500 18px Tajawal,sans-serif'; x.fillText('GIS Learning Portal', W / 2, 186);
+    x.font = '84px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.direction = 'ltr'; x.textAlign = 'center'; x.fillStyle = '#fff'; x.fillText(a.icon || '🏅', W / 2, 296);
+    const title = isAR() ? a.title_ar : a.title_en; x.fillStyle = '#f0c040'; fit(x, title, 1000, 66, 900); say(x, title, W / 2, 378);
+    x.fillStyle = '#8fa6b3'; x.font = '500 22px Tajawal,sans-serif'; say(x, name ? T('مُنح إلى', 'Awarded to') : '', W / 2, 424);
+    const who = name || T('عضو في ATLASYA', 'An ATLASYA member'); x.fillStyle = '#ffffff'; fit(x, who, 900, 46, 700); say(x, who, W / 2, 476);
+    const desc = isAR() ? a.desc_ar : a.desc_en; x.fillStyle = '#b8cbd5'; x.font = '400 25px Tajawal,sans-serif'; x.direction = hasAr(desc) ? 'rtl' : 'ltr';
+    wrap(x, desc, 940, 2).forEach((ln, i) => say(x, ln, W / 2, 524 + i * 34));
+    const d = new Date(a.earned_at).toLocaleDateString(isAR() ? 'ar-EG' : 'en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
+    x.fillStyle = '#8fa6b3'; x.font = '500 21px Tajawal,sans-serif'; x.textAlign = 'left'; x.direction = hasAr(d) ? 'rtl' : 'ltr'; x.fillText(d, 40, 606);
+    const vu = verifyUrl(a).replace(/^https?:\/\//, '').replace(/(c=[0-9a-f]{12})[0-9a-f]+/, '$1…'); x.textAlign = 'right'; x.direction = 'ltr'; x.fillText(vu, W - 40, 606);
+    return c;
+  }
+  const verifyUrl = (a) => new URL('verify.html?c=' + a.code, location.href).href;
+  const toBlob = (c) => new Promise(r => c.toBlob(r, 'image/png'));
+
+  /* ───────── بيانات إنجازاتي ───────── */
+  let cache = null;
+  async function load(force) { if (!cache || force) cache = await rpc('my_achievements'); return cache; }
+  const dateStr = (d) => new Date(d).toLocaleDateString(isAR() ? 'ar-EG' : 'en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
+
+  window.renderAchievements = async function (area) {
+    area.innerHTML = '';
+    const wrapEl = h('div', { class: 'ach-wrap' });
+    wrapEl.append(h('div', { class: 'page-header' }, h('h2', {}, '🏆 ' + T('إنجازاتي', 'My Achievements')), h('p', {}, T('إنجازات حقيقية من نشاطك على المنصة — شاركها وتحقّق منها برابط عام.', 'Real achievements from your activity — share them with a public verification link.'))));
+    const body = h('div', {}, h('p', { class: 'ach-meta' }, '…')); wrapEl.append(body); area.append(wrapEl);
+    if (!student()) { body.replaceChildren(h('p', { class: 'ach-meta' }, T('هذه الصفحة للطلاب فقط.', 'This page is for students only.'))); return; }
+    try { await claim(false); const list = await load(true); paint(body, list); }
+    catch (e) { console.warn(e); body.replaceChildren(h('p', { class: 'ach-meta' }, T('تعذّر تحميل الإنجازات.', 'Could not load achievements.')), h('button', { class: 'ach-btn', onclick: () => window.renderAchievements(area) }, T('إعادة المحاولة', 'Retry'))); }
+  };
+  function paint(body, list) {
+    const earned = list.filter(a => a.earned), locked = list.filter(a => !a.earned);
+    const mk = (a) => {
+      const pct = Math.round(a.progress / a.threshold * 100);
+      const acts = a.earned && a.status === 'valid' ? h('div', { class: 'ach-actions' },
+        h('button', { class: 'ach-btn pri', onclick: () => openCard(a) }, '👁 ' + T('معاينة ومشاركة', 'Preview & share')),
+        h('button', { class: 'ach-btn', onclick: () => copyText(verifyUrl(a)) }, '🔗 ' + T('نسخ الرابط', 'Copy link'))) : null;
+      return h('div', { class: 'ach-card ' + (a.earned ? 'earned' : 'locked') },
+        h('div', { class: 'ach-ic' }, a.earned ? a.icon : '🔒'),
+        h('h4', {}, isAR() ? a.title_ar : a.title_en), h('p', {}, isAR() ? a.desc_ar : a.desc_en),
+        a.earned ? h('div', { class: 'ach-meta' }, T('تاريخ الحصول: ', 'Earned: ') + dateStr(a.earned_at)) : [h('div', { class: 'ach-bar' }, h('i', { style: `width:${pct}%` })), h('div', { class: 'ach-meta' }, `${a.progress} / ${a.threshold}`)],
+        a.earned && a.status === 'revoked' ? h('div', { class: 'ach-revoked' }, T('تم إلغاء هذا الإنجاز', 'This achievement was revoked')) : null, acts);
+    };
+    body.replaceChildren(
+      h('h3', { style: 'margin:6px 0 10px;font-size:17px' }, T('حصلت عليها', 'Earned') + ` (${earned.length})`),
+      earned.length ? h('div', { class: 'ach-grid' }, earned.map(mk)) : h('p', { class: 'ach-meta' }, T('لم تحصل على إنجازات بعد — ابدأ بمشاهدة الدروس أو حل التحديات.', 'No achievements yet — start watching lessons or solving challenges.')),
+      h('h3', { style: 'margin:22px 0 10px;font-size:17px' }, T('قيد التقدّم', 'In progress') + ` (${locked.length})`),
+      h('div', { class: 'ach-grid' }, locked.map(mk)),
+      h('a', { class: 'ach-explore-link', href: 'explore.html' }, '🧭 ' + T('اكتشف المزيد من المحتوى', 'Discover more content')));
+  }
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); toast(T('تم نسخ الرابط ✅', 'Link copied ✅')); }
+    catch (e) { const i = h('textarea', { style: 'position:fixed;opacity:0' }); i.value = t; document.body.append(i); i.select(); try { document.execCommand('copy'); toast(T('تم نسخ الرابط ✅', 'Link copied ✅')); } catch (_) { prompt(T('انسخ الرابط:', 'Copy the link:'), t); } i.remove(); }
+  }
+
+  /* ───────── نافذة المعاينة والمشاركة ───────── */
+  let modal = null;
+  function closeModal() { if (modal) { modal.remove(); modal = null; } }
+  async function openCard(a) {
+    closeModal();
+    let canvas = null, busy = false;
+    const preview = h('div', {}, h('p', { class: 'ach-meta' }, '…'));
+    const text = h('textarea', { rows: 3, maxlength: 280 });
+    text.value = T('حققت إنجازًا جديدًا على ATLASYA! 🎓🌍 أواصل تطوير مهاراتي في GIS والجيوماتكس خطوة بخطوة.', "I've earned a new achievement on ATLASYA! 🎓🌍 Building my GIS & geomatics skills step by step.");
+    const custom = h('input', { type: 'text', maxlength: 40, placeholder: T('الاسم الظاهر (2–40 حرفًا)', 'Display name (2–40 chars)') });
+    custom.value = a.display_custom || ''; custom.style.display = a.display_mode === 'custom' ? '' : 'none'; custom.style.marginTop = '8px';
+    const d = window._userData || {};
+    const full = ((d.firstName || '') + ' ' + (d.lastName || '')).trim();
+    const modes = [['first', T('الاسم الأول', 'First name')], ['full', T('الاسم الكامل', 'Full name')], ['custom', T('اسم مخصّص', 'Custom name')], ['hidden', T('إخفاء اسمي', 'Hide my name')]];
+    const radios = h('div', { class: 'ach-radios' }, modes.map(([m, l]) => {
+      const i = h('input', { type: 'radio', name: 'achMode', value: m }); if (a.display_mode === m) i.checked = true;
+      i.addEventListener('change', () => { custom.style.display = m === 'custom' ? '' : 'none'; if (m !== 'custom') applyDisplay(m); else custom.focus(); });
+      return h('label', {}, i, h('span', {}, l));
+    }));
+    custom.addEventListener('change', () => applyDisplay('custom'));
+
+    async function redraw() { canvas = await drawCard(a, a.display_name); preview.replaceChildren(canvas); }
+    async function applyDisplay(mode) {
+      if (busy) return; busy = true;
+      try {
+        const r = await rpc('set_achievement_display', { p_id: a.id, p_mode: mode, p_custom: mode === 'custom' ? custom.value : null });
+        a.display_mode = mode; a.display_name = r.display_name; a.display_custom = mode === 'custom' ? custom.value : null; a.card_url = null; cache = null;
+        await redraw();
+      } catch (e) { toast(errMsg(e), true); }
+      busy = false;
+    }
+    async function ensureUploaded() {                 // يرفع الصورة للتخزين لتظهر في صفحة التحقق (best-effort)
+      if (a.card_url || !canvas || !window._uploadToStorage) return;
+      try {
+        const blob = await toBlob(canvas); const uid = window._currentUid;
+        const url = await window._uploadToStorage(`${uid}/achievements/${a.code}-${Date.now().toString(36)}.png`, blob, { upsert: false });
+        await rpc('set_achievement_card', { p_id: a.id, p_url: url }); a.card_url = url;
+      } catch (e) { console.warn('[achievements] card upload skipped', e); }
+    }
+    const shareText = () => (text.value || '').trim().slice(0, 280);
+    const link = verifyUrl(a), open = (u) => window.open(u, '_blank', 'noopener,noreferrer');
+    const btn = (label, fn, cls) => h('button', { class: 'ach-btn ' + (cls || ''), onclick: fn }, label);
+    const share = h('div', { class: 'ach-share' },
+      navigator.share ? btn('📤 ' + T('مشاركة', 'Share'), async () => { await ensureUploaded(); try { await navigator.share({ title: 'ATLASYA', text: shareText(), url: link }); } catch (e) {} }, 'pri') : null,
+      btn('🔗 ' + T('نسخ الرابط', 'Copy link'), async () => { await copyText(link); ensureUploaded(); }),
+      btn('⬇️ ' + T('تنزيل الصورة', 'Download image'), async () => { if (!canvas) return; const b = await toBlob(canvas); const u = URL.createObjectURL(b); const l = h('a', { href: u, download: `atlasya-${a.type_id}.png` }); document.body.append(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); ensureUploaded(); }),
+      btn('Facebook', () => { ensureUploaded(); open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(link) + '&quote=' + encodeURIComponent(shareText())); }),
+      btn('LinkedIn', () => { ensureUploaded(); open('https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(link)); }),
+      btn('WhatsApp', () => { ensureUploaded(); open('https://wa.me/?text=' + encodeURIComponent(shareText() + ' ' + link)); }));
+    const box = h('div', { class: 'ach-box', role: 'dialog', 'aria-modal': 'true' },
+      h('button', { class: 'ach-x', 'aria-label': 'close', onclick: closeModal }, '×'), preview,
+      h('div', { class: 'ach-sec' }, h('label', { class: 't' }, T('الاسم الظاهر على البطاقة', 'Name shown on the card')), radios, custom,
+        h('div', { class: 'ach-note' }, T('لا يمكن تعديل اسم الإنجاز أو تاريخه — تُحدَّد من الخادم. لا يظهر بريدك أو هاتفك أبدًا.', 'The title and date can’t be edited — they are set by the server. Your email and phone are never shown.'))),
+      h('div', { class: 'ach-sec' }, h('label', { class: 't' }, T('نص المشاركة (قابل للتعديل)', 'Share text (editable)')), text),
+      share, h('div', { class: 'ach-note' }, T('بعض المنصات لا تُرفق الصورة تلقائيًا مع الرابط — نزّل الصورة وأرفقها يدويًا عند الحاجة. رابط التحقق: ', 'Some platforms don’t attach the image automatically — download it and attach it manually if needed. Verification link: '), h('a', { href: link, target: '_blank', rel: 'noopener', style: 'word-break:break-all;color:var(--green4)' }, link)));
+    modal = h('div', { class: 'ach-modal', onclick: (e) => { if (e.target === modal) closeModal(); } }, box); document.body.append(modal);
+    await redraw();
+  }
+  function onEsc(e) { if (e.key === 'Escape') closeModal(); } document.addEventListener('keydown', onEsc);
+
+  function celebrate(granted) {
+    closeModal();
+    const first = granted[0]; const more = granted.length - 1;
+    const box = h('div', { class: 'ach-box', style: 'max-width:380px;text-align:center;padding:26px 20px' },
+      h('button', { class: 'ach-x', onclick: closeModal }, '×'), h('div', { style: 'font-size:60px' }, first.icon || '🏅'),
+      h('h3', { style: 'margin:8px 0' }, T('🎉 إنجاز جديد!', '🎉 New achievement!')),
+      h('p', { style: 'font-weight:800;font-size:16px' }, isAR() ? first.title_ar : first.title_en), more > 0 ? h('p', { class: 'ach-meta' }, T(`و${more} إنجازات أخرى`, `and ${more} more`)) : null,
+      h('div', { class: 'ach-actions', style: 'justify-content:center;margin-top:14px' }, h('button', { class: 'ach-btn pri', onclick: () => { closeModal(); navigate('achievements', document.getElementById('menuAch')); } }, T('عرض ومشاركة', 'View & share'))));
+    modal = h('div', { class: 'ach-modal', onclick: (e) => { if (e.target === modal) closeModal(); } }, box); document.body.append(modal);
+  }
+
+  /* ───────── تكامل الواجهة ───────── */
+  function syncLabels() {
+    const a = document.getElementById('menuAchTxt'), e = document.getElementById('menuExploreTxt');
+    if (a) a.textContent = T('إنجازاتي', 'My Achievements'); if (e) e.textContent = T('اكتشف المحتوى', 'Explore');
+  }
+  setInterval(syncLabels, 1500); syncLabels();
+  document.addEventListener('DOMContentLoaded', () => {
+    const link = (cls) => h('a', { href: 'explore.html', style: 'display:block;text-align:center;margin-top:14px;font-size:13.5px;font-weight:700;color:inherit;opacity:.85;text-decoration:underline' }, '🧭 ' + T('تصفّح المحتوى بدون حساب', 'Browse content without an account'));
+    ['loginForm', 'signUpForm'].forEach(id => { const f = document.getElementById(id); if (f) f.append(link()); });
+    if (/[?&]signup=1/.test(location.search)) [600, 1600].forEach(ms => setTimeout(() => { try { if (typeof showSignup === 'function' && document.getElementById('authBox') && getComputedStyle(document.getElementById('authBox')).display !== 'none') showSignup(); } catch (e) {} }, ms));
+  });
+  // أول دخول: افحص الإنجازات المستحقة بهدوء
+  let first = true; setInterval(() => { if (first && student()) { first = false; setTimeout(() => claim(), 4000); } }, 2000);
+})();
+</script>
+
+</body>
     </html>
