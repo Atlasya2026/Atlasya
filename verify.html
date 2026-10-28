@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>ATLASYA — التحقق من إنجاز</title>
+<meta property="og:title" content="إنجاز على ATLASYA">
+<meta property="og:description" content="تحقّق من هذا الإنجاز التعليمي على منصة ATLASYA — GIS Learning Portal.">
+<meta property="og:image" content="icons/icon-512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06151f;--card:#0f2a3a;--line:rgba(255,255,255,.1);--text:#e8f1f5;--muted:#8fa6b3;--green:#27a346;--gold:#f0c040;--danger:#ff7a7a}
+@media(prefers-color-scheme:light){:root{--bg:#f1f6fa;--card:#fff;--line:rgba(10,40,60,.12);--text:#12212b;--muted:#5b7080;--green:#1e7a34}}
+*{box-sizing:border-box;margin:0}
+body{font-family:'Tajawal',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:grid;place-items:center;padding:20px;line-height:1.7}
+.box{width:100%;max-width:560px;background:var(--card);border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.bar{height:5px;background:linear-gradient(90deg,var(--green),var(--gold))}
+.in{padding:28px 24px;text-align:center}
+.logo{width:76px;height:76px;object-fit:contain}
+.brand{font-weight:900;letter-spacing:1px;margin-top:2px}.brand small{display:block;font-size:12px;color:var(--muted);font-weight:500;letter-spacing:0}
+.st{display:inline-flex;align-items:center;gap:8px;margin:18px 0 6px;padding:6px 16px;border-radius:99px;font-weight:700;font-size:14px}
+.st.ok{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+.st.bad{background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger)}
+.ico{font-size:54px;margin-top:10px}
+h1{font-size:25px;font-weight:900;margin:4px 0}
+.who{font-size:15px;color:var(--muted)}.who b{color:var(--text);font-size:19px;display:block}
+.desc{margin-top:12px;color:var(--muted);font-size:14.5px}
+.row{display:flex;justify-content:center;gap:22px;margin-top:18px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}.row b{color:var(--text);display:block}
+.note{margin-top:20px;padding:12px 14px;border-radius:12px;background:rgba(127,127,127,.1);font-size:12.5px;color:var(--muted)}
+.cta{display:inline-block;margin-top:20px;padding:11px 22px;border-radius:12px;background:linear-gradient(135deg,#1e7a34,#27a346);color:#fff;font-weight:700;text-decoration:none}
+.card-img{width:100%;border-radius:12px;margin-top:18px;border:1px solid var(--line)}
+.hidden{display:none}
+.spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:s .8s linear infinite;margin:30px auto}@keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="box"><div class="bar"></div><div class="in" id="root"><img class="logo" src="icons/icon-192.png" alt="ATLASYA"><div class="brand">ATLASYA<small>GIS Learning Portal</small></div><div class="spin"></div></div></div>
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
+const sb = createClient("https://tyepugbvycipxzupnidn.supabase.co", "sb_publishable_s8RzSP_lkCtIKhihrXIZMg_R4qI974H", { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+const root = document.getElementById('root');
+const qs = new URLSearchParams(location.search);
+const code = (qs.get('c') || '').toLowerCase();
+let lang = (qs.get('lang') || (navigator.language || 'ar')).toLowerCase().startsWith('en') ? 'EN' : 'AR';
+const T = (a, e) => lang === 'AR' ? a : e;
+function el(t, c, txt) { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; }
+function shell(...kids) {
+  const logo = el('img', 'logo'); logo.src = 'icons/icon-192.png'; logo.alt = 'ATLASYA';
+  const brand = el('div', 'brand', 'ATLASYA'); brand.append(el('small', null, 'GIS Learning Portal'));
+  root.replaceChildren(logo, brand, ...kids);
+  document.documentElement.lang = lang === 'AR' ? 'ar' : 'en'; document.documentElement.dir = lang === 'AR' ? 'rtl' : 'ltr';
+}
+function notFound(msg) {
+  shell(el('div', 'st bad', '✕ ' + T('غير موجود', 'Not found')), el('h1', null, T('تعذّر التحقق من الإنجاز', 'Could not verify this achievement')), el('p', 'desc', msg || T('الرابط غير صحيح أو لم يعد متاحًا.', 'The link is invalid or no longer available.')),
+    Object.assign(el('a', 'cta', T('زيارة ATLASYA', 'Visit ATLASYA')), { href: 'index.html' }));
+}
+(async () => {
+  if (!/^[0-9a-f]{28}$/.test(code)) return notFound();
+  let r;
+  try { const { data, error } = await sb.rpc('get_public_achievement', { p_code: code }); if (error) throw error; r = data; }
+  catch (e) { return notFound(T('حدث خطأ أثناء التحقق. حاول مرة أخرى لاحقًا.', 'Something went wrong while verifying. Please try again later.')); }
+  if (!r || !r.found) return notFound();
+  const valid = r.status === 'valid';
+  const title = lang === 'AR' ? r.title_ar : r.title_en, desc = lang === 'AR' ? r.desc_ar : r.desc_en;
+  const name = r.display_name || T('عضو في ATLASYA', 'An ATLASYA member');
+  const date = new Date(r.earned_at).toLocaleDateString(lang === 'AR' ? 'ar-EG' : 'en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
+  document.title = `${title} — ATLASYA`;
+  const who = el('div', 'who', T('مُنح إلى', 'Awarded to')); who.append(el('b', null, name));
+  const row = el('div', 'row'); const d1 = el('div'); d1.append(T('تاريخ الحصول', 'Earned on'), el('b', null, date)); const d2 = el('div'); d2.append(T('رمز التحقق', 'Verification ID'), el('b', null, code.slice(0, 8).toUpperCase()));
+  row.append(d1, d2);
+  const kids = [el('div', 'st ' + (valid ? 'ok' : 'bad'), valid ? '✓ ' + T('إنجاز صالح', 'Valid achievement') : '⚠ ' + T('تم إلغاء هذا الإنجاز', 'This achievement was revoked')),
+    el('div', 'ico', r.icon || '🏅'), el('h1', null, title), who, el('p', 'desc', desc), row];
+  if (valid && /^https:\/\/[a-z0-9.-]+\.supabase\.co\/storage\/v1\/object\/public\/uploads\//.test(r.card_url || '')) { const im = el('img', 'card-img'); im.src = r.card_url; im.alt = title; im.loading = 'lazy'; kids.push(im); }
+  kids.push(el('div', 'note', T('هذا إنجاز تعلّم داخل منصة ATLASYA، وليس شهادة اعتماد مهني أو مؤهلًا رسميًا.', 'This is a learning achievement within the ATLASYA platform, not a professional certification or an official qualification.')));
+  kids.push(Object.assign(el('a', 'cta', T('ابدأ رحلتك على ATLASYA', 'Start learning on ATLASYA')), { href: 'explore.html' }));
+  shell(...kids);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATLASYA — Explore & Discover</title>
+<meta name="description" content="اكتشف دروس ومسارات ومشروعات وأدوات ATLASYA لتعلّم GIS والجيوماتكس.">
+<meta property="og:title" content="ATLASYA — اكتشف المحتوى">
+<meta property="og:description" content="دروس، مسارات، مشروعات، تحديات وأدوات GIS في مكان واحد.">
+<meta property="og:image" content="icons/icon-512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06151f;--bg2:#0b2230;--card:#0f2a3a;--card2:#133346;--line:rgba(255,255,255,.09);--text:#e8f1f5;--muted:#8fa6b3;
+--green:#27a346;--green2:#1e7a34;--teal:#12a39a;--gold:#f0c040;--danger:#ff7a7a;--r:16px}
+:root[data-theme=light]{--bg:#f1f6fa;--bg2:#e6eef4;--card:#fff;--card2:#f4f8fb;--line:rgba(10,40,60,.12);--text:#12212b;--muted:#5b7080;--green:#1e7a34;--teal:#0f857d}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{font-family:'Tajawal',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;min-height:100vh}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+header.top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:12px;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:.5px}
+.brand img{width:38px;height:38px;object-fit:contain}
+.brand small{display:block;font-size:10.5px;font-weight:500;color:var(--muted);letter-spacing:0;margin-top:-4px}
+.sp{flex:1}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--text);padding:9px 16px;border-radius:12px;font-weight:700;font-size:14px;display:inline-flex;align-items:center;gap:8px;transition:.15s}
+.btn:hover{border-color:var(--green)}
+.btn.pri{background:linear-gradient(135deg,var(--green2),var(--green));border-color:transparent;color:#fff}
+.btn.sm{padding:6px 12px;font-size:13px}
+.hero{padding:34px 0 10px}
+.hero h1{font-size:clamp(24px,4.2vw,38px);font-weight:900;line-height:1.35}
+.hero h1 em{font-style:normal;color:var(--green)}
+.hero p{color:var(--muted);max-width:640px;margin-top:8px}
+.tools{margin:22px 0 6px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.search{flex:1 1 280px;position:relative}
+.search input{width:100%;padding:13px 16px;padding-inline-start:44px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;font-size:15px}
+.search input:focus,select:focus{outline:2px solid var(--green);outline-offset:1px}
+.search svg{position:absolute;inset-inline-start:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted)}
+select{padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;max-width:100%}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:8px 0 4px;scrollbar-width:none}
+.chip{white-space:nowrap;border:1px solid var(--line);background:var(--card);color:var(--muted);padding:7px 16px;border-radius:99px;font-weight:700;font-size:13.5px}
+.chip[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}
+section.sec{margin-top:38px}
+.sec-h{display:flex;align-items:end;justify-content:space-between;gap:10px;margin-bottom:14px}
+.sec-h h2{font-size:21px;font-weight:900}
+.sec-h p{font-size:13px;color:var(--muted)}
+.sec-h a,.sec-h button.lnk{background:none;border:0;color:var(--teal);font-weight:700;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;transition:.18s;position:relative}
+.card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--green) 55%,transparent)}
+.thumb{aspect-ratio:16/9;background:linear-gradient(135deg,var(--bg2),var(--card2));display:grid;place-items:center;font-size:38px;position:relative}
+.thumb img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.body{padding:14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.body h3{font-size:16px;font-weight:700;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.body p{font-size:13px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.tag{font-size:11.5px;font-weight:700;padding:2px 10px;border-radius:99px;background:color-mix(in srgb,var(--teal) 16%,transparent);color:var(--teal)}
+.tag.lock{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold)}
+.tag.new{background:var(--gold);color:#241a00}
+.tag.kind{background:var(--card2);color:var(--muted)}
+.foot{padding:0 14px 14px;margin-top:auto;display:flex;gap:8px;align-items:center}
+.foot .btn{flex:1;justify-content:center}
+.bar{height:6px;border-radius:9px;background:var(--line);overflow:hidden;margin-top:4px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--gold))}
+.new-flag{position:absolute;top:10px;inset-inline-start:10px;z-index:2}
+.challenge{display:grid;gap:10px;background:linear-gradient(135deg,var(--card),var(--card2));border:1px solid color-mix(in srgb,var(--gold) 40%,var(--line));border-radius:var(--r);padding:20px}
+.challenge h3{font-size:19px}.challenge p{color:var(--muted)}
+.skeleton .thumb,.skeleton .body>*{background:linear-gradient(90deg,var(--card2),var(--bg2),var(--card2));background-size:200% 100%;animation:sh 1.2s infinite;border-radius:8px;color:transparent}
+.skeleton .body>*{height:14px}
+@keyframes sh{to{background-position:-200% 0}}
+.state{border:1px dashed var(--line);border-radius:var(--r);padding:28px;text-align:center;color:var(--muted)}
+.state b{display:block;color:var(--text);margin-bottom:4px}
+.state .btn{margin-top:12px}
+.more{display:flex;justify-content:center;margin:22px 0}
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:16px}
+.modal.on{display:flex}
+.mbox{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;max-width:440px;width:100%;position:relative;max-height:90vh;overflow:auto}
+.mbox h3{font-size:20px;margin-bottom:6px}.mbox p{color:var(--muted);font-size:14px}
+.mbox .acts{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}.mbox .acts .btn{flex:1;justify-content:center}
+.mbox .x{position:absolute;top:10px;inset-inline-end:12px;background:none;border:0;color:var(--muted);font-size:24px}
+.mbox .pv{aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:var(--bg2);margin-bottom:12px;position:relative}.mbox .pv img{width:100%;height:100%;object-fit:cover}
+footer{margin-top:60px;padding:26px 0;border-top:1px solid var(--line);color:var(--muted);font-size:13px;text-align:center}
+.hidden{display:none!important}
+@media(max-width:560px){.brand small{display:none}.grid{grid-template-columns:1fr}.top .wrap{height:58px}.btn.hide-m{display:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="explore.html"><img src="icons/icon-192.png" alt="ATLASYA"><span>ATLASYA<small>GIS Learning Portal</small></span></a>
+  <span class="sp"></span>
+  <button class="btn sm" id="themeBtn" aria-label="theme">🌓</button>
+  <button class="btn sm" id="langBtn">EN</button>
+  <a class="btn sm hide-m" id="loginBtn" href="index.html">تسجيل الدخول</a>
+  <a class="btn sm pri" id="signupBtn" href="index.html?signup=1">إنشاء حساب</a>
+</div></header>
+
+<main class="wrap">
+  <div class="hero">
+    <h1 id="heroT"></h1>
+    <p id="heroP"></p>
+    <div class="tools">
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" autocomplete="off" maxlength="80"></label>
+      <select id="cat" aria-label="category"></select>
+    </div>
+    <div class="chips" id="chips" role="group"></div>
+  </div>
+
+  <div id="results" class="hidden">
+    <div class="sec-h"><div><h2 id="resT"></h2><p id="resC"></p></div><button class="lnk" id="clearBtn"></button></div>
+    <div class="grid" id="resGrid"></div>
+    <div class="more"><button class="btn hidden" id="moreBtn"></button></div>
+  </div>
+
+  <div id="home">
+    <section class="sec" id="s-lesson"></section>
+    <section class="sec" id="s-path"></section>
+    <section class="sec" id="s-project"></section>
+    <section class="sec" id="s-challenge"></section>
+    <section class="sec" id="s-tool"></section>
+    <section class="sec" id="s-dataset"></section>
+    <section class="sec" id="s-latest"></section>
+  </div>
+</main>
+<footer>© ATLASYA — GIS Learning Portal</footer>
+
+<div class="modal" id="gate" role="dialog" aria-modal="true"><div class="mbox">
+  <button class="x" data-close aria-label="close">×</button>
+  <h3 id="gT"></h3><p id="gP"></p>
+  <div class="acts"><a class="btn pri" id="gSignup"></a><a class="btn" id="gLogin"></a></div>
+</div></div>
+<div class="modal" id="pv" role="dialog" aria-modal="true"><div class="mbox">
+  <button class="x" data-close aria-label="close">×</button>
+  <div class="pv" id="pvImg"></div><h3 id="pvT"></h3><p id="pvP"></p><div class="meta" id="pvM" style="margin-top:10px"></div>
+  <div class="acts"><button class="btn pri" id="pvGo"></button></div>
+</div></div>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
+// نفس إعدادات index.html (مفتاح publishable العام — آمن للواجهة، والحماية الفعلية عبر RLS/الدوال)
+const sb = createClient("https://tyepugbvycipxzupnidn.supabase.co", "sb_publishable_s8RzSP_lkCtIKhihrXIZMg_R4qI974H", { auth: { detectSessionInUrl: false } });
+
+const $ = (id) => document.getElementById(id);
+const store = { get(k){ try{return localStorage.getItem(k)}catch(e){return null} }, set(k,v){ try{localStorage.setItem(k,v)}catch(e){} } };
+let lang = store.get('atl_explore_lang') || 'AR';
+let session = null, progress = {};
+const T = (ar, en) => lang === 'AR' ? ar : en;
+
+/* ---------- helpers ---------- */
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (attrs || {})) {
+    const v = attrs[k]; if (v == null || v === false) continue;
+    if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return e;
+}
+const ytId = (u) => { const m = String(u || '').match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([A-Za-z0-9_-]{11})/); return m ? m[1] : null; };
+const pick = (it, f) => (lang === 'AR' ? (it[f + '_ar'] || it[f + '_en']) : (it[f + '_en'] || it[f + '_ar'])) || '';
+const isNew = (d) => d && (Date.now() - new Date(d).getTime()) < 14 * 864e5;
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString(lang === 'AR' ? 'ar-EG' : 'en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+const KIND = { lesson: ['درس', 'Lesson', '🎬', 'playlists'], path: ['مسار', 'Path', '🧭', 'playlists'], project: ['مشروع', 'Project', '🗺️', 'datasets'],
+  dataset: ['بيانات', 'Dataset', '🗂️', 'datasets'], challenge: ['تحدٍّ', 'Challenge', '🎯', 'dailychallenge'], tool: ['أداة', 'Tool', '🧰', 'tools'] };
+const kindName = (k) => T(KIND[k][0], KIND[k][1]);
+
+/* ---------- auth-aware navigation ---------- */
+function dest(page, signup) { return 'index.html' + (signup ? '?signup=1' : '') + '#/' + page; }
+let gateDest = 'dashboard';
+function requireLogin(page, why) {
+  if (session) { location.href = dest(page); return; }
+  gateDest = page;
+  $('gT').textContent = T('سجّل الدخول للمتابعة', 'Log in to continue');
+  $('gP').textContent = why || T('هذه الميزة تحتاج حسابًا لحفظ تقدّمك وتسجيل إنجازاتك. التصفّح العام يبقى متاحًا للجميع.', 'This feature needs an account to save your progress and achievements. Browsing stays open to everyone.');
+  $('gSignup').textContent = T('إنشاء حساب', 'Create account'); $('gSignup').href = dest(page, true);
+  $('gLogin').textContent = T('تسجيل الدخول', 'Log in'); $('gLogin').href = dest(page);
+  $('gate').classList.add('on');
+}
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('.modal').classList.remove('on'));
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('on'); }));
+addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal.on').forEach(m => m.classList.remove('on')); });
+
+/* ---------- cards ---------- */
+function thumbOf(it) {
+  const t = h('div', { class: 'thumb' }, KIND[it.kind][2]);
+  const id = ytId(it.meta && it.meta.youtube);
+  if (id) t.append(h('img', { src: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }));
+  else if (it.kind === 'project' && it.meta && it.meta.icon) t.textContent = it.meta.icon;
+  return t;
+}
+function card(it) {
+  const m = it.meta || {}, tags = [h('span', { class: 'tag kind' }, kindName(it.kind))];
+  if (it.category) tags.push(h('span', { class: 'tag' }, it.category));
+  if (it.kind === 'path') tags.push(h('span', { class: 'tag' }, `${m.videos || 0} ${T('فيديو', 'videos')}`));
+  if (it.kind === 'tool' && m.version) tags.push(h('span', { class: 'tag' }, 'v' + m.version));
+  if (it.kind === 'dataset' && m.type) tags.push(h('span', { class: 'tag' }, m.type));
+  if (it.kind === 'challenge') tags.push(h('span', { class: 'tag' }, m.date || ''));
+  if (it.kind === 'tool' || it.kind === 'dataset' || it.kind === 'challenge') tags.push(h('span', { class: 'tag lock' }, '🔒 ' + T('يتطلب تسجيلًا', 'Login required')));
+  if (it.created_at) tags.push(h('span', { class: 'tag' }, fmtDate(it.created_at)));
+  let prog = null;
+  if (it.kind === 'path' && session && progress[it.id]) {
+    const p = progress[it.id], pct = Math.min(100, Math.round(p.done / Math.max(1, p.total) * 100));
+    prog = h('div', {}, h('small', { style: 'color:var(--muted)' }, `${pct}% · ${p.done}/${p.total}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct}%` })));
+  }
+  const el = h('article', { class: 'card' },
+    isNew(it.created_at) ? h('span', { class: 'tag new new-flag' }, T('جديد', 'New')) : null,
+    thumbOf(it),
+    h('div', { class: 'body' }, h('h3', {}, pick(it, 'title')), h('p', {}, pick(it, 'desc')), h('div', { class: 'meta' }, tags), prog),
+    h('div', { class: 'foot' }, h('button', { class: 'btn', onclick: () => openItem(it) }, actionLabel(it))));
+  return el;
+}
+const actionLabel = (it) => ({ lesson: T('عرض الدرس', 'View lesson'), path: T('تفاصيل المسار', 'Path details'), project: T('عرض المشروع', 'View project'),
+  dataset: T('تفاصيل البيانات', 'View dataset'), challenge: T('عرض التحدي', 'View challenge'), tool: T('جرّب الأداة', 'Try tool') }[it.kind]);
+
+function openItem(it) {
+  const m = it.meta || {}; const id = ytId(m.youtube);
+  $('pvImg').replaceChildren(id ? h('img', { src: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`, alt: '' }) : h('div', { class: 'thumb', style: 'height:100%' }, m.icon || KIND[it.kind][2]));
+  $('pvT').textContent = pick(it, 'title');
+  $('pvP').textContent = it.kind === 'lesson' ? T('من قائمة: ', 'From playlist: ') + pick(it, 'desc') : pick(it, 'desc');
+  const tags = [h('span', { class: 'tag kind' }, kindName(it.kind))];
+  if (it.category) tags.push(h('span', { class: 'tag' }, it.category));
+  if (m.region) tags.push(h('span', { class: 'tag' }, m.region));
+  if (it.kind === 'path') tags.push(h('span', { class: 'tag' }, `${m.videos || 0} ${T('فيديو', 'videos')}`));
+  $('pvM').replaceChildren(...tags);
+  const page = KIND[it.kind][3];
+  $('pvGo').textContent = session ? T('افتح في المنصة', 'Open in platform') : T('سجّل للمتابعة', 'Sign in to continue');
+  $('pvGo').onclick = () => { $('pv').classList.remove('on'); requireLogin(page); };
+  $('pv').classList.add('on');
+}
+
+/* ---------- data ---------- */
+async function rpc(name, args) { const { data, error } = await sb.rpc(name, args || {}); if (error) throw error; return data; }
+const state = { all: false, q: '', kind: '', cat: '', offset: 0, total: 0 };
+const PAGE = 12;
+
+function skeleton(n = 3) { return h('div', { class: 'grid' }, Array.from({ length: n }, () => h('div', { class: 'card skeleton' }, h('div', { class: 'thumb' }), h('div', { class: 'body' }, h('h3'), h('p'), h('p'))))); }
+function errBox(retry) { return h('div', { class: 'state' }, h('b', {}, T('تعذّر تحميل المحتوى', 'Could not load content')), T('تحقق من الاتصال ثم حاول مرة أخرى.', 'Check your connection and try again.'), h('div', {}, h('button', { class: 'btn', onclick: retry }, T('إعادة المحاولة', 'Retry')))); }
+function emptyBox(msg) { return h('div', { class: 'state' }, h('b', {}, msg)); }
+function head(title, sub, link) { return h('div', { class: 'sec-h' }, h('div', {}, h('h2', {}, title), sub ? h('p', {}, sub) : null), link || null); }
+
+const SECTIONS = [
+  { id: 'lesson', kind: 'lesson', t: ['أحدث الدروس', 'Latest lessons'], s: ['أحدث الفيديوهات المضافة لقوائم التشغيل', 'Newest videos from our playlists'], empty: ['لا توجد دروس منشورة بعد', 'No lessons published yet'] },
+  { id: 'path', kind: 'path', t: ['المسارات التعليمية', 'Learning paths'], s: ['قوائم تعلّم متكاملة — أكمل فيديوهاتها لتتبّع تقدّمك', 'Full playlists — finish their videos to track progress'], empty: ['لا توجد مسارات متاحة بعد', 'No paths yet'] },
+  { id: 'project', kind: 'project', t: ['المشروعات المميزة', 'Featured projects'], s: ['مشروعات بيانات مكانية وتطبيقات عملية', 'Spatial data projects and practical work'], empty: ['لا توجد مشروعات منشورة بعد', 'No projects yet'] },
+  { id: 'tool', kind: 'tool', t: ['الأدوات المجانية', 'Free tools'], s: ['برامج وأدوات GIS — التحميل يتطلب حسابًا', 'GIS software & tools — download requires an account'], empty: ['لا توجد أدوات متاحة حاليًا', 'No tools available right now'] },
+  { id: 'dataset', kind: 'dataset', t: ['بيانات مكانية', 'Spatial datasets'], s: ['طبقات وبيانات جاهزة للتحميل بعد التسجيل', 'Ready-to-use layers, download after sign-up'], empty: ['لا توجد بيانات منشورة بعد', 'No datasets yet'] },
+];
+const shown = new Set();
+
+async function loadSection(sec) {
+  const box = $('s-' + sec.id);
+  box.replaceChildren(head(T(...sec.t), T(...sec.s), h('button', { class: 'lnk', onclick: () => setFilter({ kind: sec.kind }) }, T('عرض الكل ←', 'View all →'))), skeleton());
+  try {
+    const r = await rpc('explore_items', { p_kind: sec.kind, p_limit: 6, p_offset: 0 });
+    const body = r.items.length ? h('div', { class: 'grid' }, r.items.map(card)) : emptyBox(T(...sec.empty));
+    r.items.forEach(i => shown.add(i.kind + i.id));
+    box.replaceChildren(head(T(...sec.t), T(...sec.s), r.items.length ? h('button', { class: 'lnk', onclick: () => setFilter({ kind: sec.kind }) }, T('عرض الكل ←', 'View all →')) : null), body);
+    return r.categories;
+  } catch (e) { console.warn(e); box.replaceChildren(head(T(...sec.t)), errBox(() => loadSection(sec))); }
+}
+
+async function loadChallenge() {
+  const box = $('s-challenge'); box.replaceChildren(head(T('التحدي الحالي', 'Current challenge')), skeleton(1));
+  try {
+    const c = await rpc('explore_current_challenge'); let body;
+    if (c.state === 'active') {
+      const left = Math.max(0, new Date(c.ends_at) - Date.now()), hh = Math.floor(left / 36e5), mm = Math.floor(left % 36e5 / 6e4);
+      body = h('div', { class: 'challenge' }, h('div', { class: 'meta' }, h('span', { class: 'tag kind' }, c.type || 'daily'), c.difficulty ? h('span', { class: 'tag' }, c.difficulty) : null,
+        c.coins ? h('span', { class: 'tag new' }, `+${c.coins} ${T('عملة', 'coins')}`) : null, h('span', { class: 'tag' }, T(`ينتهي خلال ${hh}س ${mm}د`, `Ends in ${hh}h ${mm}m`))),
+        h('h3', {}, pick(c, 'question') || T('تحدّي اليوم', "Today's challenge")),
+        h('div', {}, h('button', { class: 'btn pri', onclick: () => requireLogin('dailychallenge', T('الإجابة على التحدي تتطلب حسابًا لتسجيل نتيجتك ومكافآتك.', 'Answering needs an account to record your result and rewards.')) }, T('شارك في التحدي', 'Join the challenge'))));
+    } else if (c.state === 'upcoming') {
+      body = h('div', { class: 'challenge' }, h('h3', {}, T('لا يوجد تحدٍّ نشط اليوم', 'No active challenge today')), h('p', {}, T('التحدي القادم بتاريخ ', 'Next challenge on ') + c.date));
+    } else body = emptyBox(T('لا يوجد تحدٍّ نشط أو قادم حاليًا', 'No active or upcoming challenge right now'));
+    box.replaceChildren(head(T('التحدي الحالي', 'Current challenge')), body);
+  } catch (e) { console.warn(e); box.replaceChildren(head(T('التحدي الحالي', 'Current challenge')), errBox(loadChallenge)); }
+}
+
+async function loadLatest() {
+  const box = $('s-latest'); box.replaceChildren(head(T('أحدث الإضافات', 'Recently added')), skeleton());
+  try {
+    const r = await rpc('explore_items', { p_limit: 24, p_offset: 0 });
+    const items = r.items.filter(i => !shown.has(i.kind + i.id)).slice(0, 6);
+    box.replaceChildren(head(T('أحدث الإضافات', 'Recently added'), T('آخر ما أُضيف إلى المنصة', 'The latest on the platform'), h('button', { class: 'lnk', onclick: () => setFilter({}, true) }, T('عرض كل الإضافات ←', 'View all →'))),
+      items.length ? h('div', { class: 'grid' }, items.map(card)) : emptyBox(T('لا توجد إضافات جديدة غير معروضة أعلاه', 'Nothing new beyond what is shown above')));
+  } catch (e) { console.warn(e); box.replaceChildren(head(T('أحدث الإضافات', 'Recently added')), errBox(loadLatest)); }
+}
+
+async function loadHome() {
+  shown.clear();
+  if (session) { try { (await rpc('my_path_progress')).forEach(p => progress[p.playlist_id] = p); } catch (e) {} }
+  const cats = await Promise.all(SECTIONS.map(loadSection));
+  fillCats([].concat(...cats.filter(Boolean)));
+  loadChallenge(); loadLatest();
+}
+
+/* ---------- search / filter ---------- */
+function fillCats(list) {
+  const set = [...new Set(list)].sort(); const cur = $('cat').value;
+  $('cat').replaceChildren(h('option', { value: '' }, T('كل المجالات', 'All fields')), ...set.map(c => h('option', { value: c }, c)));
+  $('cat').value = set.includes(cur) ? cur : '';
+}
+function renderChips() {
+  const all = [['', T('الكل', 'All')], ...Object.keys(KIND).map(k => [k, T(KIND[k][0], KIND[k][1])])];
+  const plural = { '': '', lesson: ['دروس', 'Lessons'], path: ['مسارات', 'Paths'], project: ['مشروعات', 'Projects'], dataset: ['بيانات', 'Datasets'], challenge: ['تحديات', 'Challenges'], tool: ['أدوات', 'Tools'] };
+  $('chips').replaceChildren(...all.map(([k, label]) => h('button', { class: 'chip', 'aria-pressed': String(state.kind === k), onclick: () => setFilter({ kind: k }) }, k ? T(...plural[k]) : label)));
+}
+function setFilter(p, showAll) {
+  Object.assign(state, p); if (p.kind === undefined && !showAll) {}
+  $('q').value = state.q; $('cat').value = state.cat; renderChips(); runSearch(true);
+}
+let tmr;
+async function runSearch(reset) {
+  if (reset) state.offset = 0;
+  const on = !!(state.q || state.kind || state.cat || state.all);
+  $('results').classList.toggle('hidden', !on); $('home').classList.toggle('hidden', on);
+  if (!on) return;
+  if (reset) { $('resGrid').replaceChildren(); $('resGrid').append(...skeleton().children); }
+  $('resT').textContent = state.kind ? T(KIND[state.kind][0] + ' — النتائج', KIND[state.kind][1] + ' results') : T('نتائج البحث', 'Search results');
+  $('clearBtn').textContent = T('مسح التصفية ✕', 'Clear filters ✕');
+  try {
+    const r = await rpc('explore_items', { p_q: state.q || null, p_kind: state.kind || null, p_cat: state.cat || null, p_limit: PAGE, p_offset: state.offset });
+    if (reset) $('resGrid').replaceChildren();
+    if (!r.total) { $('resGrid').replaceChildren(h('div', { class: 'state', style: 'grid-column:1/-1' }, h('b', {}, T('لا توجد نتائج مطابقة', 'No matching results')), T('جرّب كلمات مختلفة أو أزل بعض عوامل التصفية.', 'Try different keywords or remove some filters.'))); }
+    else $('resGrid').append(...r.items.map(card));
+    state.offset += r.items.length; state.total = r.total;
+    $('resC').textContent = T(`${r.total} نتيجة`, `${r.total} results`);
+    $('moreBtn').classList.toggle('hidden', state.offset >= r.total); $('moreBtn').textContent = T('تحميل المزيد', 'Load more');
+    if (r.categories && r.categories.length) fillCats(r.categories);
+  } catch (e) { console.warn(e); $('resGrid').replaceChildren(h('div', { style: 'grid-column:1/-1' }, errBox(() => runSearch(true)))); }
+}
+$('moreBtn').onclick = () => runSearch(false);
+$('clearBtn').onclick = () => { state.q = ''; state.kind = ''; state.cat = ''; state.all = false; $('q').value = ''; $('cat').value = ''; renderChips(); runSearch(true); };
+$('q').addEventListener('input', () => { clearTimeout(tmr); tmr = setTimeout(() => { state.q = $('q').value.trim(); runSearch(true); }, 350); });
+$('cat').addEventListener('change', () => { state.cat = $('cat').value; runSearch(true); });
+
+/* ---------- chrome / i18n ---------- */
+function applyChrome() {
+  document.documentElement.lang = lang === 'AR' ? 'ar' : 'en'; document.documentElement.dir = lang === 'AR' ? 'rtl' : 'ltr';
+  $('langBtn').textContent = lang === 'AR' ? 'EN' : 'AR';
+  $('heroT').innerHTML = lang === 'AR' ? 'اكتشف عالم <em>الـ GIS</em> خطوة بخطوة' : 'Explore the world of <em>GIS</em>, step by step';
+  $('heroP').textContent = T('دروس ومسارات ومشروعات وأدوات مجانية في مكان واحد. تصفّح بحرية، وسجّل حسابك عندما تريد حفظ تقدّمك وجمع إنجازاتك.', 'Lessons, paths, projects and free tools in one place. Browse freely — sign up when you want to save progress and collect achievements.');
+  $('q').placeholder = T('ابحث بالعنوان أو الكلمة المفتاحية…', 'Search by title or keyword…');
+  $('loginBtn').textContent = session ? T('افتح المنصة', 'Open platform') : T('تسجيل الدخول', 'Log in');
+  $('signupBtn').textContent = session ? T('إنجازاتي', 'My achievements') : T('إنشاء حساب', 'Create account');
+  $('signupBtn').href = session ? 'index.html#/achievements' : 'index.html?signup=1';
+  renderChips();
+}
+$('langBtn').onclick = () => { lang = lang === 'AR' ? 'EN' : 'AR'; store.set('atl_explore_lang', lang); applyChrome(); (state.q || state.kind || state.cat || state.all) ? runSearch(true) : loadHome(); };
+const savedTheme = store.get('atl_explore_theme'); if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+$('themeBtn').onclick = () => { const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'; document.documentElement.dataset.theme = t; store.set('atl_explore_theme', t); };
+
+/* ---------- boot ---------- */
+(async () => {
+  try { const { data } = await sb.auth.getSession(); session = data.session && data.session.user && data.session.user.email_confirmed_at ? data.session : null; } catch (e) {}
+  applyChrome();
+  const p = new URLSearchParams(location.search); state.q = (p.get('q') || '').slice(0, 80); if (KIND[p.get('type')]) state.kind = p.get('type');
+  $('q').value = state.q; renderChips();
+  if (state.q || state.kind) await runSearch(true); else await loadHome();
+})();
+</script>
+</body>
+</html>
