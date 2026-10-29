@@ -7735,6 +7735,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             _maintGoing = true;
             const qs = new URLSearchParams(location.search); qs.delete('supervisor'); qs.delete('tester');
             const q = qs.toString();
+            try { const mi = window._maintInfo || {}; sessionStorage.setItem('atlasya_maint_handoff', JSON.stringify({ t: Date.now(), message: mi.message || '', returnAtMs: mi.returnAtMs || 0, upNext: mi.upNext || [], tester: !!window._platformTesterEmail })); } catch (e) {}
             fetch('maintenance.html', { method: 'HEAD', cache: 'no-store' })
                 .then(r => { if (r.ok) location.replace('maintenance.html' + (q ? '?' + q : '') + location.hash); else { _maintGoing = false; showMaintenanceFallback(); } })
                 .catch(() => { _maintGoing = false; showMaintenanceFallback(); });
