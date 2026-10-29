@@ -32,9 +32,22 @@
           }
         }
         var now = Date.now(), h = []; try { h = JSON.parse(sessionStorage.getItem('atlasya_maint_hops') || '[]').filter(function (t) { return now - t < 20000; }); } catch (e) {}
-        if (h.length >= 4) return;   // قاطع حلقات
-        h.push(now); try { sessionStorage.setItem('atlasya_maint_hops', JSON.stringify(h)); } catch (e) {}
-        window.stop(); location.replace('maintenance.html' + location.search + location.hash);
+        if (h.length >= 4) return;   // قاطع حلقات (التطبيق نفسه هيعرض شاشة الإيقاف)
+        /* نتأكد إن maintenance.html موجود فعلًا قبل ما نسيب الصفحة (عشان ما نوصلش لصفحة بيضا) */
+        /* غطا غامق فوري (بدل الصفحة البيضا) لحد ما maintenance.html يفتح؛ ولو فشل بنشيله والمنصة تكمل */
+        var cv = document.createElement('div');
+        cv.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#010605;color:#d8ffe9;display:grid;place-items:center;font:700 18px Tajawal,system-ui,sans-serif;direction:rtl';
+        cv.textContent = 'جاري تحميل صفحة الصيانة…';
+        (document.body || document.documentElement).appendChild(cv);
+        document.documentElement.style.background = '#010605';
+        var c2 = ('AbortController' in window) ? new AbortController() : null, t2 = setTimeout(function () { if (c2) c2.abort(); }, 4000);
+        return fetch('maintenance.html', { method: 'HEAD', cache: 'no-store', signal: c2 ? c2.signal : undefined }).then(function (m) {
+          clearTimeout(t2);
+          var ct = m.headers.get('content-type') || '';
+          if (!m.ok || (ct && ct.indexOf('html') === -1)) { cv.remove(); document.documentElement.style.background = ''; return; }
+          h.push(now); try { sessionStorage.setItem('atlasya_maint_hops', JSON.stringify(h)); } catch (e) {}
+          location.replace('maintenance.html' + location.search + location.hash);
+        }).catch(function () { cv.remove(); document.documentElement.style.background = ''; });
       }).catch(function () {});
   } catch (e) {}
 })();
@@ -7505,20 +7518,47 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             return !!box && getComputedStyle(box).display !== 'none';
         }
         function syncTesterLink() {}
-        function hideMaintenanceOverlay() {}
+        function hideMaintenanceOverlay() {
+            if (_maintFrame) { _maintFrame.remove(); _maintFrame = null; document.documentElement.style.overflow = _maintPrevOverflow; }
+        }
+        // شاشة إيقاف بسيطة جوه الصفحة نفسها: بتظهر لو maintenance.html مش موجود/مش بيفتح (بدل صفحة بيضا أو منصة مفتوحة)
+        function showMaintenanceFallback() {
+            if (_maintFrame) return;
+            const d = document.createElement('div');
+            d.id = 'maintFallback';
+            d.setAttribute('role', 'alert');
+            d.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:24px;text-align:center;direction:rtl;color:#e9f3f7;font-family:"IBM Plex Sans Arabic",Tajawal,system-ui,sans-serif;background:linear-gradient(165deg,#06151f,#0a2433 55%,#0b3347);';
+            const box = document.createElement('div'); box.style.cssText = 'max-width:420px;';
+            try {
+                const im = document.querySelector('.auth-mobile-brand img, .auth-emblem img');
+                if (im && im.src) { const i = document.createElement('img'); i.src = im.src; i.alt = 'ATLASYA'; i.style.cssText = 'width:84px;height:84px;object-fit:contain;margin-bottom:14px;'; box.appendChild(i); }
+            } catch (e) {}
+            const t = document.createElement('div'); t.textContent = 'المنصة متوقفة مؤقتًا'; t.style.cssText = 'font-size:26px;font-weight:700;margin-bottom:10px;'; box.appendChild(t);
+            const p = document.createElement('div');
+            p.textContent = (window._maintInfo && window._maintInfo.message) || 'بنشتغل على تحديثات مهمة، وهنرجع قريب. حسابك وبياناتك في أمان.';
+            p.style.cssText = 'color:#9db3c0;line-height:1.9;font-size:15.5px;margin-bottom:20px;'; box.appendChild(p);
+            const b = document.createElement('button'); b.type = 'button'; b.textContent = 'دخول المشرفين';
+            b.style.cssText = 'background:none;border:0;color:#3fd0c4;text-decoration:underline;text-underline-offset:4px;cursor:pointer;font:inherit;font-size:14px;';
+            b.onclick = function () { openSupervisorFromMaintenance(); };
+            box.appendChild(b); d.appendChild(box); document.body.appendChild(d);
+            _maintPrevOverflow = document.documentElement.style.overflow; document.documentElement.style.overflow = 'hidden';
+            _maintFrame = d;
+        }
         // صفحة الإيقاف ملف مستقل (maintenance.html): نحوّل الزائر ليها، وهي اللي بترجّعه لما المنصة تتفتح.
         let _maintGoing = false;
         function showMaintenanceOverlay() {
-            if (_maintGoing) return;
-            try {   // قاطع حلقات: لو حصل تحويل متكرر في ثواني نسيب المنصة شغالة بدل ما نعلّق المستخدم
+            if (_maintGoing || _maintFrame) return;
+            try {   // قاطع حلقات: لو حصل تحويل متكرر في ثواني نعرض الشاشة البسيطة بدل ما نعلّق المستخدم
                 const now = Date.now(), h = JSON.parse(sessionStorage.getItem('atlasya_maint_hops') || '[]').filter(t => now - t < 20000);
-                if (h.length >= 4) return;
+                if (h.length >= 4) { showMaintenanceFallback(); return; }
                 h.push(now); sessionStorage.setItem('atlasya_maint_hops', JSON.stringify(h));
             } catch (e) {}
             _maintGoing = true;
             const qs = new URLSearchParams(location.search); qs.delete('supervisor'); qs.delete('tester');
             const q = qs.toString();
-            location.replace('maintenance.html' + (q ? '?' + q : '') + location.hash);
+            fetch('maintenance.html', { method: 'HEAD', cache: 'no-store' })
+                .then(r => { if (r.ok) location.replace('maintenance.html' + (q ? '?' + q : '') + location.hash); else { _maintGoing = false; showMaintenanceFallback(); } })
+                .catch(() => { _maintGoing = false; showMaintenanceFallback(); });
         }
         function refreshMaintenanceOverlay() {
             // وضع "دخول تجريبي" بيفضل شغال بس طول ما شاشة تسجيل الدخول (من غير تسجيل حساب جديد) ظاهرة
