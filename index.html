@@ -4182,9 +4182,6 @@
                         <button class="nav-item" id="menuCourse" onclick="navigate('courses', this)">
                             <i class="fa-solid fa-building-shield"></i> <span id="menuCourseTxt">الكورسات</span>
                         </button>
-                        <button class="nav-item" id="menuAch" onclick="navigate('achievements', this)">
-                            <i class="fa-solid fa-trophy"></i> <span id="menuAchTxt">إنجازاتي</span>
-                        </button>
                         <button class="nav-item" id="menuCommunity" onclick="navigate('community', this)">
                             <i class="fa-solid fa-users"></i> <span id="menuCommunityTxt">مجتمع الطلاب</span>
                         </button>
@@ -8002,7 +7999,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool',
             jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
             community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
-            account: 'menuAccount', achievements: 'menuAch', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
+            account: 'menuAccount', achievements: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
             adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro',
             adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
             dailychallenge: 'menuDailyChallenge', wheel: 'menuWheel'
@@ -18874,12 +18871,23 @@ async function csAdmShowLink(id, btn) {
   };
   window.addEventListener('atlasya:streak', () => window._atlClaimSoon());
 
-  /* ───────── رسم بطاقة الإنجاز ───────── */
+  /* ───────── رسم بطاقة الإنجاز (تصميم شهادة احترافية) ───────── */
   const W = 1200, H = 630;
   const hasAr = (s) => /[؀-ۿ]/.test(s || '');
   const loadImg = (src) => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
-  function fit(ctx, text, maxW, px, weight) {
-    let s = px; do { ctx.font = `${weight} ${s}px Tajawal,"IBM Plex Sans Arabic","Segoe UI",system-ui,sans-serif`; s -= 2; } while (ctx.measureText(text).width > maxW && s > 18);
+  const F_AR_TITLE = 'Cairo,Tajawal,"Segoe UI",sans-serif', F_AR_NAME = 'Amiri,"Traditional Arabic",serif', F_LAT = '"Playfair Display",Georgia,serif', F_UI = 'Cairo,Tajawal,"Segoe UI",sans-serif';
+  function ensureFonts() {
+    if (!document.getElementById('atlAchFonts')) {
+      const l = document.createElement('link'); l.id = 'atlAchFonts'; l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Cairo:wght@500;700;900&family=Playfair+Display:wght@700;800&display=swap'; document.head.append(l);
+    }
+    const loads = [['900 60px Cairo', 'أبجد'], ['700 30px Cairo', 'أبجد'], ['500 22px Cairo', 'أبجد'], ['700 50px Amiri', 'أبجد'], ['800 60px "Playfair Display"', 'Ab'], ['700 30px "Playfair Display"', 'Ab']];
+    return Promise.race([Promise.all(loads.map(([f, t]) => document.fonts.load(f, t).catch(() => null))), new Promise(r => setTimeout(r, 4500))]);
+  }
+  function setLS(ctx, px) { if ('letterSpacing' in ctx) ctx.letterSpacing = px + 'px'; }
+  function fit(ctx, text, maxW, px, weight, family, min) {
+    let s = px; do { ctx.font = `${weight} ${s}px ${family}`; s -= 2; } while (ctx.measureText(text).width > maxW && s > (min || 20));
+    return s + 2;
   }
   function wrap(ctx, text, maxW, maxLines) {
     const words = String(text || '').split(/\s+/), lines = []; let cur = '';
@@ -18888,30 +18896,63 @@ async function csAdmShowLink(id, btn) {
     if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = lines[maxLines - 1].replace(/\s*\S*$/, '') + '…'; }
     return lines;
   }
-  function say(ctx, text, x, y) { ctx.direction = hasAr(text) ? 'rtl' : 'ltr'; ctx.textAlign = 'center'; ctx.fillText(text, x, y); }
+  function say(ctx, text, x, y) { ctx.direction = hasAr(text) ? 'rtl' : 'ltr'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(text, x, y); }
+  function goldGrad(ctx, x0, x1) { const g = ctx.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, '#f6e7a1'); g.addColorStop(.5, '#e0b53c'); g.addColorStop(1, '#f6dc7a'); return g; }
+  function corner(x, y, dx, dy, ctx) {
+    ctx.beginPath(); ctx.moveTo(x, y + dy * 56); ctx.lineTo(x, y); ctx.lineTo(x + dx * 56, y); ctx.stroke();
+    ctx.save(); ctx.translate(x + dx * 12, y + dy * 12); ctx.rotate(Math.PI / 4); ctx.fillRect(-4, -4, 8, 8); ctx.restore();
+  }
   async function drawCard(a, name) {
-    try { await Promise.all([document.fonts.load('700 40px Tajawal'), document.fonts.load('400 24px Tajawal')]); } catch (e) {}
+    await ensureFonts();
     const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
-    const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#06151f'); g.addColorStop(1, '#0d3b4a'); x.fillStyle = g; x.fillRect(0, 0, W, H);
-    x.strokeStyle = 'rgba(255,255,255,.045)'; x.lineWidth = 1;
-    for (let i = 0; i <= W; i += 60) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, H); x.stroke(); }
-    for (let j = 0; j <= H; j += 60) { x.beginPath(); x.moveTo(0, j); x.lineTo(W, j); x.stroke(); }
-    x.strokeStyle = 'rgba(18,163,154,.16)'; x.lineWidth = 2; [260, 380, 500].forEach(r => { x.beginPath(); x.arc(W / 2, 330, r, 0, 7); x.stroke(); });
-    const bar = x.createLinearGradient(0, 0, W, 0); bar.addColorStop(0, '#27a346'); bar.addColorStop(1, '#f0c040'); x.fillStyle = bar; x.fillRect(0, 0, W, 10);
-    const logo = await loadImg('icons/icon-512.png'); let ly = 30;
-    if (logo) { const hh = 96, ww = hh * (logo.width / logo.height); x.drawImage(logo, W / 2 - ww / 2, ly, ww, hh); }
-    x.fillStyle = '#e8f1f5'; x.font = '900 30px Tajawal,sans-serif'; x.direction = 'ltr'; x.textAlign = 'center';
-    if ('letterSpacing' in x) x.letterSpacing = '6px'; x.fillText('ATLASYA', W / 2, 160); if ('letterSpacing' in x) x.letterSpacing = '0px';
-    x.fillStyle = '#8fa6b3'; x.font = '500 18px Tajawal,sans-serif'; x.fillText('GIS Learning Portal', W / 2, 186);
-    x.font = '84px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.direction = 'ltr'; x.textAlign = 'center'; x.fillStyle = '#fff'; x.fillText(a.icon || '🏅', W / 2, 296);
-    const title = isAR() ? a.title_ar : a.title_en; x.fillStyle = '#f0c040'; fit(x, title, 1000, 66, 900); say(x, title, W / 2, 378);
-    x.fillStyle = '#8fa6b3'; x.font = '500 22px Tajawal,sans-serif'; say(x, name ? T('مُنح إلى', 'Awarded to') : '', W / 2, 424);
-    const who = name || T('عضو في ATLASYA', 'An ATLASYA member'); x.fillStyle = '#ffffff'; fit(x, who, 900, 46, 700); say(x, who, W / 2, 476);
-    const desc = isAR() ? a.desc_ar : a.desc_en; x.fillStyle = '#b8cbd5'; x.font = '400 25px Tajawal,sans-serif'; x.direction = hasAr(desc) ? 'rtl' : 'ltr';
-    wrap(x, desc, 940, 2).forEach((ln, i) => say(x, ln, W / 2, 524 + i * 34));
-    const d = new Date(a.earned_at).toLocaleDateString(isAR() ? 'ar-EG' : 'en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
-    x.fillStyle = '#8fa6b3'; x.font = '500 21px Tajawal,sans-serif'; x.textAlign = 'left'; x.direction = hasAr(d) ? 'rtl' : 'ltr'; x.fillText(d, 40, 606);
-    const vu = verifyUrl(a).replace(/^https?:\/\//, '').replace(/(c=[0-9a-f]{12})[0-9a-f]+/, '$1…'); x.textAlign = 'right'; x.direction = 'ltr'; x.fillText(vu, W - 40, 606);
+    const ar = isAR();
+    /* خلفية: تدرّج عميق + توهّج + خطوط كنتورية */
+    const bg = x.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#031019'); bg.addColorStop(.55, '#082635'); bg.addColorStop(1, '#04202b'); x.fillStyle = bg; x.fillRect(0, 0, W, H);
+    const glow = x.createRadialGradient(W / 2, 150, 20, W / 2, 150, 520); glow.addColorStop(0, 'rgba(32,190,170,.30)'); glow.addColorStop(.6, 'rgba(18,120,130,.10)'); glow.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = glow; x.fillRect(0, 0, W, H);
+    x.lineWidth = 1.4;
+    for (let k = 0; k < 18; k++) {
+      x.strokeStyle = `rgba(110,225,200,${0.035 + (k % 4) * 0.012})`; x.beginPath();
+      for (let px = -10; px <= W + 10; px += 12) { const py = 40 + k * 34 + Math.sin(px / 150 + k * .7) * 22 + Math.sin(px / 61 + k * 1.9) * 7; px === -10 ? x.moveTo(px, py) : x.lineTo(px, py); }
+      x.stroke();
+    }
+    const vg = x.createRadialGradient(W / 2, H / 2, 260, W / 2, H / 2, 760); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)'); x.fillStyle = vg; x.fillRect(0, 0, W, H);
+    /* إطار ذهبي مزدوج + زخارف الأركان */
+    x.strokeStyle = goldGrad(x, 0, W); x.lineWidth = 3; x.strokeRect(16, 16, W - 32, H - 32);
+    x.strokeStyle = 'rgba(224,181,60,.38)'; x.lineWidth = 1; x.strokeRect(28, 28, W - 56, H - 56);
+    x.strokeStyle = '#e0b53c'; x.fillStyle = '#e0b53c'; x.lineWidth = 2.5;
+    corner(40, 40, 1, 1, x); corner(W - 40, 40, -1, 1, x); corner(40, H - 40, 1, -1, x); corner(W - 40, H - 40, -1, -1, x);
+    /* الشعار (PNG شفاف بلا خلفية) + الاسم */
+    const logo = await loadImg('icons/atlasya-logo.png');
+    if (logo) { const lh = 130, lw = lh * (logo.width / logo.height); x.save(); x.shadowColor = 'rgba(40,220,190,.45)'; x.shadowBlur = 28; x.drawImage(logo, W / 2 - lw / 2, 44, lw, lh); x.restore(); }
+    x.fillStyle = '#eaf6f4'; x.font = `800 30px ${F_LAT}`; setLS(x, 9); x.direction = 'ltr'; x.textAlign = 'center'; x.fillText('ATLASYA', W / 2 + 4, 206); setLS(x, 0);
+    x.fillStyle = '#35c2b0'; x.font = `600 13px ${F_UI}`; setLS(x, 5); x.fillText('GIS LEARNING PORTAL', W / 2 + 2, 228); setLS(x, 0);
+    /* عنوان الشهادة بين خطّين ذهبيين */
+    const kick = ar ? 'شهادة إنجاز' : 'CERTIFICATE OF ACHIEVEMENT';
+    x.font = ar ? `700 21px ${F_UI}` : `700 17px ${F_UI}`; if (!ar) setLS(x, 4); const kw = x.measureText(kick).width; x.fillStyle = goldGrad(x, W / 2 - kw / 2, W / 2 + kw / 2); say(x, kick, W / 2, 275); setLS(x, 0);
+    x.strokeStyle = 'rgba(224,181,60,.7)'; x.lineWidth = 1.2;
+    [[W / 2 - kw / 2 - 28, W / 2 - kw / 2 - 150], [W / 2 + kw / 2 + 28, W / 2 + kw / 2 + 150]].forEach(([p, q]) => { x.beginPath(); x.moveTo(p, 269); x.lineTo(q, 269); x.stroke(); });
+    /* اسم الإنجاز بالذهبي */
+    const title = ar ? a.title_ar : a.title_en, tAr = hasAr(title), tFam = tAr ? F_AR_TITLE : F_LAT;
+    const tpx = fit(x, title, 980, tAr ? 66 : 62, tAr ? 900 : 800, tFam, 30);
+    x.save(); x.shadowColor = 'rgba(224,181,60,.35)'; x.shadowBlur = 18; const tw = x.measureText(title).width; x.fillStyle = goldGrad(x, W / 2 - tw / 2, W / 2 + tw / 2); say(x, title, W / 2, 352); x.restore();
+    /* يُمنح إلى + الاسم */
+    x.fillStyle = '#8fb3b8'; x.font = `500 19px ${F_UI}`; say(x, ar ? 'يُمنح هذا الإنجاز إلى' : 'THIS ACHIEVEMENT IS AWARDED TO', W / 2, 396);
+    const who = name || (ar ? 'عضو في ATLASYA' : 'An ATLASYA member'), wAr = hasAr(who);
+    fit(x, who, 860, wAr ? 54 : 48, wAr ? 700 : 700, wAr ? F_AR_NAME : F_LAT, 28); x.fillStyle = '#ffffff'; say(x, who, W / 2, 452);
+    const ww = Math.min(x.measureText(who).width + 80, 760); const ul = x.createLinearGradient(W / 2 - ww / 2, 0, W / 2 + ww / 2, 0); ul.addColorStop(0, 'rgba(224,181,60,0)'); ul.addColorStop(.5, 'rgba(224,181,60,.95)'); ul.addColorStop(1, 'rgba(224,181,60,0)');
+    x.fillStyle = ul; x.fillRect(W / 2 - ww / 2, 468, ww, 2);
+    /* الوصف */
+    const desc = ar ? a.desc_ar : a.desc_en; x.fillStyle = '#b6d0d3'; x.font = `500 21px ${hasAr(desc) ? F_UI : F_UI}`; x.direction = hasAr(desc) ? 'rtl' : 'ltr';
+    wrap(x, desc, 900, 2).forEach((ln, i) => say(x, ln, W / 2, 506 + i * 31));
+    /* ميدالية + التاريخ + رابط التحقق */
+    const mx = W / 2, my = 580, mr = 38;
+    const ring = x.createLinearGradient(mx - mr, my - mr, mx + mr, my + mr); ring.addColorStop(0, '#f8e9a8'); ring.addColorStop(.5, '#d2a52c'); ring.addColorStop(1, '#f2d36b');
+    x.save(); x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowBlur = 14; x.fillStyle = ring; x.beginPath(); x.arc(mx, my, mr, 0, 7); x.fill(); x.restore();
+    x.fillStyle = '#082635'; x.beginPath(); x.arc(mx, my, mr - 6, 0, 7); x.fill();
+    x.font = '34px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.fillStyle = '#fff'; x.direction = 'ltr'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(a.icon || '🏅', mx, my + 2); x.textBaseline = 'alphabetic';
+    const d = new Date(a.earned_at).toLocaleDateString(ar ? 'ar-EG' : 'en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
+    x.fillStyle = '#8fb3b8'; x.font = `500 14px ${F_UI}`; x.textAlign = 'left'; x.direction = hasAr(d) ? 'rtl' : 'ltr'; x.fillText((ar ? 'تاريخ الحصول: ' : 'Issued: ') + d, 118, 590);
+    const vu = verifyUrl(a).replace(/^https?:\/\//, '').replace(/(c=[0-9a-f]{12})[0-9a-f]+/, '$1…'); x.textAlign = 'right'; x.direction = 'ltr'; x.fillText((ar ? 'تحقّق: ' : 'Verify: ') + vu, W - 118, 590);
     return c;
   }
   const verifyUrl = (a) => new URL('verify.html?c=' + a.code, location.href).href;
@@ -18925,6 +18966,7 @@ async function csAdmShowLink(id, btn) {
   window.renderAchievements = async function (area) {
     area.innerHTML = '';
     const wrapEl = h('div', { class: 'ach-wrap' });
+    wrapEl.append(h('button', { class: 'settings-back-btn', onclick: () => goSettings('hub') }, h('i', { class: 'fa-solid fa-arrow-' + (isAR() ? 'right' : 'left') }), ' ' + T('العودة للإعدادات', 'Back to Settings')));
     wrapEl.append(h('div', { class: 'page-header' }, h('h2', {}, '🏆 ' + T('إنجازاتي', 'My Achievements')), h('p', {}, T('إنجازات حقيقية من نشاطك على المنصة — شاركها وتحقّق منها برابط عام.', 'Real achievements from your activity — share them with a public verification link.'))));
     const body = h('div', {}, h('p', { class: 'ach-meta' }, '…')); wrapEl.append(body); area.append(wrapEl);
     if (!student()) { body.replaceChildren(h('p', { class: 'ach-meta' }, T('هذه الصفحة للطلاب فقط.', 'This page is for students only.'))); return; }
@@ -19023,14 +19065,36 @@ async function csAdmShowLink(id, btn) {
       h('button', { class: 'ach-x', onclick: closeModal }, '×'), h('div', { style: 'font-size:60px' }, first.icon || '🏅'),
       h('h3', { style: 'margin:8px 0' }, T('🎉 إنجاز جديد!', '🎉 New achievement!')),
       h('p', { style: 'font-weight:800;font-size:16px' }, isAR() ? first.title_ar : first.title_en), more > 0 ? h('p', { class: 'ach-meta' }, T(`و${more} إنجازات أخرى`, `and ${more} more`)) : null,
-      h('div', { class: 'ach-actions', style: 'justify-content:center;margin-top:14px' }, h('button', { class: 'ach-btn pri', onclick: () => { closeModal(); navigate('achievements', document.getElementById('menuAch')); } }, T('عرض ومشاركة', 'View & share'))));
+      h('div', { class: 'ach-actions', style: 'justify-content:center;margin-top:14px' }, h('button', { class: 'ach-btn pri', onclick: () => { closeModal(); goSettings('achievements'); } }, T('عرض ومشاركة', 'View & share'))));
     modal = h('div', { class: 'ach-modal', onclick: (e) => { if (e.target === modal) closeModal(); } }, box); document.body.append(modal);
+  }
+
+  /* ───────── «إنجازاتي» داخل الإعدادات تحت الـ Streak ───────── */
+  function injectHubAch(area) {
+    if (!area || area.querySelector('#atlAchHubItem')) return;
+    const anchor = area.querySelector('#atlStreakHubItem') || area.querySelector('.settings-hub-item');
+    if (!anchor) return;
+    const item = h('div', { class: 'settings-hub-item', id: 'atlAchHubItem', onclick: () => goSettings('achievements') },
+      h('div', { class: 'settings-hub-icon' }, h('i', { class: 'fa-solid fa-trophy', style: 'color:var(--gold3);' })),
+      h('div', { class: 'settings-hub-text' }, h('div', { class: 'settings-hub-title' }, '🏆 ' + T('إنجازاتي', 'My Achievements')), h('div', { class: 'settings-hub-desc', id: 'atlAchHubDesc' }, T('إنجازاتك وبطاقات المشاركة', 'Your achievements & shareable cards'))),
+      h('i', { class: 'fa-solid fa-' + (isAR() ? 'angle-left' : 'angle-right') + ' settings-hub-arrow' }));
+    if (anchor.id === 'atlStreakHubItem') anchor.after(item); else anchor.before(item);
+    load(false).then(l => { const d = document.getElementById('atlAchHubDesc'); if (d && Array.isArray(l)) d.textContent = T(`حصلت على ${l.filter(x => x.earned).length} من ${l.length}`, `${l.filter(x => x.earned).length} of ${l.length} earned`); }).catch(() => {});
+  }
+  if (typeof window.renderAccount === 'function') {
+    const _ra = window.renderAccount;
+    window.renderAccount = function (area) {
+      area = area || document.getElementById('contentArea');
+      if (student() && window._accountTab === 'achievements') { window.renderAchievements(area); return; }
+      const r = _ra.apply(this, arguments);
+      try { if (student() && (window._accountTab || 'hub') === 'hub') injectHubAch(area); } catch (e) { console.warn('[achievements] hub item', e); }
+      return r;
+    };
   }
 
   /* ───────── تكامل الواجهة ───────── */
   function syncLabels() {
-    const a = document.getElementById('menuAchTxt'), e = document.getElementById('menuExploreTxt');
-    if (a) a.textContent = T('إنجازاتي', 'My Achievements'); if (e) e.textContent = T('اكتشف المحتوى', 'Explore');
+    /* لا عناصر قائمة خاصة بالإنجازات؛ تُعرض داخل الإعدادات */
   }
   setInterval(syncLabels, 1500); syncLabels();
   document.addEventListener('DOMContentLoaded', () => {
