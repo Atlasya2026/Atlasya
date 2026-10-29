@@ -7,7 +7,7 @@
 <title>ATLASYA — التحقق من إنجاز</title>
 <meta property="og:title" content="إنجاز على ATLASYA">
 <meta property="og:description" content="تحقّق من هذا الإنجاز التعليمي على منصة ATLASYA — GIS Learning Portal.">
-<meta property="og:image" content="icons/icon-512.png">
+<meta property="og:image" content="icons/atlasya-logo.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
@@ -36,7 +36,7 @@ h1{font-size:25px;font-weight:900;margin:4px 0}
 </style>
 </head>
 <body>
-<div class="box"><div class="bar"></div><div class="in" id="root"><img class="logo" src="icons/icon-192.png" alt="ATLASYA"><div class="brand">ATLASYA<small>GIS Learning Portal</small></div><div class="spin"></div></div></div>
+<div class="box"><div class="bar"></div><div class="in" id="root"><img class="logo" src="icons/atlasya-logo.png" alt="ATLASYA"><div class="brand">ATLASYA<small>GIS Learning Portal</small></div><div class="spin"></div></div></div>
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
 const sb = createClient("https://tyepugbvycipxzupnidn.supabase.co", "sb_publishable_s8RzSP_lkCtIKhihrXIZMg_R4qI974H", { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
@@ -47,7 +47,7 @@ let lang = (qs.get('lang') || (navigator.language || 'ar')).toLowerCase().starts
 const T = (a, e) => lang === 'AR' ? a : e;
 function el(t, c, txt) { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; }
 function shell(...kids) {
-  const logo = el('img', 'logo'); logo.src = 'icons/icon-192.png'; logo.alt = 'ATLASYA';
+  const logo = el('img', 'logo'); logo.src = "icons/atlasya-logo.png"; logo.alt = 'ATLASYA';
   const brand = el('div', 'brand', 'ATLASYA'); brand.append(el('small', null, 'GIS Learning Portal'));
   root.replaceChildren(logo, brand, ...kids);
   document.documentElement.lang = lang === 'AR' ? 'ar' : 'en'; document.documentElement.dir = lang === 'AR' ? 'rtl' : 'ltr';
