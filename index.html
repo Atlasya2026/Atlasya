@@ -4182,9 +4182,6 @@
                         <button class="nav-item" id="menuCourse" onclick="navigate('courses', this)">
                             <i class="fa-solid fa-building-shield"></i> <span id="menuCourseTxt">الكورسات</span>
                         </button>
-                        <button class="nav-item" id="menuExplore" onclick="location.href='explore.html'">
-                            <i class="fa-solid fa-compass"></i> <span id="menuExploreTxt">اكتشف المحتوى</span>
-                        </button>
                         <button class="nav-item" id="menuAch" onclick="navigate('achievements', this)">
                             <i class="fa-solid fa-trophy"></i> <span id="menuAchTxt">إنجازاتي</span>
                         </button>
@@ -6750,6 +6747,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     }
                     // Load notification count for student
                     loadAdminNotifCount();
+                    // ارجع للصفحة التي كان الزائر يريدها (قادمًا من explore.html) بعد تحميل بيانات المستخدم
+                    try { const _pg = window._currentPage; if (_pg && _pg !== 'dashboard' && _pg !== 'account' && !window.__atlReturned) { window.__atlReturned = true; navigate(_pg, PAGE_NAV_ID_MAP[_pg] ? document.getElementById(PAGE_NAV_ID_MAP[_pg]) : null, false, true); } } catch (e) {}
 
                     // تذكيرات الاستشارات (24 ساعة / ساعة) تتولّد على السيرفر قبل فحص التنبيهات
                     try { await rpc(db, 'consult_remind_due'); } catch (e) {}
