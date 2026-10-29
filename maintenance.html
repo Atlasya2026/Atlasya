@@ -69,9 +69,24 @@
     document.body.appendChild(b);
   }
 
+  /* تسليم من index.html: التطبيق قال إن المنصة موقوفة. لو قراءة الصفحة دي اختلفت معاه، منرجّعش الطالب لـ index فورًا (ده اللي كان بيعمل لفة). */
+  function handoff() {
+    try { var h = JSON.parse(sessionStorage.getItem('atlasya_maint_handoff') || 'null'); return h && Date.now() - h.t < 300000 ? h : null; } catch (e) { return null; }
+  }
+  function showHandoff(h) {
+    var inf = { returnAtMs: Number(h.returnAtMs) || 0, message: String(h.message || '').slice(0, 300), upNext: (h.upNext || []).map(String).slice(0, 6) };
+    var key = JSON.stringify([inf, !!h.tester, 'h']);
+    if (key !== lastKey) { lastKey = key; post(Object.assign({ action: 'status-info' }, inf)); post({ action: 'tester-link', show: !!h.tester }); }
+  }
   function apply(d) {
     if (!effectiveOn(d)) {                       // المنصة شغالة → رجّع الزائر
       if (from404) { showNotFound(); return; }
+      var h = handoff();
+      if (h) {   // نفضل على الصفحة لحد وقت الرجوع المجدول (أو 5 دقايق)، وبعدها index يعيد التقييم
+        showHandoff(h);
+        var until = h.t + 300000, rt = Number(h.returnAtMs) || 0; if (rt && rt < until) until = rt;
+        if (Date.now() < until) return;
+      }
       if (hopOk()) go('index.html' + passThrough());
       return;
     }
@@ -87,7 +102,7 @@
 
   function tick() {
     clearTimeout(timer);
-    fetchStatus().then(function (d) { fails = 0; apply(d); }).catch(function () { fails++; })
+    fetchStatus().then(function (d) { fails = 0; apply(d); }).catch(function () { fails++; var h = handoff(); if (h) showHandoff(h); })
       .then(function () { if (!going) timer = setTimeout(tick, document.hidden ? 20000 : (fails > 2 ? 15000 : 6000)); });
   }
   window.addEventListener('load', tick);
