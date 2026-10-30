@@ -470,7 +470,7 @@ async function fetchRaw(ref, info) {
   const { data, error } = await q.limit(1); if (error) throw mkErr(error);
   return data[0] || null;
 }
-async function doWrite(ref, data, { merge, mustExist }) {
+async function _doWrite(ref, data, { merge, mustExist }) {
   const info = resolve(ref);
   if (info.noop) return;
   const { spec, parents, id } = info;
@@ -501,6 +501,17 @@ async function doWrite(ref, data, { merge, mustExist }) {
     const { error } = await ref.db._c.rpc('fs_increment', { p_table: spec.table, p_idcol: idCols(spec)[0], p_id: id, p_col: inc.col || inc.field, p_delta: inc.delta, p_over: inc.over || null });
     if (error) throw mkErr(error);
   }
+}
+// بنرتّب الكتابات على نفس المستند ورا بعض: لو اتنين نفّذوا setDoc في نفس اللحظة، التاني بيلاقي الصف اللي الأول عمله ويعدّله
+// بدل ما الاتنين يعملوا INSERT (ده كان بيطلّع نفس العضو/الأدمن مرتين).
+const _writeQ = new Map();
+function doWrite(ref, data, o) {
+  const key = ref.path;
+  const run = (_writeQ.get(key) || Promise.resolve()).then(() => _doWrite(ref, data, o));
+  const tail = run.catch(() => {});
+  _writeQ.set(key, tail);
+  tail.then(() => { if (_writeQ.get(key) === tail) _writeQ.delete(key); });
+  return run;
 }
 export const setDoc = (ref, data, opts) => doWrite(ref, data, { merge: !!(opts && opts.merge) });
 export const updateDoc = (ref, data) => doWrite(ref, data, { mustExist: true });
