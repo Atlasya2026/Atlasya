@@ -5143,7 +5143,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         };
         window._consultLoadExperts = async () => {
             const snap = await getDocs(collection(db, 'admins'));
-            return snap.docs.map(d => {
+            const _seen = new Set();
+            return snap.docs.filter(d => !_seen.has(d.id) && _seen.add(d.id)).map(d => {
                 const x = d.data() || {};
                 const name = (x.name || ((x.firstName || '') + ' ' + (x.lastName || '')).trim() || x.email || d.id);
                 return { id: d.id, name };
@@ -6525,7 +6526,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         window._loadCommunityMembers = async (groupId) => {
             const q = query(collection(db, 'community_groups', groupId, 'members'), orderBy('joinedAt', 'asc'));
             const snap = await getDocs(q);
-            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const _seen = new Set();   // العضو بيظهر مرة واحدة حتى لو اتسجّل مرتين في الجدول
+            return snap.docs.filter(d => !_seen.has(d.id) && _seen.add(d.id)).map(d => ({ id: d.id, ...d.data() }));
         };
 
         /* Real-time listener for a group's messages */
@@ -12817,165 +12819,359 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         }
 
         /* ─── PORTFOLIO (STUDENT MAPS) ─── */
+        /* ═══════════════════════════════════════════════════════════
+           STUDENT MAPS (خرائط الطلبة) — معرض بتصنيفات وبحث وفلاتر، رفع بالسحب والإفلات مع معاينة،
+           وعارض صور بتنقّل بين الخرائط. البيانات الجديدة (التصنيف/الأدوات) بتتحفظ جوه نفس مستند المشروع.
+           ═══════════════════════════════════════════════════════════ */
+        const PF_CATS = [
+            { k: 'thematic',    ar: 'خرائط موضوعية',  en: 'Thematic maps',    ic: 'fa-layer-group' },
+            { k: 'analysis',    ar: 'تحليل مكاني',    en: 'Spatial analysis', ic: 'fa-chart-area' },
+            { k: 'remote',      ar: 'استشعار عن بعد', en: 'Remote sensing',   ic: 'fa-satellite' },
+            { k: 'cartography', ar: 'تصميم كارتوجرافي', en: 'Cartography',    ic: 'fa-pen-ruler' },
+            { k: 'webgis',      ar: 'ويب GIS',        en: 'Web GIS',          ic: 'fa-globe' },
+            { k: 'other',       ar: 'أخرى',           en: 'Other',            ic: 'fa-shapes' }
+        ];
+        const PF_TOOLS = ['ArcGIS', 'QGIS', 'ENVI', 'Google Earth Engine', 'Python', 'Other'];
+        const pfCatOf = (it) => PF_CATS.find(c => c.k === it.category) || PF_CATS[PF_CATS.length - 1];
+        const pfIsImg = (it) => !!(it.fileData && /^data:image\/|\.(?:jpe?g|png|webp|gif)(?:\?|$)/i.test(it.fileData));
+        const _pf = { q: '', cat: 'all', sort: 'new', mine: false, canPublish: false };
+        let _portfolioItemsCache = [];
+        let portfolioFileData = null;
+        let _pfFormCat = 'thematic';
+        let _pfFormTools = new Set();
+        let _pfLb = { list: [], i: 0, key: null };
+
+        function pfInjectStyles() {
+            if (document.getElementById('pfStyles')) return;
+            const st = document.createElement('style'); st.id = 'pfStyles';
+            st.textContent = `
+            .pf-bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+            .pf-search { flex:1; min-width:200px; position:relative; }
+            .pf-search i { position:absolute; top:50%; transform:translateY(-50%); inset-inline-start:13px; color:var(--muted); font-size:13px; }
+            .pf-search input { width:100%; padding:10px 14px; padding-inline-start:36px; background:var(--bg3); border:1px solid var(--border2); border-radius:10px; color:var(--text); font-size:13.5px; font-family:'Tajawal',sans-serif; outline:none; }
+            .pf-search input:focus { border-color:var(--gold3); }
+            .pf-sel { padding:10px 12px; background:var(--bg3); border:1px solid var(--border2); border-radius:10px; color:var(--text); font-size:13px; font-family:'Tajawal',sans-serif; outline:none; cursor:pointer; }
+            .pf-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+            .pf-chip { display:inline-flex; align-items:center; gap:6px; padding:7px 13px; border-radius:99px; border:1px solid var(--border2); background:transparent; color:var(--muted); font-size:12.5px; font-weight:700; font-family:'Tajawal',sans-serif; cursor:pointer; transition:all .15s; }
+            .pf-chip:hover { border-color:var(--gold3); color:var(--text); }
+            .pf-chip.on { background:rgba(240,192,64,.14); border-color:var(--gold3); color:var(--gold4); }
+            .pf-chip small { font-size:10.5px; opacity:.75; }
+            .pf-count { font-size:12px; color:var(--muted); margin-bottom:12px; }
+            .pf-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:16px; }
+            .pf-card { background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; transition:transform .2s, border-color .2s, box-shadow .2s; }
+            .pf-card:hover { border-color:var(--gold3); transform:translateY(-3px); box-shadow:0 14px 30px -14px rgba(0,0,0,.6); }
+            .pf-thumb { position:relative; aspect-ratio:16/10; background:linear-gradient(135deg,rgba(212,160,23,.15),rgba(30,122,52,.12)); background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; color:var(--gold3); cursor:pointer; overflow:hidden; }
+            .pf-thumb .pf-file { display:flex; flex-direction:column; align-items:center; gap:6px; font-size:12px; font-weight:800; }
+            .pf-thumb .pf-file i { font-size:34px; }
+            .pf-cat { position:absolute; top:10px; inset-inline-start:10px; padding:4px 10px; border-radius:99px; background:rgba(8,14,20,.78); backdrop-filter:blur(6px); color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; gap:5px; }
+            .pf-cat i { color:var(--gold3); }
+            .pf-zoom { position:absolute; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; color:#fff; font-size:22px; opacity:0; transition:opacity .2s; }
+            .pf-thumb:hover .pf-zoom { opacity:1; }
+            .pf-body { padding:14px; display:flex; flex-direction:column; gap:8px; flex:1; }
+            .pf-body h4 { font-size:14.5px; font-weight:800; margin:0; line-height:1.4; }
+            .pf-body p { font-size:12.5px; color:var(--muted); line-height:1.7; margin:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+            .pf-tags { display:flex; gap:6px; flex-wrap:wrap; }
+            .pf-tag { font-size:10.5px; font-weight:700; padding:2px 9px; border-radius:99px; background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--muted); }
+            .pf-foot { margin-top:auto; padding-top:10px; border-top:1px solid var(--border); display:flex; align-items:center; gap:9px; }
+            .pf-av { width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg,var(--gold3),var(--gold2)); color:#0a0a0e; font-weight:900; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+            .pf-who { flex:1; min-width:0; }
+            .pf-who b { display:block; font-size:12px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .pf-who span { font-size:10.5px; color:var(--muted); }
+            .pf-ic { width:30px; height:30px; border-radius:8px; border:1px solid var(--border2); background:transparent; color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; text-decoration:none; transition:all .15s; }
+            .pf-ic:hover { border-color:var(--gold3); color:var(--gold3); }
+            .pf-ic.del:hover { border-color:#e74c3c; color:#e74c3c; }
+            .pf-empty { grid-column:1/-1; text-align:center; padding:50px 20px; border:1px dashed var(--border2); border-radius:16px; color:var(--muted); }
+            .pf-empty i { font-size:34px; color:var(--gold3); display:block; margin-bottom:12px; }
+            /* upload */
+            .pf-form { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+            @media (max-width:760px) { .pf-form { grid-template-columns:1fr; } }
+            .pf-lbl { display:block; font-size:12px; font-weight:800; color:var(--muted); margin-bottom:7px; }
+            .pf-in { width:100%; padding:10px 14px; background:rgba(0,0,0,.3); border:1px solid var(--border2); border-radius:9px; color:var(--text); font-size:14px; font-family:'Tajawal',sans-serif; outline:none; box-sizing:border-box; }
+            .pf-in:focus { border-color:var(--gold3); }
+            .pf-cnt { font-size:11px; color:var(--muted); text-align:end; margin-top:4px; }
+            .pf-drop { position:relative; border:2px dashed var(--gold3); border-radius:14px; min-height:210px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:18px; cursor:pointer; background:rgba(212,160,23,.03); transition:all .2s; overflow:hidden; }
+            .pf-drop:hover, .pf-drop.over { background:rgba(212,160,23,.1); }
+            .pf-drop > i { font-size:34px; color:var(--gold3); margin-bottom:10px; }
+            .pf-drop p { margin:0; color:var(--muted); font-size:13px; line-height:1.8; }
+            .pf-drop img { max-width:100%; max-height:190px; border-radius:10px; object-fit:contain; }
+            .pf-drop .pf-fname { margin-top:8px; font-size:12px; font-weight:700; color:var(--text); }
+            .pf-rm { position:absolute; top:8px; inset-inline-end:8px; width:28px; height:28px; border-radius:50%; border:none; background:rgba(0,0,0,.65); color:#fff; cursor:pointer; }
+            /* lightbox */
+            .pf-lb { position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,.95); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; }
+            .pf-lb-stage { max-width:100%; max-height:76vh; overflow:auto; display:flex; }
+            .pf-lb-stage img { max-width:100%; max-height:76vh; object-fit:contain; border-radius:10px; box-shadow:0 24px 80px rgba(0,0,0,.8); cursor:zoom-in; transition:transform .25s; margin:auto; }
+            .pf-lb-stage img.z { transform:scale(2.2); cursor:zoom-out; }
+            .pf-lb-btn { position:absolute; width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2); color:#fff; font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; text-decoration:none; }
+            .pf-lb-btn:hover { background:rgba(255,255,255,.22); }
+            .pf-lb-info { margin-top:14px; text-align:center; max-width:640px; color:#fff; }
+            .pf-lb-info h3 { margin:0; font-size:16px; font-weight:800; }
+            .pf-lb-info p { margin:6px 0 0; font-size:12.5px; color:rgba(255,255,255,.65); line-height:1.8; }
+            .pf-lb-info .pf-tags { justify-content:center; margin-top:8px; }
+            `;
+            document.head.appendChild(st);
+        }
+
         async function renderPortfolio(area) {
             const isAR = lang === 'AR';
+            pfInjectStyles();
             const isPro = (window._userData?.plan === 'pro') || (window._isPro ? window._isPro() : false);
             const isAdmin = window._isAdmin ? window._isAdmin() : false;
+            _pf.q = ''; _pf.cat = 'all'; _pf.sort = 'new'; _pf.mine = false; _pf.canPublish = !!(isPro || isAdmin);
+            _pfFormCat = 'thematic'; _pfFormTools = new Set(); portfolioFileData = null;
 
-            if (!isPro && !isAdmin) {
-                // Basic user → view-only mode, can see all published maps but can't publish
-                area.innerHTML = `
-                <div class="page-header">
-                    <h2>${isAR ? 'خرائط الطلبة' : 'Student Maps'}</h2>
-                    <p>${isAR ? 'استعرض مشاريع وخرائط الطلاب المنشورة' : 'Browse published maps and projects by students'}</p>
-                </div>
+            const note = _pf.canPublish ? '' : `
                 <div class="portfolio-viewer-note">
                     <i class="fa-solid fa-eye" style="color:var(--g3);"></i>
-                    ${isAR
-                        ? 'أنت في وضع العرض فقط. ترقّى إلى <strong>Pro</strong> لنشر مشاريعك وخرائطك الخاصة.'
-                        : 'You are in view-only mode. Upgrade to <strong>Pro</strong> to publish your own maps.'}
-                    <button class="pro-gate-btn" style="margin:0 8px;padding:6px 14px;font-size:12px;" onclick="goSettings('plan')">
-                        <i class="fa-solid fa-crown"></i> ${isAR ? 'ترقية' : 'Upgrade'}
+                    ${isAR ? 'أنت في وضع العرض فقط. ترقّى إلى <strong>Pro</strong> لنشر مشاريعك وخرائطك الخاصة.' : 'You are in view-only mode. Upgrade to <strong>Pro</strong> to publish your own maps.'}
+                    <button class="pro-gate-btn" style="margin:0 8px;padding:6px 14px;font-size:12px;" onclick="goSettings('plan')"><i class="fa-solid fa-crown"></i> ${isAR ? 'ترقية' : 'Upgrade'}</button>
+                </div>`;
+            const publishBtn = _pf.canPublish ? `
+                <div class="portfolio-header-actions">
+                    <button onclick="openPortfolioUpload()" style="margin-inline-start:auto;padding:10px 20px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:10px;font-size:13px;font-weight:800;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;gap:7px;">
+                        <i class="fa-solid fa-plus"></i> ${isAR ? 'نشر مشروع جديد' : 'Add New Project'}
                     </button>
+                </div>` : '';
+            const catOpts = PF_CATS.map(c => `<button type="button" class="pf-chip ${c.k === _pfFormCat ? 'on' : ''}" data-k="${c.k}" onclick="pfFormCat('${c.k}')"><i class="fa-solid ${c.ic}"></i> ${isAR ? c.ar : c.en}</button>`).join('');
+            const toolOpts = PF_TOOLS.map(t => `<button type="button" class="pf-chip" data-t="${t}" onclick="pfFormTool(this)">${t}</button>`).join('');
+            const form = _pf.canPublish ? `
+            <div id="portfolioUploadForm" style="display:none;margin-bottom:22px;">
+                <div class="form-card">
+                    <h3 style="margin-bottom:16px;font-size:15px;">${isAR ? 'نشر مشروع جديد' : 'Publish New Project'}</h3>
+                    <div class="pf-form">
+                        <div>
+                            <label class="pf-lbl">${isAR ? 'اسم المشروع' : 'Project Name'}</label>
+                            <input type="text" id="portTitle" maxlength="80" class="pf-in" placeholder="${isAR ? 'مثلاً: خريطة توزيع السكان في القاهرة' : 'e.g. Cairo Population Distribution Map'}">
+                            <label class="pf-lbl" style="margin-top:14px;">${isAR ? 'وصف قصير' : 'Short Description'}</label>
+                            <textarea id="portDesc" rows="3" maxlength="300" class="pf-in" style="resize:vertical;" oninput="document.getElementById('portDescCnt').textContent=this.value.length+'/300'" placeholder="${isAR ? 'اشرح إيه اللي عملته، والبيانات والطريقة...' : 'What did you build — data and method...'}"></textarea>
+                            <div class="pf-cnt" id="portDescCnt">0/300</div>
+                            <label class="pf-lbl" style="margin-top:10px;">${isAR ? 'التصنيف' : 'Category'}</label>
+                            <div class="pf-chips" id="pfFormCats" style="margin-bottom:12px;">${catOpts}</div>
+                            <label class="pf-lbl">${isAR ? 'الأدوات المستخدمة' : 'Tools used'}</label>
+                            <div class="pf-chips" id="pfFormTools" style="margin-bottom:0;">${toolOpts}</div>
+                        </div>
+                        <div>
+                            <label class="pf-lbl">${isAR ? 'صورة الخريطة أو ملف المشروع' : 'Map image or project file'}</label>
+                            <div class="pf-drop" id="portDropZone" onclick="document.getElementById('portFile').click()"
+                                 ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="pfDrop(event)">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <p>${isAR ? 'اسحب الصورة هنا أو اضغط للاختيار<br><small>PNG · JPG · WEBP · PDF · ZIP</small>' : 'Drag the file here or click to choose<br><small>PNG · JPG · WEBP · PDF · ZIP</small>'}</p>
+                                <input type="file" id="portFile" style="display:none;" accept=".png,.jpg,.jpeg,.webp,.pdf,.zip" onchange="handlePortFile(event)">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:18px;">
+                        <button onclick="submitPortfolioItem()" style="flex:1;padding:12px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:10px;font-size:14px;font-weight:800;font-family:'Tajawal',sans-serif;cursor:pointer;">
+                            <i class="fa-solid fa-paper-plane"></i> ${isAR ? 'نشر' : 'Publish'}
+                        </button>
+                        <button onclick="document.getElementById('portfolioUploadForm').style.display='none'" style="padding:12px 20px;background:transparent;border:1px solid var(--border2);border-radius:10px;color:var(--muted);font-size:13px;font-family:'Tajawal',sans-serif;cursor:pointer;">${isAR ? 'إلغاء' : 'Cancel'}</button>
+                    </div>
                 </div>
-                <div class="portfolio-grid" id="portfolioGrid"><div class="spinner" style="margin:30px auto;"></div></div>`;
-                try {
-                    // Load ALL published items (no uid filter) so Basic users see everyone's work
-                    const items = await window._loadPortfolioItems();
-                    _renderPortfolioGrid(items, isAR);
-                } catch(e) { _renderPortfolioGrid([], isAR); }
-                return;
-            }
+            </div>` : '';
 
-            // Pro user
-            const uid = window._userData?.uid || window._currentUid || 'me';
             area.innerHTML = `
             <div class="page-header">
                 <h2>${isAR ? 'خرائط الطلبة' : 'Student Maps'}</h2>
-                <p>${isAR ? 'عرض عام لمشاريعك وخرائطك — زي Behance بس لـ GIS' : 'Your public profile for maps & projects — like Behance for GIS'}</p>
+                <p>${isAR ? 'معرض مشاريع وخرائط طلاب GIS — تصفّح، ابحث، واستلهم' : 'A gallery of GIS student maps — browse, search and get inspired'}</p>
             </div>
-            <div class="portfolio-header-actions">
-                <button onclick="openPortfolioUpload()" style="margin-right:auto;padding:9px 18px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:9px;font-size:13px;font-weight:800;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;">
-                    <i class="fa-solid fa-plus"></i> ${isAR ? 'نشر مشروع جديد' : 'Add New Project'}
-                </button>
+            ${note}${publishBtn}${form}
+            <div class="pf-bar">
+                <div class="pf-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="pfSearch" placeholder="${isAR ? 'ابحث باسم المشروع أو الطالب أو الأداة...' : 'Search by project, student or tool...'}" oninput="pfSearch(this.value)"></div>
+                <select class="pf-sel" onchange="pfSort(this.value)">
+                    <option value="new">${isAR ? 'الأحدث أولاً' : 'Newest first'}</option>
+                    <option value="old">${isAR ? 'الأقدم أولاً' : 'Oldest first'}</option>
+                    <option value="name">${isAR ? 'أبجدياً' : 'A → Z'}</option>
+                </select>
+                ${_pf.canPublish ? `<button type="button" class="pf-chip" id="pfMineBtn" onclick="pfToggleMine()"><i class="fa-solid fa-user"></i> ${isAR ? 'مشاريعي' : 'My projects'}</button>` : ''}
             </div>
-            <div id="portfolioUploadForm" style="display:none;margin-bottom:20px;">
-                <div class="form-card">
-                    <h3 style="margin-bottom:16px;font-size:15px;">${isAR ? 'نشر مشروع جديد' : 'Publish New Project'}</h3>
-                    <div class="form-group" style="margin-bottom:12px;">
-                        <label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px;">${isAR ? 'اسم المشروع' : 'Project Name'}</label>
-                        <input type="text" id="portTitle" placeholder="${isAR ? 'مثلاً: خريطة توزيع السكان في القاهرة' : 'e.g. Cairo Population Distribution Map'}" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:'Tajawal',sans-serif;outline:none;">
-                    </div>
-                    <div class="form-group" style="margin-bottom:12px;">
-                        <label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px;">${isAR ? 'وصف قصير' : 'Short Description'}</label>
-                        <textarea id="portDesc" rows="2" placeholder="${isAR ? 'اشرح إيه اللي عملته...' : 'Describe what you built...'}" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:'Tajawal',sans-serif;outline:none;resize:vertical;"></textarea>
-                    </div>
-                    <div class="portfolio-upload-zone" id="portDropZone" onclick="document.getElementById('portFile').click()">
-                        <i class="fa-solid fa-map"></i>
-                        <p>${isAR ? 'اضغط لرفع صورة الخريطة أو ملف المشروع' : 'Click to upload a map screenshot or project file'}</p>
-                        <input type="file" id="portFile" style="display:none;" accept=".png,.jpg,.jpeg,.pdf,.zip" onchange="handlePortFile(event)">
-                    </div>
-                    <div style="display:flex;gap:10px;">
-                        <button onclick="submitPortfolioItem()" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:9px;font-size:14px;font-weight:800;font-family:'Tajawal',sans-serif;cursor:pointer;">
-                            <i class="fa-solid fa-paper-plane"></i> ${isAR ? 'نشر' : 'Publish'}
-                        </button>
-                        <button onclick="document.getElementById('portfolioUploadForm').style.display='none'" style="padding:11px 18px;background:transparent;border:1px solid var(--border2);border-radius:9px;color:var(--muted);font-size:13px;font-family:'Tajawal',sans-serif;cursor:pointer;">
-                            ${isAR ? 'إلغاء' : 'Cancel'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="portfolio-grid" id="portfolioGrid"><div class="spinner" style="margin:30px auto;"></div></div>`;
+            <div class="pf-chips" id="pfCats"></div>
+            <div class="pf-count" id="pfCount"></div>
+            <div class="pf-grid" id="portfolioGrid"><div class="spinner" style="margin:30px auto;grid-column:1/-1;"></div></div>`;
+            try { _portfolioItemsCache = await window._loadPortfolioItems(); }
+            catch (e) { console.error('portfolio load error:', e); _portfolioItemsCache = []; }
+            pfRefresh();
+        }
 
-            try {
-                // Load ALL published items so Pro users see everyone's work + their own
-                const items = await window._loadPortfolioItems();
-                _renderPortfolioGrid(items, isAR);
-            } catch(e) { _renderPortfolioGrid([], isAR); }
+        function pfMyUid() { return window._userData?.uid || window._currentUid || null; }
+        function pfFiltered() {
+            const q = _pf.q.trim().toLowerCase();
+            let list = _portfolioItemsCache.filter(it => {
+                if (_pf.cat !== 'all' && pfCatOf(it).k !== _pf.cat) return false;
+                if (_pf.mine && it.uid !== pfMyUid()) return false;
+                if (q) {
+                    const hay = [it.title, it.desc, it.authorName, ...(Array.isArray(it.tools) ? it.tools : [])].join(' ').toLowerCase();
+                    if (!hay.includes(q)) return false;
+                }
+                return true;
+            });
+            const t = it => (it.createdAt && it.createdAt.toMillis ? it.createdAt.toMillis() : 0);
+            if (_pf.sort === 'old') list.sort((a, b) => t(a) - t(b));
+            else if (_pf.sort === 'name') list.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), lang === 'AR' ? 'ar' : 'en'));
+            else list.sort((a, b) => t(b) - t(a));
+            return list;
+        }
+
+        function pfRefresh() {
+            const isAR = lang === 'AR';
+            const chips = document.getElementById('pfCats');
+            if (chips) {
+                const cnt = k => _portfolioItemsCache.filter(it => pfCatOf(it).k === k).length;
+                chips.innerHTML = `<button class="pf-chip ${_pf.cat === 'all' ? 'on' : ''}" onclick="pfSetCat('all')"><i class="fa-solid fa-border-all"></i> ${isAR ? 'الكل' : 'All'} <small>${_portfolioItemsCache.length}</small></button>`
+                    + PF_CATS.filter(c => cnt(c.k) > 0 || _pf.cat === c.k).map(c => `<button class="pf-chip ${_pf.cat === c.k ? 'on' : ''}" onclick="pfSetCat('${c.k}')"><i class="fa-solid ${c.ic}"></i> ${isAR ? c.ar : c.en} <small>${cnt(c.k)}</small></button>`).join('');
+            }
+            const mb = document.getElementById('pfMineBtn'); if (mb) mb.classList.toggle('on', _pf.mine);
+            pfRenderGrid();
+        }
+        window.pfSetCat = (k) => { _pf.cat = k; pfRefresh(); };
+        window.pfSearch = (v) => { _pf.q = v || ''; pfRenderGrid(); };
+        window.pfSort = (v) => { _pf.sort = v; pfRenderGrid(); };
+        window.pfToggleMine = () => { _pf.mine = !_pf.mine; pfRefresh(); };
+
+        function pfRenderGrid() {
+            const isAR = lang === 'AR';
+            const grid = document.getElementById('portfolioGrid');
+            if (!grid) return;
+            const list = pfFiltered();
+            const c = document.getElementById('pfCount');
+            if (c) c.textContent = isAR ? `${list.length} مشروع` : `${list.length} project${list.length === 1 ? '' : 's'}`;
+            if (!list.length) {
+                grid.innerHTML = `<div class="pf-empty"><i class="fa-solid fa-map"></i>${_portfolioItemsCache.length
+                    ? (isAR ? 'مفيش مشاريع بتطابق البحث ده' : 'No projects match your filters')
+                    : (isAR ? 'لا توجد مشاريع منشورة بعد — كن أول من ينشر!' : 'No projects published yet — be the first!')}</div>`;
+                return;
+            }
+            grid.innerHTML = list.map(it => _portfolioItemCard(it, isAR)).join('');
         }
 
         function _portfolioItemCard(it, isAR) {
-            const isImg = it.fileData && /^data:image\/|\.(?:jpe?g|png|webp|gif)(?:\?|$)/i.test(it.fileData);
+            const isImg = pfIsImg(it);
+            const cat = pfCatOf(it);
+            const ext = (it.fileName || '').split('.').pop().toUpperCase();
             const thumb = isImg
-                ? `<div class="portfolio-item-thumb" style="background-image:url('${atlUrl(it.fileData)}');background-size:cover;background-position:center;cursor:pointer;" onclick="openPortfolioLightbox('${it.id}')"></div>`
-                : `<div class="portfolio-item-thumb">${it.icon || '🗺️'}</div>`;
-            const fileLink = (!isImg && it.fileData)
-                ? `<a href="${atlUrl(it.fileData)}" download="${atlEsc(it.fileName||'project')}" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:var(--gold3);text-decoration:none;"><i class="fa-solid fa-download"></i> ${isAR?'تحميل الملف':'Download file'}</a>`
-                : '';
+                ? `<div class="pf-thumb" style="background-image:url('${atlUrl(it.fileData)}');" onclick="openPortfolioLightbox('${it.id}')"><span class="pf-cat"><i class="fa-solid ${cat.ic}"></i> ${isAR ? cat.ar : cat.en}</span><span class="pf-zoom"><i class="fa-solid fa-expand"></i></span></div>`
+                : `<div class="pf-thumb" ${it.fileData ? `onclick="window.open('${atlUrl(it.fileData)}','_blank')"` : ''}><span class="pf-cat"><i class="fa-solid ${cat.ic}"></i> ${isAR ? cat.ar : cat.en}</span><div class="pf-file"><i class="fa-solid ${ext === 'ZIP' ? 'fa-file-zipper' : 'fa-file-pdf'}"></i>${atlEsc(ext || 'FILE')}</div></div>`;
+            const tools = (Array.isArray(it.tools) ? it.tools : []).map(t => `<span class="pf-tag">${atlEsc(t)}</span>`).join('');
+            const date = it.createdAt && it.createdAt.toDate ? it.createdAt.toDate().toLocaleDateString(isAR ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+            const mine = it.uid && it.uid === pfMyUid();
+            const name = it.authorName || '—';
             return `
-            <div class="portfolio-item">
+            <div class="pf-card">
                 ${thumb}
-                <div class="portfolio-item-body">
+                <div class="pf-body">
                     <h4>${atlEsc(it.title || '')}</h4>
-                    <p>${atlEsc(it.desc || '')}</p>
-                    <p style="margin-top:6px;font-size:11px;font-weight:700;color:var(--gold3);">${atlEsc(it.authorName || '')}</p>
-                    ${isImg ? `<button onclick="openPortfolioLightbox('${it.id}')" style="margin-top:8px;padding:5px 12px;background:rgba(var(--brand-rgb,30,122,52),0.12);border:1px solid rgba(var(--brand-rgb,30,122,52),0.3);border-radius:7px;color:var(--green4);font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><i class="fa-solid fa-expand"></i> ${isAR?'عرض كاملاً':'Full Screen'}</button>` : ''}
-                    ${fileLink}
+                    ${it.desc ? `<p>${atlEsc(it.desc)}</p>` : ''}
+                    ${tools ? `<div class="pf-tags">${tools}</div>` : ''}
+                    <div class="pf-foot">
+                        <div class="pf-av">${atlEsc(name.trim().charAt(0).toUpperCase())}</div>
+                        <div class="pf-who"><b>${atlEsc(name)}</b><span>${date}</span></div>
+                        ${it.fileData ? `<a class="pf-ic" href="${atlUrl(it.fileData)}" download="${atlEsc(it.fileName || 'project')}" title="${isAR ? 'تحميل' : 'Download'}"><i class="fa-solid fa-download"></i></a>` : ''}
+                        ${mine ? `<button class="pf-ic del" onclick="deleteMyPortfolioItem('${it.id}')" title="${isAR ? 'حذف' : 'Delete'}"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </div>
                 </div>
             </div>`;
         }
 
-        // Store portfolio items for lightbox access
-        let _portfolioItemsCache = [];
-
-        function _renderPortfolioGrid(items, isAR) {
-            _portfolioItemsCache = items;
-            const grid = document.getElementById('portfolioGrid');
-            if (!grid) return;
-            if (!items.length) {
-                grid.innerHTML = `<div class="no-projects"><i class="fa-solid fa-map"></i><p>${isAR ? 'لا توجد مشاريع منشورة بعد — كن أول من ينشر!' : 'No projects published yet!'}</p></div>`;
-                return;
-            }
-            grid.innerHTML = items.map(it => _portfolioItemCard(it, isAR)).join('');
-        }
-
-        window.openPortfolioLightbox = function(itemId) {
-            const it = _portfolioItemsCache.find(x => x.id === itemId);
-            if (!it || !it.fileData) return;
+        window.deleteMyPortfolioItem = async function (id) {
             const isAR = lang === 'AR';
-            // Remove existing lightbox
-            const existing = document.getElementById('portfolioLightbox');
-            if (existing) existing.remove();
-
-            const lb = document.createElement('div');
-            lb.id = 'portfolioLightbox';
-            lb.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;';
-            lb.onclick = function(e) { if(e.target === lb) lb.remove(); };
-            lb.innerHTML = `
-                <div style="position:absolute;top:16px;right:16px;display:flex;gap:10px;z-index:1;">
-                    <a href="${atlUrl(it.fileData)}" download="${atlEsc(it.title||'map')}" style="width:40px;height:40px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:50%;color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;" title="${isAR?'تحميل':'Download'}"><i class="fa-solid fa-download"></i></a>
-                    <button onclick="document.getElementById('portfolioLightbox').remove()" style="width:40px;height:40px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:50%;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <img src="${atlUrl(it.fileData)}" alt="${atlEsc(it.title||'')}" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,0.8);">
-                <div style="margin-top:14px;text-align:center;">
-                    <div style="font-size:15px;font-weight:700;color:#fff;">${atlEsc(it.title||'')}</div>
-                    ${it.authorName ? `<div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px;">${atlEsc(it.authorName)}</div>` : ''}
-                </div>`;
-            document.body.appendChild(lb);
+            if (!confirm(isAR ? 'حذف المشروع ده نهائياً؟' : 'Delete this project permanently?')) return;
+            try {
+                await window._deletePortfolioItem(id);
+                _portfolioItemsCache = _portfolioItemsCache.filter(x => x.id !== id);
+                showToast(isAR ? '🗑️ تم حذف المشروع' : '🗑️ Project deleted');
+                pfRefresh();
+            } catch (e) { showToast(isAR ? 'ماقدرناش نحذف المشروع' : 'Could not delete the project', true); }
         };
 
-        let portfolioFileData = null;
+        /* ── Lightbox: تنقّل بين الخرائط بالأسهم/الكيبورد، وضغطة على الصورة بتكبّرها ── */
+        window.openPortfolioLightbox = function (itemId) {
+            const isAR = lang === 'AR';
+            const vis = pfFiltered().filter(pfIsImg);
+            let list = vis.some(x => x.id === itemId) ? vis : _portfolioItemsCache.filter(pfIsImg);
+            const i = list.findIndex(x => x.id === itemId);
+            if (i < 0) return;
+            _pfLb = { list, i };
+            document.getElementById('portfolioLightbox')?.remove();
+            const lb = document.createElement('div');
+            lb.id = 'portfolioLightbox'; lb.className = 'pf-lb';
+            lb.onclick = e => { if (e.target === lb || e.target.classList.contains('pf-lb-stage')) pfLbClose(); };
+            document.body.appendChild(lb);
+            document.addEventListener('keydown', pfLbKey);
+            pfLbDraw();
+        };
+        function pfLbDraw() {
+            const isAR = lang === 'AR';
+            const lb = document.getElementById('portfolioLightbox'); if (!lb) return;
+            const it = _pfLb.list[_pfLb.i]; const many = _pfLb.list.length > 1;
+            const tools = (Array.isArray(it.tools) ? it.tools : []).map(t => `<span class="pf-tag" style="color:#fff;">${atlEsc(t)}</span>`).join('');
+            const cat = pfCatOf(it);
+            lb.innerHTML = `
+                <a class="pf-lb-btn" style="top:16px;inset-inline-end:68px;" href="${atlUrl(it.fileData)}" download="${atlEsc(it.fileName || it.title || 'map')}" title="${isAR ? 'تحميل' : 'Download'}"><i class="fa-solid fa-download"></i></a>
+                <button class="pf-lb-btn" style="top:16px;inset-inline-end:16px;" onclick="pfLbClose()"><i class="fa-solid fa-xmark"></i></button>
+                ${many ? `<button class="pf-lb-btn" style="top:50%;left:16px;transform:translateY(-50%);" onclick="pfLbGo(${isAR ? 1 : -1})"><i class="fa-solid fa-chevron-left"></i></button>
+                <button class="pf-lb-btn" style="top:50%;right:16px;transform:translateY(-50%);" onclick="pfLbGo(${isAR ? -1 : 1})"><i class="fa-solid fa-chevron-right"></i></button>` : ''}
+                <div class="pf-lb-stage"><img id="pfLbImg" src="${atlUrl(it.fileData)}" alt="${atlEsc(it.title || '')}" onclick="pfLbZoom(event)"></div>
+                <div class="pf-lb-info">
+                    <h3>${atlEsc(it.title || '')}</h3>
+                    <p>${atlEsc(it.authorName || '')} · ${isAR ? cat.ar : cat.en}${many ? ` · ${_pfLb.i + 1}/${_pfLb.list.length}` : ''}</p>
+                    ${it.desc ? `<p>${atlEsc(it.desc)}</p>` : ''}
+                    ${tools ? `<div class="pf-tags">${tools}</div>` : ''}
+                </div>`;
+        }
+        window.pfLbGo = (d) => { const n = _pfLb.list.length; _pfLb.i = (_pfLb.i + d + n) % n; pfLbDraw(); };
+        window.pfLbZoom = (e) => {
+            const img = e.target; const r = img.getBoundingClientRect();
+            if (!img.classList.contains('z')) img.style.transformOrigin = `${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`;
+            img.classList.toggle('z');
+        };
+        window.pfLbClose = () => { document.getElementById('portfolioLightbox')?.remove(); document.removeEventListener('keydown', pfLbKey); };
+        function pfLbKey(e) {
+            if (!document.getElementById('portfolioLightbox')) { document.removeEventListener('keydown', pfLbKey); return; }
+            const rtl = lang === 'AR';
+            if (e.key === 'Escape') pfLbClose();
+            else if (e.key === 'ArrowLeft') pfLbGo(rtl ? 1 : -1);
+            else if (e.key === 'ArrowRight') pfLbGo(rtl ? -1 : 1);
+        }
+
+        /* ── Upload ── */
         const PORT_FILE_BUDGET_BYTES = 2000000; // الصور بتتضغط لحد ~1.5MB والملف بيترفع لـ Storage
         const PORT_NONIMAGE_MAX_BYTES = 5000000; // PDF/ZIP بيترفع زي ما هو — حد 5MB
+        window.pfFormCat = (k) => { _pfFormCat = k; document.querySelectorAll('#pfFormCats .pf-chip').forEach(b => b.classList.toggle('on', b.dataset.k === k)); };
+        window.pfFormTool = (btn) => {
+            const t = btn.dataset.t;
+            if (_pfFormTools.has(t)) _pfFormTools.delete(t); else _pfFormTools.add(t);
+            btn.classList.toggle('on', _pfFormTools.has(t));
+        };
+        window.pfDrop = (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            ev.currentTarget.classList.remove('over');
+            if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length) handlePortFile({ target: { files: ev.dataTransfer.files, value: '' } });
+        };
+        function pfDropReset() {
+            const isAR = lang === 'AR';
+            const zone = document.getElementById('portDropZone'); if (!zone) return;
+            zone.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i>
+                <p>${isAR ? 'اسحب الصورة هنا أو اضغط للاختيار<br><small>PNG · JPG · WEBP · PDF · ZIP</small>' : 'Drag the file here or click to choose<br><small>PNG · JPG · WEBP · PDF · ZIP</small>'}</p>
+                <input type="file" id="portFile" style="display:none;" accept=".png,.jpg,.jpeg,.webp,.pdf,.zip" onchange="handlePortFile(event)">`;
+        }
+        window.pfClearFile = (ev) => { if (ev) ev.stopPropagation(); portfolioFileData = null; pfDropReset(); };
         async function handlePortFile(e) {
             const isAR = lang === 'AR';
             const file = e.target.files[0];
             if (!file) return;
             const zone = document.getElementById('portDropZone');
-            const setZoneTxt = (t) => { if (zone) { const p = zone.querySelector('p'); if (p) p.textContent = t; } };
+            const busy = (t) => { if (zone) { const p = zone.querySelector('p'); if (p) p.textContent = t; } };
+            const okType = /^image\/(png|jpe?g|webp|gif)$/.test(file.type) || /\.(pdf|zip)$/i.test(file.name);
+            if (!okType) { showToast(isAR ? '⚠️ نوع الملف مش مدعوم (PNG / JPG / WEBP / PDF / ZIP)' : '⚠️ Unsupported file type', true); return; }
             try {
                 let dataUrl;
                 if (/^image\//.test(file.type)) {
-                    // Reuses the same budget-aware compressor as the CV certificates uploader:
-                    // resizes + re-encodes as JPEG until it fits comfortably under Firestore's doc limit.
-                    setZoneTxt(isAR ? 'جاري ضغط الصورة...' : 'Compressing image...');
+                    busy(isAR ? 'جاري ضغط الصورة...' : 'Compressing image...');
                     dataUrl = await _cvCompressToBudget(file, PORT_FILE_BUDGET_BYTES);
                 } else {
                     if (file.size > PORT_NONIMAGE_MAX_BYTES) {
                         showToast(isAR
                             ? `⚠️ الملف كبير جداً (الحد الأقصى ~${Math.floor(PORT_NONIMAGE_MAX_BYTES / 1000000)}MB لملفات PDF/ZIP)`
                             : `⚠️ File too large (max ~${Math.floor(PORT_NONIMAGE_MAX_BYTES / 1000000)}MB for PDF/ZIP)`, true);
-                        e.target.value = '';
+                        pfDropReset();
                         return;
                     }
                     dataUrl = await new Promise((resolve, reject) => {
@@ -12986,59 +13182,62 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     });
                 }
                 portfolioFileData = { name: file.name, data: dataUrl };
-                setZoneTxt(`✓ ${atlEsc(file.name)}`);
+                const size = file.size > 1048576 ? (file.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(file.size / 1024)) + ' KB';
+                if (zone) {
+                    zone.innerHTML = `<button type="button" class="pf-rm" onclick="pfClearFile(event)" title="${isAR ? 'إزالة' : 'Remove'}"><i class="fa-solid fa-xmark"></i></button>
+                        ${/^data:image\//.test(dataUrl) ? `<img src="${dataUrl}" alt="">` : `<i class="fa-solid ${/\.zip$/i.test(file.name) ? 'fa-file-zipper' : 'fa-file-pdf'}"></i>`}
+                        <div class="pf-fname">✓ ${atlEsc(file.name)} · ${size}</div>
+                        <input type="file" id="portFile" style="display:none;" accept=".png,.jpg,.jpeg,.webp,.pdf,.zip" onchange="handlePortFile(event)">`;
+                }
             } catch (err) {
                 console.error('portfolio file compress error:', err);
                 showToast(isAR ? '⚠️ فشل تجهيز الملف، حاول مرة أخرى' : '⚠️ Failed to process the file, try again', true);
-                setZoneTxt(isAR ? 'اضغط لرفع صورة الخريطة أو ملف المشروع' : 'Click to upload a map screenshot or project file');
-                e.target.value = '';
+                pfDropReset();
             }
         }
 
-        window.openPortfolioUpload = function() {
+        window.openPortfolioUpload = function () {
             const f = document.getElementById('portfolioUploadForm');
             if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
         };
-        window.copyPortfolioLink = function(uid) {
-            try { navigator.clipboard.writeText('https://atlasya.app/p/' + uid); } catch(e) {}
-            if (typeof showToast === 'function') showToast(lang==='AR' ? '✅ تم نسخ الرابط' : '✅ Link copied');
+        window.copyPortfolioLink = function (uid) {
+            try { navigator.clipboard.writeText('https://atlasya.app/p/' + uid); } catch (e) {}
+            if (typeof showToast === 'function') showToast(lang === 'AR' ? '✅ تم نسخ الرابط' : '✅ Link copied');
         };
-        window.submitPortfolioItem = async function() {
+        window.submitPortfolioItem = async function () {
             const isAR = lang === 'AR';
             const title = document.getElementById('portTitle')?.value?.trim();
-            const desc  = document.getElementById('portDesc')?.value?.trim();
-            if (!title) { if (typeof showToast === 'function') showToast(isAR ? '⚠️ اكتب اسم المشروع' : '⚠️ Enter a project title'); return; }
+            const desc = document.getElementById('portDesc')?.value?.trim();
+            if (!title) { showToast(isAR ? '⚠️ اكتب اسم المشروع' : '⚠️ Enter a project title'); return; }
+            if (!portfolioFileData) { showToast(isAR ? '⚠️ ارفع صورة الخريطة أو ملف المشروع' : '⚠️ Upload a map image or project file'); return; }
+            const category = _pfFormCat, tools = [..._pfFormTools];
             const FIRESTORE_SAFE_DOC_BYTES = 950000;
-            const payloadCheck = { title, desc, fileName: portfolioFileData?.name || '' }; // الملف نفسه بيترفع لـ Storage
-            const fullPayloadBytes = new Blob([JSON.stringify(payloadCheck)]).size;
-            if (fullPayloadBytes > FIRESTORE_SAFE_DOC_BYTES) {
-                if (typeof showToast === 'function') showToast(isAR ? '⚠️ حجم الملف كبير جداً حتى بعد الضغط، جرب صورة تانية' : '⚠️ File is too large even after compression, try a different image', true);
+            const payloadCheck = { title, desc, category, tools, fileName: portfolioFileData.name }; // الملف نفسه بيترفع لـ Storage
+            if (new Blob([JSON.stringify(payloadCheck)]).size > FIRESTORE_SAFE_DOC_BYTES) {
+                showToast(isAR ? '⚠️ حجم البيانات كبير جداً' : '⚠️ Data is too large', true);
                 return;
             }
             const btn = document.querySelector('#portfolioUploadForm button[onclick="submitPortfolioItem()"]');
             if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
             try {
-                await window._submitPortfolioItem({
-                    title, desc,
-                    fileName: portfolioFileData?.name || '',
-                    fileData: portfolioFileData?.data || ''
-                });
-                if (typeof showToast === 'function') showToast(isAR ? '🎉 تم نشر مشروعك!' : '🎉 Project published!');
+                await window._submitPortfolioItem({ title, desc, category, tools, fileName: portfolioFileData.name, fileData: portfolioFileData.data });
+                showToast(isAR ? '🎉 تم نشر مشروعك!' : '🎉 Project published!');
                 document.getElementById('portfolioUploadForm').style.display = 'none';
                 document.getElementById('portTitle').value = '';
-                document.getElementById('portDesc').value = '';
-                portfolioFileData = null;
-                const zone = document.getElementById('portDropZone');
-                if (zone) { const p = zone.querySelector('p'); if (p) p.textContent = isAR ? 'اضغط لرفع صورة الخريطة أو ملف المشروع' : 'Click to upload a map screenshot or project file'; }
-                const uid = window._userData?.uid || window._currentUid || 'me';
-                const items = await window._loadPortfolioItems(uid);
-                _renderPortfolioGrid(items, isAR);
-            } catch(e) {
-                if (typeof showToast === 'function') showToast(e.message || (isAR ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, try again'));
+                const dEl = document.getElementById('portDesc'); dEl.value = ''; document.getElementById('portDescCnt').textContent = '0/300';
+                portfolioFileData = null; pfDropReset();
+                _pfFormTools = new Set(); document.querySelectorAll('#pfFormTools .pf-chip').forEach(b => b.classList.remove('on'));
+                pfFormCat('thematic');
+                _portfolioItemsCache = await window._loadPortfolioItems();   // كل المشاريع (مش مشاريعي بس)
+                _pf.cat = 'all'; _pf.q = ''; _pf.mine = false; const se = document.getElementById('pfSearch'); if (se) se.value = '';
+                pfRefresh();
+            } catch (e) {
+                showToast(e.message || (isAR ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, try again'));
             } finally {
-                if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> ${lang==='AR' ? 'نشر' : 'Publish'}`; }
+                if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> ${lang === 'AR' ? 'نشر' : 'Publish'}`; }
             }
         };
+
 
         /* ─── MONTHLY REPORT ─── */
         async function renderMonthlyReport(area) {
@@ -14994,6 +15193,7 @@ window.openConsultationModal = function () { csTab('book'); };
             list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
             try {
                 const items = await window._loadPortfolioItems();
+                _portfolioItemsCache = items;   // عشان عارض الصور يلاقي العناصر من صفحة الإدارة
                 if (badge) badge.textContent = items.length;
                 if (!items.length) {
                     list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;"><i class="fa-solid fa-map" style="display:block;font-size:24px;opacity:0.3;margin-bottom:8px;"></i>${isAR?'لا توجد خرائط منشورة بعد':'No published maps yet'}</div>`;
