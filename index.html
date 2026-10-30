@@ -5015,6 +5015,32 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             await deleteDoc(doc(db, 'portfolio_items', itemId));
         };
 
+        /* ─── PORTFOLIO: لايكات وكومنتات (portfolio_likes / portfolio_comments — شوف portfolio-social.sql) ─── */
+        window._loadPortfolioSocial = async () => {
+            const [ls, cs] = await Promise.all([
+                getDocs(collection(db, 'portfolio_likes')),
+                getDocs(query(collection(db, 'portfolio_comments'), orderBy('createdAt', 'asc')))
+            ]);
+            const likes = {}, comments = {};
+            ls.docs.forEach(d => { const x = d.data(); if (x.itemId) (likes[x.itemId] = likes[x.itemId] || []).push(x.userId); });
+            cs.docs.forEach(d => { const x = d.data(); if (x.itemId) (comments[x.itemId] = comments[x.itemId] || []).push({ id: d.id, uid: x.uid, authorName: x.authorName, text: x.text, createdAt: x.createdAt }); });
+            return { likes, comments };
+        };
+        window._togglePortfolioLike = async (itemId, like) => {
+            if (!currentUid) throw new Error('غير مسجل الدخول');
+            const ref = doc(db, 'portfolio_likes', itemId + '_' + currentUid);
+            if (like) await setDoc(ref, { itemId, userId: currentUid, createdAt: serverTimestamp() });
+            else await deleteDoc(ref);
+        };
+        window._addPortfolioComment = async (itemId, text) => {
+            if (!currentUid) throw new Error('غير مسجل الدخول');
+            const authorName = ((window._userData?.firstName || '') + ' ' + (window._userData?.lastName || '')).trim() || 'User';
+            const clean = String(text).trim().slice(0, 500);
+            const ref = await addDoc(collection(db, 'portfolio_comments'), { itemId, uid: currentUid, authorName, text: clean, createdAt: serverTimestamp() });
+            return { id: ref.id, uid: currentUid, authorName, text: clean, createdAt: { toDate: () => new Date(), toMillis: () => Date.now() } };
+        };
+        window._deletePortfolioComment = async (id) => { await deleteDoc(doc(db, 'portfolio_comments', id)); };
+
         /* ─── DIGITAL LIBRARY (ATLASYA) — student-facing ─── */
         window._loadLibraryBooks = async () => {
             const snap = await getDocs(collection(db, 'library_books'));
@@ -12840,6 +12866,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         let _pfFormCat = 'thematic';
         let _pfFormTools = new Set();
         let _pfLb = { list: [], i: 0, key: null };
+        const _pfSoc = { ok: false, likes: {}, comments: {} };   // ok=false لو جداول اللايك/الكومنت لسه متعملتش
 
         function pfInjectStyles() {
             if (document.getElementById('pfStyles')) return;
@@ -12897,9 +12924,9 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             .pf-drop .pf-fname { margin-top:8px; font-size:12px; font-weight:700; color:var(--text); }
             .pf-rm { position:absolute; top:8px; inset-inline-end:8px; width:28px; height:28px; border-radius:50%; border:none; background:rgba(0,0,0,.65); color:#fff; cursor:pointer; }
             /* lightbox */
-            .pf-lb { position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,.95); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; }
-            .pf-lb-stage { max-width:100%; max-height:76vh; overflow:auto; display:flex; }
-            .pf-lb-stage img { max-width:100%; max-height:76vh; object-fit:contain; border-radius:10px; box-shadow:0 24px 80px rgba(0,0,0,.8); cursor:zoom-in; transition:transform .25s; margin:auto; }
+            .pf-lb { position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,.95); display:flex; flex-direction:column; align-items:center; padding:70px 16px 24px; overflow-y:auto; }
+            .pf-lb-stage { max-width:100%; max-height:58vh; overflow:auto; display:flex; flex-shrink:0; }
+            .pf-lb-stage img { max-width:100%; max-height:58vh; object-fit:contain; border-radius:10px; box-shadow:0 24px 80px rgba(0,0,0,.8); cursor:zoom-in; transition:transform .25s; margin:auto; }
             .pf-lb-stage img.z { transform:scale(2.2); cursor:zoom-out; }
             .pf-lb-btn { position:absolute; width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2); color:#fff; font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; text-decoration:none; }
             .pf-lb-btn:hover { background:rgba(255,255,255,.22); }
@@ -12907,6 +12934,29 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             .pf-lb-info h3 { margin:0; font-size:16px; font-weight:800; }
             .pf-lb-info p { margin:6px 0 0; font-size:12.5px; color:rgba(255,255,255,.65); line-height:1.8; }
             .pf-lb-info .pf-tags { justify-content:center; margin-top:8px; }
+            .pf-lb-file { display:flex; flex-direction:column; align-items:center; gap:10px; padding:40px 60px; color:var(--gold3); font-weight:800; }
+            .pf-lb-file i { font-size:56px; }
+            .pf-acts { display:flex; gap:8px; }
+            .pf-act { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:99px; border:1px solid var(--border2); background:transparent; color:var(--muted); font-size:12px; font-weight:800; font-family:'Tajawal',sans-serif; cursor:pointer; transition:all .15s; }
+            .pf-act:hover { border-color:var(--gold3); color:var(--text); }
+            .pf-act.on { color:#ff6b81; border-color:rgba(255,107,129,.5); background:rgba(255,107,129,.1); }
+            .pf-soc { width:100%; max-width:640px; margin-top:16px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:14px; color:#fff; flex-shrink:0; }
+            .pf-soc .pf-act { color:#d4dde6; border-color:rgba(255,255,255,.25); }
+            .pf-soc .pf-act.on { color:#ff6b81; }
+            .pf-cm-title { font-size:13px; font-weight:800; margin:14px 0 8px; }
+            .pf-cm-list { display:flex; flex-direction:column; gap:10px; max-height:240px; overflow-y:auto; margin-bottom:12px; }
+            .pf-cm { display:flex; gap:10px; }
+            .pf-cm-b { flex:1; min-width:0; background:rgba(255,255,255,.06); border-radius:12px; padding:8px 12px; }
+            .pf-cm-b b { font-size:12px; font-weight:800; }
+            .pf-cm-b small { font-size:10.5px; color:rgba(255,255,255,.5); margin-inline-start:8px; }
+            .pf-cm-b p { margin:3px 0 0; font-size:13px; line-height:1.7; white-space:pre-wrap; word-break:break-word; color:#e8eef4; }
+            .pf-cm-del { float:inline-end; background:none; border:none; color:rgba(255,255,255,.45); cursor:pointer; font-size:12px; }
+            .pf-cm-del:hover { color:#ff6b6b; }
+            .pf-cm-form { display:flex; gap:8px; }
+            .pf-cm-form input { flex:1; padding:10px 14px; border-radius:99px; border:1px solid rgba(255,255,255,.2); background:rgba(0,0,0,.35); color:#fff; font-size:13.5px; font-family:'Tajawal',sans-serif; outline:none; }
+            .pf-cm-form input:focus { border-color:var(--gold3); }
+            .pf-cm-form button { padding:0 18px; border:none; border-radius:99px; background:linear-gradient(135deg,var(--gold3),var(--gold2)); color:#0a0a0e; font-weight:800; font-family:'Tajawal',sans-serif; cursor:pointer; }
+            .pf-cm-empty { font-size:12.5px; color:rgba(255,255,255,.5); text-align:center; padding:8px; }
             `;
             document.head.appendChild(st);
         }
@@ -12988,7 +13038,88 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             <div class="pf-grid" id="portfolioGrid"><div class="spinner" style="margin:30px auto;grid-column:1/-1;"></div></div>`;
             try { _portfolioItemsCache = await window._loadPortfolioItems(); }
             catch (e) { console.error('portfolio load error:', e); _portfolioItemsCache = []; }
+            await pfLoadSocial();
             pfRefresh();
+        }
+
+        async function pfLoadSocial() {
+            try {
+                const s = await window._loadPortfolioSocial();
+                _pfSoc.ok = true; _pfSoc.likes = s.likes; _pfSoc.comments = s.comments;
+            } catch (e) { _pfSoc.ok = false; console.warn('portfolio social unavailable (run portfolio-social.sql):', e && e.message); }
+        }
+        const pfLiked = (id) => { const u = pfMyUid(); return !!u && (_pfSoc.likes[id] || []).includes(u); };
+        function pfActsHTML(id) {
+            if (!_pfSoc.ok) return '';
+            const liked = pfLiked(id);
+            return `<div class="pf-acts">
+                <button class="pf-act ${liked ? 'on' : ''}" onclick="pfLike('${id}')"><i class="fa-${liked ? 'solid' : 'regular'} fa-heart"></i> <span>${(_pfSoc.likes[id] || []).length}</span></button>
+                <button class="pf-act" onclick="openPortfolioLightbox('${id}');setTimeout(()=>document.getElementById('pfCmInput')&&document.getElementById('pfCmInput').focus(),60)"><i class="fa-regular fa-comment"></i> <span>${(_pfSoc.comments[id] || []).length}</span></button>
+            </div>`;
+        }
+        window.pfLike = async function (id) {
+            const isAR = lang === 'AR';
+            const uid = pfMyUid();
+            if (!uid) { showToast(isAR ? 'سجّل دخولك الأول' : 'Please sign in first', true); return; }
+            const arr = _pfSoc.likes[id] || (_pfSoc.likes[id] = []);
+            const had = arr.includes(uid);
+            if (had) arr.splice(arr.indexOf(uid), 1); else arr.push(uid);
+            pfRenderGrid(); pfLbRenderSoc();
+            try { await window._togglePortfolioLike(id, !had); }
+            catch (e) {
+                if (had) arr.push(uid); else arr.splice(arr.indexOf(uid), 1);
+                pfRenderGrid(); pfLbRenderSoc();
+                showToast(isAR ? 'ماقدرناش نسجّل الإعجاب' : 'Could not save your like', true);
+            }
+        };
+        window.pfAddComment = async function () {
+            const isAR = lang === 'AR';
+            const inp = document.getElementById('pfCmInput'); if (!inp) return;
+            const text = (inp.value || '').trim(); if (!text) return;
+            if (!pfMyUid()) { showToast(isAR ? 'سجّل دخولك الأول' : 'Please sign in first', true); return; }
+            const it = _pfLb.list[_pfLb.i]; if (!it) return;
+            const btn = document.getElementById('pfCmBtn'); if (btn) btn.disabled = true;
+            try {
+                const c = await window._addPortfolioComment(it.id, text);
+                (_pfSoc.comments[it.id] = _pfSoc.comments[it.id] || []).push(c);
+                inp.value = '';
+                pfLbRenderSoc(); pfRenderGrid();
+                const l = document.getElementById('pfCmList'); if (l) l.scrollTop = l.scrollHeight;
+            } catch (e) { showToast(isAR ? 'ماقدرناش ننشر التعليق' : 'Could not post your comment', true); }
+            finally { if (btn) btn.disabled = false; }
+        };
+        window.pfDelComment = async function (itemId, cid) {
+            const isAR = lang === 'AR';
+            if (!confirm(isAR ? 'حذف التعليق؟' : 'Delete this comment?')) return;
+            try {
+                await window._deletePortfolioComment(cid);
+                _pfSoc.comments[itemId] = (_pfSoc.comments[itemId] || []).filter(c => c.id !== cid);
+                pfLbRenderSoc(); pfRenderGrid();
+            } catch (e) { showToast(isAR ? 'ماقدرناش نحذف التعليق' : 'Could not delete the comment', true); }
+        };
+        function pfLbRenderSoc() {
+            const isAR = lang === 'AR';
+            const box = document.getElementById('pfLbSoc'); if (!box) return;
+            const form = document.getElementById('pfCmForm');
+            const it = _pfLb.list[_pfLb.i];
+            if (!_pfSoc.ok || !it) { box.innerHTML = ''; if (form) form.style.display = 'none'; return; }
+            if (form) form.style.display = 'flex';
+            const id = it.id, me = pfMyUid();
+            const isAdm = typeof window._isAdmin === 'function' && window._isAdmin();
+            const liked = pfLiked(id), n = (_pfSoc.likes[id] || []).length;
+            const cms = _pfSoc.comments[id] || [];
+            const prev = document.getElementById('pfCmList'); const keep = prev ? prev.scrollTop : null;
+            box.innerHTML = `
+                <div class="pf-acts"><button class="pf-act ${liked ? 'on' : ''}" onclick="pfLike('${id}')"><i class="fa-${liked ? 'solid' : 'regular'} fa-heart"></i> ${n} ${isAR ? 'إعجاب' : (n === 1 ? 'like' : 'likes')}</button></div>
+                <div class="pf-cm-title"><i class="fa-regular fa-comments"></i> ${isAR ? 'التعليقات' : 'Comments'} (${cms.length})</div>
+                <div class="pf-cm-list" id="pfCmList">${cms.length ? cms.map(c => {
+                    const nm = c.authorName || '—';
+                    const dt = c.createdAt && c.createdAt.toDate ? c.createdAt.toDate().toLocaleDateString(isAR ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'short' }) : '';
+                    const canDel = (c.uid && c.uid === me) || isAdm;
+                    return `<div class="pf-cm"><div class="pf-av">${atlEsc(nm.trim().charAt(0).toUpperCase())}</div>
+                        <div class="pf-cm-b">${canDel ? `<button class="pf-cm-del" onclick="pfDelComment('${id}','${c.id}')" title="${isAR ? 'حذف' : 'Delete'}"><i class="fa-solid fa-trash"></i></button>` : ''}<b>${atlEsc(nm)}</b><small>${dt}</small><p>${atlEsc(c.text || '')}</p></div></div>`;
+                }).join('') : `<div class="pf-cm-empty">${isAR ? 'كن أول من يعلّق على الخريطة دي 💬' : 'Be the first to comment 💬'}</div>`}</div>`;
+            const l = document.getElementById('pfCmList'); if (l && keep !== null) l.scrollTop = keep;
         }
 
         function pfMyUid() { return window._userData?.uid || window._currentUid || null; }
@@ -13060,6 +13191,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     <h4>${atlEsc(it.title || '')}</h4>
                     ${it.desc ? `<p>${atlEsc(it.desc)}</p>` : ''}
                     ${tools ? `<div class="pf-tags">${tools}</div>` : ''}
+                    ${pfActsHTML(it.id)}
                     <div class="pf-foot">
                         <div class="pf-av">${atlEsc(name.trim().charAt(0).toUpperCase())}</div>
                         <div class="pf-who"><b>${atlEsc(name)}</b><span>${date}</span></div>
@@ -13084,8 +13216,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         /* ── Lightbox: تنقّل بين الخرائط بالأسهم/الكيبورد، وضغطة على الصورة بتكبّرها ── */
         window.openPortfolioLightbox = function (itemId) {
             const isAR = lang === 'AR';
-            const vis = pfFiltered().filter(pfIsImg);
-            let list = vis.some(x => x.id === itemId) ? vis : _portfolioItemsCache.filter(pfIsImg);
+            const vis = pfFiltered();
+            let list = vis.some(x => x.id === itemId) ? vis : _portfolioItemsCache;
             const i = list.findIndex(x => x.id === itemId);
             if (i < 0) return;
             _pfLb = { list, i };
@@ -13108,13 +13240,23 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 <button class="pf-lb-btn" style="top:16px;inset-inline-end:16px;" onclick="pfLbClose()"><i class="fa-solid fa-xmark"></i></button>
                 ${many ? `<button class="pf-lb-btn" style="top:50%;left:16px;transform:translateY(-50%);" onclick="pfLbGo(${isAR ? 1 : -1})"><i class="fa-solid fa-chevron-left"></i></button>
                 <button class="pf-lb-btn" style="top:50%;right:16px;transform:translateY(-50%);" onclick="pfLbGo(${isAR ? -1 : 1})"><i class="fa-solid fa-chevron-right"></i></button>` : ''}
-                <div class="pf-lb-stage"><img id="pfLbImg" src="${atlUrl(it.fileData)}" alt="${atlEsc(it.title || '')}" onclick="pfLbZoom(event)"></div>
+                <div class="pf-lb-stage">${pfIsImg(it)
+                    ? `<img id="pfLbImg" src="${atlUrl(it.fileData)}" alt="${atlEsc(it.title || '')}" onclick="pfLbZoom(event)">`
+                    : `<div class="pf-lb-file"><i class="fa-solid ${/\.zip$/i.test(it.fileName || '') ? 'fa-file-zipper' : 'fa-file-pdf'}"></i>${atlEsc((it.fileName || 'FILE'))}</div>`}</div>
                 <div class="pf-lb-info">
                     <h3>${atlEsc(it.title || '')}</h3>
                     <p>${atlEsc(it.authorName || '')} · ${isAR ? cat.ar : cat.en}${many ? ` · ${_pfLb.i + 1}/${_pfLb.list.length}` : ''}</p>
                     ${it.desc ? `<p>${atlEsc(it.desc)}</p>` : ''}
                     ${tools ? `<div class="pf-tags">${tools}</div>` : ''}
+                </div>
+                <div class="pf-soc">
+                    <div id="pfLbSoc"></div>
+                    <div class="pf-cm-form" id="pfCmForm">
+                        <input id="pfCmInput" maxlength="500" placeholder="${isAR ? 'اكتب تعليقك...' : 'Write a comment...'}" onkeydown="if(event.key==='Enter'){event.preventDefault();pfAddComment();}">
+                        <button id="pfCmBtn" onclick="pfAddComment()">${isAR ? 'نشر' : 'Post'}</button>
+                    </div>
                 </div>`;
+            pfLbRenderSoc();
         }
         window.pfLbGo = (d) => { const n = _pfLb.list.length; _pfLb.i = (_pfLb.i + d + n) % n; pfLbDraw(); };
         window.pfLbZoom = (e) => {
@@ -13127,6 +13269,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             if (!document.getElementById('portfolioLightbox')) { document.removeEventListener('keydown', pfLbKey); return; }
             const rtl = lang === 'AR';
             if (e.key === 'Escape') pfLbClose();
+            else if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
             else if (e.key === 'ArrowLeft') pfLbGo(rtl ? 1 : -1);
             else if (e.key === 'ArrowRight') pfLbGo(rtl ? -1 : 1);
         }
