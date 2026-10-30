@@ -2,8 +2,8 @@
    غيّر رقم النسخة لما تعدّل الملفات عشان الكاش القديم يتمسح. */
 importScripts('push-sw.js'); // الإشعارات الخارجية (Web Push)
 
-const VERSION = 'atlasya-v5';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+const VERSION = 'atlasya-v6';
+const SHELL = ['./', './index.html', './admin.html', './manifest.webmanifest', './manifest-admin.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => Promise.allSettled(SHELL.map(u => c.add(u)))));
@@ -23,13 +23,21 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   // Supabase / APIs / الخطوط / أي دومين تاني: سيبه للمتصفح (بيانات لايف)
   if (url.origin !== location.origin) return;
+  if (req.headers.has('range')) return;   // فيديو/PDF بـ Range → سيبه للمتصفح (ردود 206 مينفعش تتخزّن)
 
   e.respondWith(
     fetch(req)
       .then(res => {
-        if (res && res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+        // نخزّن 200 فقط (cache.put بيرمي error مع 206 وردود الـ redirect/opaque)
+        if (res && res.status === 200 && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(VERSION).then(c => c.put(req, copy)).catch(() => {});
+        }
         return res;
       })
-      .catch(() => caches.match(req).then(r => r || (req.mode === 'navigate' ? caches.match('./index.html') : undefined)))
+      .catch(() => caches.match(req).then(r => r ||
+        (req.mode === 'navigate'
+          ? caches.match(url.pathname.endsWith('admin.html') ? './admin.html' : './index.html').then(f => f || Response.error())
+          : Response.error())))
   );
 });
