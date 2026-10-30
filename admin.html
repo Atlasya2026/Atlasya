@@ -68,7 +68,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- EmailJS: optional — powers automatic emails for subscription approval/rejection.
          Configure the same EMAILJS_CONFIG values used in student.html below. -->
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js"></script>
 
 
     <style>
@@ -4419,44 +4419,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         });
     };
 
-    // Manually adjusts a student's coin balance from the admin panel and logs the transaction.
-    // type must be 'earn' (add) or 'spend' (deduct). Exposed on window since the coin-management
-    // UI code lives in a later classic <script> block that can't see these module-scoped consts.
-    window._adjustUserCoinsManual = async (uid, amount, type) => {
-        // ١) تأكد إن الحساب المسجّل دخوله على Firebase Auth *دلوقتي* هو فعلاً أدمن.
-        // السيشن مشتركة بين كل تابات نفس المتصفح: لو فتحت student.html وسجّلت
-        // بحساب طالب، تاب الأدمن بيكمّل يشتغل شكلاً لكن الطلبات بتخرج باسم الطالب
-        // فتترفض بـ "Missing or insufficient permissions".
-        const cu = auth.currentUser;
-        if (!cu) throw new Error('انتهت الجلسة — سجّل دخول الأدمن من جديد');
-        let isAdminNow = false;
-        try { isAdminNow = (await getDoc(doc(db, 'admins', cu.uid))).exists(); } catch (e) {}
-        if (!isAdminNow) {
-            console.error('coin adjust blocked: signed-in account is not an admin →', cu.uid, cu.email);
-            throw new Error('الحساب المسجّل حالياً على المتصفح (' + (cu.email || cu.uid) + ') مش حساب أدمن — سجّل خروج وادخل بحساب الأدمن تاني');
-        }
-
-        // ٢) الرصيد والسجل في batch واحد: يا الاتنين يتنفذوا يا ولا واحد،
-        // فمافيش حالة رصيد اتغيّر من غير سجل معاملة.
-        const delta = type === 'earn' ? amount : -amount;
-        const batch = writeBatch(db);
-        batch.update(doc(db, 'users', uid), {
-            coins: increment(delta),
-            ...(type === 'earn' ? { coinsEarnedTotal: increment(amount) } : { coinsSpentTotal: increment(amount) })
-        });
-        batch.set(doc(collection(db, 'coin_transactions')), {
-            userId: uid, type, amount,
-            reasonAR: type === 'earn' ? 'إضافة عملات يدوياً من الإدارة' : 'خصم عملات يدوياً من الإدارة',
-            reasonEN: type === 'earn' ? 'Coins added manually by admin' : 'Coins deducted manually by admin',
-            createdAt: serverTimestamp()
-        });
-        try {
-            await batch.commit();
-        } catch (e) {
-            console.error('coin adjust rejected by Firestore rules (admin uid ' + cu.uid + ') on users/' + uid + ' and/or coin_transactions:', e);
-            throw e;
-        }
-    };
+    // (_adjustUserCoinsManual is defined further below via the atomic admin_adjust_coins RPC — the old non-atomic writeBatch version was removed)
 
     window._bookMentorshipSlot = async (slotData) => {
         if (!currentUid) throw new Error('Not logged in');
