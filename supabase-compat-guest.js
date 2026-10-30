@@ -110,7 +110,8 @@ const AUTH_MAP = [
   [/password.*(short|weak|least)|weak_password/i, 'auth/weak-password'],
   [/rate limit|too many|over_.*rate/i, 'auth/too-many-requests'],
   [/invalid.*email|email_address_invalid|unable to validate email/i, 'auth/invalid-email'],
-  [/banned|disabled/i, 'auth/user-disabled'],
+  [/sign.?ups?.*(not allowed|disabled)|signup.*disabled/i, 'auth/operation-not-allowed'],
+  [/banned|user.*disabled|account.*disabled/i, 'auth/user-disabled'],
   [/failed to fetch|network/i, 'auth/network-request-failed'],
 ];
 function authErr(e) {
@@ -590,7 +591,7 @@ function guestMatch(spec, row, c) {
   const a = _cmpVal(v), b = _cmpVal(qVal(m, c.value));
   switch (c.op) {
     case '==': return b === null ? (a == null) : a === b;
-    case '!=': return a !== b;
+    case '!=': return a != null && a !== b;
     case '<': return a < b; case '<=': return a <= b; case '>': return a > b; case '>=': return a >= b;
     case 'in': return Array.isArray(c.value) && c.value.includes(v);
     case 'array-contains': return Array.isArray(v) && v.some(x => sameEq(x, c.value));
