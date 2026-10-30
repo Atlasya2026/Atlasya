@@ -63,7 +63,7 @@
     var d = e.detail || {};
     if (IS_ADMIN || d.kind !== 'day' || typeof window._notifyAdminsBot !== 'function') return;
     var uid = (window._currentUid || window._userData && window._userData.uid || 'u');
-    var key = 'atl_streak_notified_' + uid, today = new Date().toISOString().slice(0, 10);
+    var key = 'atl_streak_notified_' + uid, n = new Date(), today = n.getFullYear() + '-' + ('0' + (n.getMonth() + 1)).slice(-2) + '-' + ('0' + n.getDate()).slice(-2);   // تاريخ الجهاز المحلي (مش UTC)
     if (store(key) === today) return;                        // مرة واحدة في اليوم
     store(key, today);
     var ms = (d.milestones || [])[0];
@@ -211,7 +211,7 @@
           store(K_DONE, '1'); hide(); pendingInstall = true; flushInstall();
           if (typeof showToast === 'function') showToast(T().done);
         } else { dismiss(); }
-      });
+      }).catch(function () {});
       return;
     }
     // مفيش prompt جاهز (iPhone / Firefox …) → اعرض الخطوات
