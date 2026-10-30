@@ -162,6 +162,9 @@ class Auth {
   }
   async _reload() {
     if (this._pending) {
+      const now = Date.now();
+      if (this._lastPendingTry && now - this._lastPendingTry < 8000) return;   // تجنّب ضرب الـ rate limit لو الواجهة بتعمل polling
+      this._lastPendingTry = now;
       const { email, password } = this._pending;
       const { data, error } = await this.client.auth.signInWithPassword({ email, password });
       if (!error && data.session) { this._pending = null; this._set(this._wrap(data.user)); }
@@ -211,7 +214,8 @@ export async function sendPasswordResetEmail(auth, email) {
 export async function signInWithPopup(auth, provider) {
   const { error } = await auth.client.auth.signInWithOAuth({ provider: provider.providerId, options: { redirectTo: redirectUrl() } });
   if (error) throw authErr(error);
-  return new Promise(() => {}); // الصفحة بتتحوّل لجوجل/فيسبوك وبترجع مسجّل دخول
+  // الصفحة بتتحوّل لجوجل/فيسبوك. لو التحويل اتمنع (بلوك/شبكة) نرفض بعد 30 ثانية بدل ما الواجهة تفضل معلّقة.
+  return new Promise((_, reject) => setTimeout(() => { const e = new Error('Firebase: Error (auth/network-request-failed). redirect timeout'); e.code = 'auth/network-request-failed'; reject(e); }, 30000));
 }
 export async function reauthenticateWithCredential(user, cred) {
   const auth = [...apps.values()].map(a => a.auth).find(a => a.currentUser === user);
@@ -358,7 +362,7 @@ export async function getDocs(target) {
   const db = baseCol(target).db;
   const b = buildSelect(db, target);
   if (b.empty) return mkQuerySnap(target, [], null);
-  const { info, q, lim, clientSort } = b;
+  const { info, lim, clientSort } = b; let q = b.q;
   let rows = [];
   if (lim && !clientSort.length) { const { data, error } = await q.limit(lim); if (error) throw mkErr(error); rows = data; }
   else {
