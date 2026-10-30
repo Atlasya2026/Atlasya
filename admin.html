@@ -47,6 +47,76 @@
 })();
 </script>
 <script>
+/* ─── عارض الصور للأدمن (سكرين الدفع / التذاكر / الخرائط) ───
+   • بيفتح الصورة جوه الصفحة بدل window.open (المتصفح بيحجب فتح data: URL في تبويب جديد → صفحة فاضية).
+   • لو الرابط ماتحمّلش (ملف في Storage محتاج صلاحية) بنجرّب نجيبه بتوكن الأدمن ونعرضه، ولو فشل بنوضّح السبب بدل صورة فاضية. */
+(function () {
+  function safe(u) {
+    u = String(u == null ? '' : u);
+    if (/^blob:/i.test(u)) return u;
+    return window.atlUrl ? window.atlUrl(u) : '';
+  }
+  async function fetchAuthBlob(u) {
+    var m = String(u).match(/^(https?:\/\/[^\/]+)\/storage\/v1\/object\/(?:public|authenticated)\/([^?#]+)/i);
+    if (!m) throw new Error('not a storage url');
+    var cfg = window._sbCfg || {};
+    var tok = null;
+    try { tok = await window._auth.currentUser.getIdToken(); } catch (e) {}
+    var r = await fetch(m[1] + '/storage/v1/object/authenticated/' + m[2], { headers: { apikey: cfg.key || '', Authorization: 'Bearer ' + (tok || cfg.key || '') } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return URL.createObjectURL(await r.blob());
+  }
+  /* onerror للصور الصغيرة: نجرّب بتوكن الأدمن مرة واحدة */
+  window.adminImgFix = function (img) {
+    if (img.dataset.fixed) { img.style.opacity = '.35'; img.title = 'تعذر تحميل الصورة'; return; }
+    img.dataset.fixed = '1';
+    var src = img.getAttribute('src') || '';
+    fetchAuthBlob(src).then(function (b) { img.src = b; }).catch(function () { img.style.opacity = '.35'; img.title = 'تعذر تحميل الصورة'; });
+  };
+  window.adminViewImage = function (raw, title) {
+    var u = safe(raw);
+    var old = document.getElementById('adminImgViewer'); if (old) old.remove();
+    var o = document.createElement('div');
+    o.id = 'adminImgViewer';
+    o.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px;';
+    o.onclick = function (e) { if (e.target === o) o.remove(); };
+    var bar = document.createElement('div');
+    bar.style.cssText = 'position:absolute;top:14px;right:14px;display:flex;gap:10px;';
+    var btn = 'width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none;';
+    var x = document.createElement('button'); x.style.cssText = btn; x.textContent = '✕'; x.onclick = function () { o.remove(); };
+    bar.appendChild(x);
+    var img = document.createElement('img');
+    img.alt = title || '';
+    img.style.cssText = 'max-width:100%;max-height:82vh;object-fit:contain;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,.8);background:#111;';
+    var msg = document.createElement('div');
+    msg.style.cssText = 'color:#ffb4a8;font-size:13px;text-align:center;max-width:520px;line-height:1.8;display:none;';
+    var tried = false;
+    img.onerror = function () {
+      if (!tried && /\/storage\/v1\/object\//.test(u)) {
+        tried = true;
+        fetchAuthBlob(u).then(function (b) { img.src = b; }).catch(fail);
+      } else fail();
+    };
+    function fail(e) {
+      img.style.display = 'none';
+      msg.style.display = 'block';
+      msg.textContent = 'تعذر تحميل الصورة' + (e && e.message ? ' (' + e.message + ')' : '') + ' — غالبًا الملف مش موجود في Storage أو الـ bucket مش Public أو مفيش صلاحية قراءة للأدمن.';
+    }
+    if (!u) { fail(); }
+    else {
+      img.src = u;
+      if (/^https?:/i.test(u)) {
+        var a = document.createElement('a'); a.style.cssText = btn; a.href = u; a.target = '_blank'; a.rel = 'noopener'; a.title = 'فتح الرابط الأصلي'; a.textContent = '↗';
+        bar.insertBefore(a, x);
+      }
+    }
+    o.appendChild(bar); o.appendChild(img); o.appendChild(msg);
+    if (title) { var t = document.createElement('div'); t.style.cssText = 'color:#fff;font-weight:700;font-size:14px;'; t.textContent = title; o.appendChild(t); }
+    document.body.appendChild(o);
+  };
+})();
+</script>
+<script>
 /* Old GitHub Pages address → show the "we moved" page and stop loading the app */
 (function(){ if(/(^|\.)github\.io$/i.test(location.hostname)){ window.stop(); location.replace('moved.html'+(location.search?location.search+'&__to=admin':'?__to=admin')+location.hash); } })();
 </script>
@@ -3777,6 +3847,7 @@ const firebaseConfig = {
     url: "https://tyepugbvycipxzupnidn.supabase.co",
     key: "sb_publishable_s8RzSP_lkCtIKhihrXIZMg_R4qI974H"
 };
+window._sbCfg = firebaseConfig;
 
     /* Admin panel gets its own isolated Firebase Auth session (separate named
        app), so it never inherits a student's already-logged-in session on this
@@ -7846,6 +7917,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
     window.openPortfolioLightbox = function(itemId) {
         const it = _portfolioItemsCache.find(x => x.id === itemId);
         if (!it || !it.fileData) return;
+        return window.adminViewImage(it.fileData, (it.title || '') + (it.authorName ? ' — ' + it.authorName : ''));
         const isAR = lang === 'AR';
         // Remove existing lightbox
         const existing = document.getElementById('portfolioLightbox');
@@ -10029,6 +10101,7 @@ window.openConsultationModal = function () { csTab('book'); };
         list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
         try {
             const items = await window._loadPortfolioItems();
+            _portfolioItemsCache = items;   // السبب الأساسي: العارض كان بيدوّر في كاش فاضي لما تفتح من صفحة الإدارة
             if (badge) badge.textContent = items.length;
             if (!items.length) {
                 list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;"><i class="fa-solid fa-map" style="display:block;font-size:24px;opacity:0.3;margin-bottom:8px;"></i>${isAR?'لا توجد خرائط منشورة بعد':'No published maps yet'}</div>`;
@@ -10038,7 +10111,7 @@ window.openConsultationModal = function () { csTab('book'); };
                 ${items.map(it => {
                     const isImg = it.fileData && /^data:image\/|\.(?:jpe?g|png|webp|gif)(?:\?|$)/i.test(it.fileData);
                     const thumb = isImg
-                        ? `<div style="width:52px;height:52px;border-radius:8px;background-image:url('${atlUrl(it.fileData)}');background-size:cover;background-position:center;flex-shrink:0;cursor:pointer;" onclick="openPortfolioLightbox('${it.id}')"></div>`
+                        ? `<img src="${atlUrl(it.fileData)}" alt="" onerror="adminImgFix(this)" style="width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:pointer;background:rgba(255,255,255,.05);" onclick="openPortfolioLightbox('${it.id}')">`
                         : `<div style="width:52px;height:52px;border-radius:8px;background:rgba(var(--brand-rgb,30,122,52),0.1);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🗺️</div>`;
                     const timeStr = it.createdAt?.toDate ? it.createdAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric'}) : '';
                     return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;transition:0.2s;">
@@ -13109,7 +13182,7 @@ async function csAdmShowLink(id, btn) {
                     const timeStr = r.requestedAt?.toDate ? r.requestedAt.toDate().toLocaleString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
                     const reviewedStr = r.reviewedAt?.toDate ? r.reviewedAt.toDate().toLocaleString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
                     const shotHtml = r.screenshot
-                        ? `<img src="${atlUrl(r.screenshot)}" onclick="window.open(this.src,'_blank')" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0;" title="${isAR?'اضغط للتكبير':'Click to enlarge'}">`
+                        ? `<img src="${atlUrl(r.screenshot)}" onerror="adminImgFix(this)" onclick="adminViewImage(this.src, '${isAR?'إثبات الدفع':'Payment proof'}')" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0;" title="${isAR?'اضغط للتكبير':'Click to enlarge'}">`
                         : `<div style="width:64px;height:64px;border-radius:8px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;flex-shrink:0;"><i class="fa-regular fa-image"></i></div>`;
                     return `<div id="req_${r.id}" style="padding:14px;background:rgba(212,160,23,0.04);border:1px solid rgba(212,160,23,0.18);border-radius:14px;transition:0.2s;">
                         <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
@@ -14290,7 +14363,7 @@ async function csAdmShowLink(id, btn) {
                 <td><span class="tk-status ${statusClass}">${ticketStatusLabel(tk.status, isAR)}</span></td>
                 <td><div class="tk-cell-clip">${escapeHtml(tk.message||'')}</div></td>
                 <td>${tk.reply ? `<div class="tk-cell-clip">${escapeHtml(tk.reply)}</div>` : `<span style="color:var(--muted);font-size:12px;">—</span>`}</td>
-                <td>${tk.screenshot ? `<img src="${atlUrl(tk.screenshot)}" class="tk-screenshot-thumb" onclick="window.open('${atlUrl(tk.screenshot)}','_blank')">` : `<span style="color:var(--muted);font-size:12px;">—</span>`}</td>
+                <td>${tk.screenshot ? `<img src="${atlUrl(tk.screenshot)}" class="tk-screenshot-thumb" onerror="adminImgFix(this)" onclick="adminViewImage(this.src)">` : `<span style="color:var(--muted);font-size:12px;">—</span>`}</td>
                 <td>${ratingCell}${tk.ratingComment ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;max-width:160px;">${escapeHtml(tk.ratingComment)}</div>` : ''}</td>
             </tr>`;
         }).join('');
@@ -14438,7 +14511,7 @@ async function csAdmShowLink(id, btn) {
             </div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${ticketDate(tk.createdAt, isAR)}</div>
             <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:12px;padding:14px;font-size:14px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;">${escapeHtml(tk.message)}</div>
-            ${tk.screenshot ? `<img src="${atlUrl(tk.screenshot)}" class="tk-screenshot-thumb" style="max-width:320px;" onclick="window.open('${atlUrl(tk.screenshot)}','_blank')">` : ''}
+            ${tk.screenshot ? `<img src="${atlUrl(tk.screenshot)}" class="tk-screenshot-thumb" style="max-width:320px;" onerror="adminImgFix(this)" onclick="adminViewImage(this.src)">` : ''}
             ${tk.reply ? `<div class="tk-reply-box" style="margin-top:16px;">
                 <div style="font-size:11px;font-weight:700;color:var(--g4);margin-bottom:6px;"><i class="fa-solid fa-headset"></i> ${isAR?'ردّك':'Your reply'}</div>
                 <div style="font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;">${escapeHtml(tk.reply)}</div>
