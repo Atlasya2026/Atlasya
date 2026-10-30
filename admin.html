@@ -3532,7 +3532,7 @@
 
             <!-- Remaining items kept in the DOM (not shown in the admin menu) — still used by language toggle / admin show-hide logic elsewhere -->
             <div class="nav-section" style="margin-top:8px;">
-                <div class="nav-label" id="navLbl2">المحتوى</div>
+                <div class="nav-label" id="navLbl2b">المحتوى</div>
                 <button class="nav-item" id="menuPlay" onclick="navigate('playlists', this)">
                     <i class="fa-solid fa-clapperboard"></i> <span id="menuPlayTxt">قوائم التشغيل</span>
                 </button>
@@ -3546,7 +3546,7 @@
             </div>
 
             <div class="nav-section" style="margin-top:8px;">
-                <div class="nav-label" id="navLbl3">الأدوات</div>
+                <div class="nav-label" id="navLbl3b">الأدوات</div>
                 <button class="nav-item" id="menuData" onclick="navigate('datasets', this)">
                     <i class="fa-solid fa-database"></i> <span id="menuDataTxt">البيانات المكانية</span>
                 </button>
@@ -5506,8 +5506,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
     let lang = 'AR';
     const T = {
         AR: {
-            navLbl1: 'الرئيسية', navLbl2: 'المحتوى',
-            navLbl3: 'الأدوات', navLbl4: 'التعلم', navLbl5: 'أخرى',
+            navLbl1: 'الرئيسية', navLbl2: 'المحتوى', navLbl2b: 'المحتوى',
+            navLbl3: 'الأدوات', navLbl3b: 'الأدوات', navLbl4: 'التعلم', navLbl5: 'أخرى',
             navLblSettings: 'الإعدادات',
             navLblLearning: 'التعلم',
             menuDashTxt: 'لوحة التحكم',
@@ -5548,8 +5548,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             langBtn: 'EN',
         },
         EN: {
-            navLbl1: 'Overview', navLbl2: 'Content',
-            navLbl3: 'Tools', navLbl4: 'Learning', navLbl5: 'Other',
+            navLbl1: 'Overview', navLbl2: 'Content', navLbl2b: 'Content',
+            navLbl3: 'Tools', navLbl3b: 'Tools', navLbl4: 'Learning', navLbl5: 'Other',
             navLblSettings: 'Settings',
             navLblLearning: 'Learning',
             menuDashTxt: 'Dashboard',
@@ -8480,6 +8480,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
     /* ─── SOON ─── */
     function renderSoon(area, page, title) {
+        const pct = 15; // progress shown on the "coming soon" placeholder
         area.innerHTML = `
         <div class="soon-page">
             <div class="soon-icon"><i class="fa-solid ${soonIcons[page]||'fa-clock'}"></i></div>
@@ -15075,31 +15076,8 @@ async function csAdmShowLink(id, btn) {
                 markBtn.title = isAR ? 'تعليم الكل كمقروء' : 'Mark all as read';
             }
 
-            // ── Load personal admin alerts for this student ──
-            let personalAlerts = [];
-            if (window._currentUid) {
-                try {
-                    const alertsQ = query(
-                        collection(db, 'admin_alerts'),
-                        where('toUid', '==', window._currentUid),
-                        orderBy('createdAt', 'desc'), limit(30)
-                    );
-                    const alertSnap = await getDocs(alertsQ);
-                    personalAlerts = alertSnap.docs
-                        .map(d => ({ id: d.id, ...d.data() }))
-                        .sort((a, b) => {
-                            const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-                            const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-                            return tb - ta;
-                        });
-                    // Mark them all read after loading
-                    alertSnap.docs.forEach(async d => {
-                        if (!d.data().read) {
-                            try { await updateDoc(doc(db, 'admin_alerts', d.id), { read: true }); } catch(e) {}
-                        }
-                    });
-                } catch(e) { console.warn('admin_alerts load error:', e?.message); }
-            }
+            // (personal admin_alerts are a student-side feature — not loaded in the admin panel)
+            const personalAlerts = [];
 
             const isDark = !document.getElementById('pageBody').classList.contains('light-mode');
             const textColor = isDark ? '#e8e6f0' : '#0f2a40';
