@@ -3,6 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <script>
+/* ATLASYA security helpers — escape / sanitize any user-generated content before it is put in innerHTML */
+(function () {
+  var MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' };
+  /* HTML-escape (safe for text nodes and quoted attribute values) */
+  window.atlEsc = function (s) { return String(s == null ? '' : s).replace(/[&<>"'`]/g, function (c) { return MAP[c]; }); };
+  /* Escape for a JS string literal that lives inside an HTML attribute (onclick="f('${atlJs(x)}')") */
+  window.atlJs = function (s) {
+    return String(s == null ? '' : s).replace(/[^\w \-.@؀-ۿ]/g, function (c) {
+      var h = c.charCodeAt(0);
+      return h < 256 ? '\\x' + ('0' + h.toString(16)).slice(-2) : '\\u' + ('000' + h.toString(16)).slice(-4);
+    });
+  };
+  /* Allow only http(s) links and harmless data: URLs; everything else (javascript:, data:text/html ...) becomes '' */
+  window.atlUrl = function (u) {
+    u = String(u == null ? '' : u).trim();
+    if (!/^(https?:\/\/|data:(image\/(png|jpe?g|gif|webp|bmp)|application\/(pdf|octet-stream|msword|vnd\.[\w.+-]+)|text\/plain)[;,])/i.test(u)) return '';
+    return u.replace(/['"<>`\s\\]/g, function (c) { return '%' + ('0' + c.charCodeAt(0).toString(16)).slice(-2).toUpperCase(); });
+  };
+  /* Whitelist HTML sanitizer for the community chat (bold / italic / underline / line breaks only, no attributes) */
+  var ALLOW = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, BR: 1, DIV: 1, P: 1 };
+  var DROP = { SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, TEMPLATE: 1, NOSCRIPT: 1, SVG: 1, MATH: 1, LINK: 1, META: 1, TITLE: 1, FORM: 1, TEXTAREA: 1, SELECT: 1, BUTTON: 1, INPUT: 1, AUDIO: 1, VIDEO: 1, IMG: 1 };
+  window.sanitizeRich = function (html) {
+    var doc;
+    try { doc = new DOMParser().parseFromString('<!doctype html><body>' + String(html == null ? '' : html), 'text/html'); }
+    catch (e) { return window.atlEsc(html); }
+    function walk(n) {
+      var out = '';
+      for (var c = n.firstChild; c; c = c.nextSibling) {
+        if (c.nodeType === 3) out += window.atlEsc(c.nodeValue);
+        else if (c.nodeType === 1) {
+          var t = c.tagName.toUpperCase();
+          if (DROP[t]) continue;
+          if (t === 'BR') { out += '<br>'; continue; }
+          var inner = walk(c);
+          out += ALLOW[t] ? '<' + t.toLowerCase() + '>' + inner + '</' + t.toLowerCase() + '>' : inner;
+        }
+      }
+      return out;
+    }
+    return walk(doc.body);
+  };
+})();
+</script>
+<script>
 /* Old GitHub Pages address → show the "we moved" page and stop loading the app */
 (function(){ if(/(^|\.)github\.io$/i.test(location.hostname)){ window.stop(); location.replace('moved.html'+(location.search?location.search+'&__to=admin':'?__to=admin')+location.hash); } })();
 </script>
@@ -4588,6 +4632,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
 
     /* ─── JOB BOARD (Firestore) ─── */
     window._postJob = async (data) => {
+            { const _c = (v, n) => String(v == null ? '' : v).trim().slice(0, n); const _l = String(data.link || '').trim();
+              data = { title: _c(data.title, 200), company: _c(data.company, 200), desc: _c(data.desc, 5000), location: _c(data.location, 200), type: _c(data.type, 50), link: /^https?:\/\//i.test(_l) ? atlUrl(_l).slice(0, 1000) : '' }; }
         const d = window._userData || {};
         const isAdminUser = window._isAdmin === true;
         const authorName = isAdminUser ? 'Atlasya Team' : (((d.firstName || '') + ' ' + (d.lastName || '')).trim() || 'Member');
@@ -5019,6 +5065,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
     };
     /* Send a message into a group's in-app chat */
     window._sendCommunityMessage = async (groupId, text) => {
+            text = sanitizeRich(text); // never store raw HTML from the client
         const d = window._userData || {};
         const isAdminUser = window._isAdmin === true;
         const senderName = isAdminUser
@@ -6920,7 +6967,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 : '';
 
             const tags = [];
-            if (j.location) tags.push(`<span class="job-tag"><i class="fa-solid fa-location-dot" style="font-size:11px;"></i> ${j.location}</span>`);
+            if (j.location) tags.push(`<span class="job-tag"><i class="fa-solid fa-location-dot" style="font-size:11px;"></i> ${atlEsc(j.location)}</span>`);
             if (j.type) tags.push(`<span class="job-tag type">${j.type}</span>`);
             if (status === 'pending')  tags.push(`<span class="job-status-badge pending"><i class="fa-solid fa-clock"></i> ${isAR?'قيد المراجعة':'Pending Review'}</span>`);
             if (status === 'rejected') tags.push(`<span class="job-status-badge rejected"><i class="fa-solid fa-circle-xmark"></i> ${isAR?'مرفوضة':'Rejected'}</span>`);
@@ -6933,16 +6980,16 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     <div class="job-avatar" style="${isAdminPost?'background:linear-gradient(135deg,var(--green2),var(--green4));':''}">${isAdminPost?'<i class="fa-solid fa-shield-check" style="font-size:14px;"></i>':letter}</div>
                     <div class="job-card-meta">
                         <div class="job-author-row">
-                            <span class="job-author">${j.authorName || 'Member'}${adminBadge}</span>
+                            <span class="job-author">${atlEsc(j.authorName || 'Member')}${adminBadge}</span>
                             <span class="job-time">${timeStr}</span>
                         </div>
-                        <div class="job-title">${j.title}</div>
-                        <div class="job-company"><i class="fa-solid fa-building" style="font-size:11px;margin-${isAR?'left':'right'}:5px;"></i>${j.company}</div>
+                        <div class="job-title">${atlEsc(j.title)}</div>
+                        <div class="job-company"><i class="fa-solid fa-building" style="font-size:11px;margin-${isAR?'left':'right'}:5px;"></i>${atlEsc(j.company)}</div>
                     </div>
                 </div>
-                <div style="font-size:13px;color:var(--muted);line-height:1.65;margin-top:10px;white-space:pre-wrap;">${j.desc}</div>
+                <div style="font-size:13px;color:var(--muted);line-height:1.65;margin-top:10px;white-space:pre-wrap;">${atlEsc(j.desc)}</div>
                 ${tags.length ? `<div class="job-tags">${tags.join('')}</div>` : ''}
-                ${j.link ? `<a href="${j.link}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;font-weight:700;color:var(--g4);text-decoration:none;background:rgba(var(--brand-rgb,30,122,52),0.1);padding:5px 12px;border-radius:8px;border:1px solid rgba(var(--brand-rgb,30,122,52),0.2);"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:11px;"></i>${isAR?'تقدم للوظيفة':'Apply Now'}</a>` : ''}
+                ${j.link ? `<a href="${atlUrl(j.link)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;font-weight:700;color:var(--g4);text-decoration:none;background:rgba(var(--brand-rgb,30,122,52),0.1);padding:5px 12px;border-radius:8px;border:1px solid rgba(var(--brand-rgb,30,122,52),0.2);"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:11px;"></i>${isAR?'تقدم للوظيفة':'Apply Now'}</a>` : ''}
             </div>`;
         }).join('');
     }
@@ -6968,20 +7015,20 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 ? j.createdAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US', {day:'numeric',month:'short',year:'numeric'})
                 : '';
             const tags = [];
-            if (j.location) tags.push(`<span class="job-tag"><i class="fa-solid fa-location-dot" style="font-size:11px;"></i> ${j.location}</span>`);
+            if (j.location) tags.push(`<span class="job-tag"><i class="fa-solid fa-location-dot" style="font-size:11px;"></i> ${atlEsc(j.location)}</span>`);
             if (j.type) tags.push(`<span class="job-tag type">${j.type}</span>`);
 
             return `<div class="job-request-card">
                 <div class="job-author-row">
-                    <span class="job-author">${j.authorName || 'Member'}</span>
+                    <span class="job-author">${atlEsc(j.authorName || 'Member')}</span>
                     <span class="job-time">${timeStr}</span>
                 </div>
                 ${j.authorEmail ? `<div style="font-size:11px;color:var(--muted);margin-bottom:6px;"><i class="fa-regular fa-envelope" style="font-size:11px;"></i> ${j.authorEmail}</div>` : ''}
-                <div class="job-title">${j.title}</div>
-                <div class="job-company"><i class="fa-solid fa-building" style="font-size:11px;margin-${isAR?'left':'right'}:5px;"></i>${j.company}</div>
-                <div style="font-size:13px;color:var(--muted);line-height:1.65;margin-top:8px;white-space:pre-wrap;">${j.desc}</div>
+                <div class="job-title">${atlEsc(j.title)}</div>
+                <div class="job-company"><i class="fa-solid fa-building" style="font-size:11px;margin-${isAR?'left':'right'}:5px;"></i>${atlEsc(j.company)}</div>
+                <div style="font-size:13px;color:var(--muted);line-height:1.65;margin-top:8px;white-space:pre-wrap;">${atlEsc(j.desc)}</div>
                 ${tags.length ? `<div class="job-tags">${tags.join('')}</div>` : ''}
-                ${j.link ? `<a href="${j.link}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;font-weight:700;color:var(--g4);text-decoration:none;background:rgba(var(--brand-rgb,30,122,52),0.1);padding:5px 12px;border-radius:8px;border:1px solid rgba(var(--brand-rgb,30,122,52),0.2);"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:11px;"></i>${isAR?'رابط التقديم':'Apply Link'}</a>` : ''}
+                ${j.link ? `<a href="${atlUrl(j.link)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;font-weight:700;color:var(--g4);text-decoration:none;background:rgba(var(--brand-rgb,30,122,52),0.1);padding:5px 12px;border-radius:8px;border:1px solid rgba(var(--brand-rgb,30,122,52),0.2);"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:11px;"></i>${isAR?'رابط التقديم':'Apply Link'}</a>` : ''}
                 <div class="job-request-actions">
                     <button class="job-approve-btn" onclick="approveJob('${j.id}')"><i class="fa-solid fa-check"></i> ${isAR?'قبول':'Approve'}</button>
                     <button class="job-refuse-btn" onclick="refuseJob('${j.id}')"><i class="fa-solid fa-xmark"></i> ${isAR?'رفض':'Refuse'}</button>
@@ -7253,7 +7300,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                             const uid = window._userData?.uid || window._currentUid;
                             const fileDoc = await window._loadCVFile(uid);
                             if (fileDoc?.fileData) {
-                                cvFileBtn = `<a href="${fileDoc.fileData}" download="${fileDoc.fileName || 'CV'}" style="margin-${isAR?'right':'left'}:auto;flex-shrink:0;padding:7px 14px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-download"></i>${isAR?'تحميل الـ CV':'Download CV'}</a>`;
+                                cvFileBtn = `<a href="${atlUrl(fileDoc.fileData)}" download="${atlEsc(fileDoc.fileName || 'CV')}" style="margin-${isAR?'right':'left'}:auto;flex-shrink:0;padding:7px 14px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none;display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-download"></i>${isAR?'تحميل الـ CV':'Download CV'}</a>`;
                             }
                         } catch(e) { console.error('load cv file error:', e); }
                     }
@@ -7345,7 +7392,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         for (let idx = 0; idx < filesToAdd.length; idx++) {
             const file = filesToAdd[idx];
             if (progBar) progBar.style.width = Math.round((idx / filesToAdd.length) * 100) + '%';
-            if (progTxt) progTxt.textContent = isAR ? `جاري ضغط "${file.name}"... (${idx + 1}/${filesToAdd.length})` : `Compressing "${file.name}"... (${idx + 1}/${filesToAdd.length})`;
+            if (progTxt) progTxt.textContent = isAR ? `جاري ضغط "${atlEsc(file.name)}"... (${idx + 1}/${filesToAdd.length})` : `Compressing "${atlEsc(file.name)}"... (${idx + 1}/${filesToAdd.length})`;
             if (zoneTxt) zoneTxt.textContent = isAR ? `جاري تجهيز الملفات...` : 'Processing files...';
             try {
                 let dataUrl;
@@ -7358,7 +7405,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     dataUrl = await _cvCompressToBudget(file, budget);
                 } else if (file.type === 'application/pdf') {
                     if (file.size > CV_CERT_MAX_PDF_BYTES) {
-                        showToast(isAR ? `⚠️ ملف "${file.name}" كبير جداً (الحد الأقصى ~3MB للـ PDF)` : `⚠️ "${file.name}" is too large (max ~3MB for PDFs)`, true);
+                        showToast(isAR ? `⚠️ ملف "${atlEsc(file.name)}" كبير جداً (الحد الأقصى ~3MB للـ PDF)` : `⚠️ "${atlEsc(file.name)}" is too large (max ~3MB for PDFs)`, true);
                         continue;
                     }
                     dataUrl = await new Promise((resolve, reject) => {
@@ -7368,7 +7415,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                         reader.readAsDataURL(file);
                     });
                 } else {
-                    showToast(isAR ? `⚠️ نوع الملف "${file.name}" غير مدعوم` : `⚠️ "${file.name}" file type not supported`, true);
+                    showToast(isAR ? `⚠️ نوع الملف "${atlEsc(file.name)}" غير مدعوم` : `⚠️ "${atlEsc(file.name)}" file type not supported`, true);
                     continue;
                 }
 
@@ -7376,15 +7423,15 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 if (_cvTotalCertBytes() + newBytes > CV_CERT_MAX_TOTAL_BYTES) {
                     const leftKB = Math.max(0, Math.floor((CV_CERT_MAX_TOTAL_BYTES - _cvTotalCertBytes()) / 1000));
                     showToast(isAR
-                        ? `⚠️ "${file.name}" مش هيدخل (فاضل حوالي ${leftKB}KB بس)، شيل بعض الملفات القديمة وحاول تاني`
-                        : `⚠️ "${file.name}" won't fit (only ~${leftKB}KB left), remove some older files and try again`, true);
+                        ? `⚠️ "${atlEsc(file.name)}" مش هيدخل (فاضل حوالي ${leftKB}KB بس)، شيل بعض الملفات القديمة وحاول تاني`
+                        : `⚠️ "${atlEsc(file.name)}" won't fit (only ~${leftKB}KB left), remove some older files and try again`, true);
                     continue;
                 }
 
                 cvCertFilesData.push({ name: file.name, data: dataUrl });
                 renderCVCertFilesList();
             } catch (err) {
-                showToast(isAR ? `⚠️ فشل تجهيز الملف "${file.name}"` : `⚠️ Failed to process "${file.name}"`, true);
+                showToast(isAR ? `⚠️ فشل تجهيز الملف "${atlEsc(file.name)}"` : `⚠️ Failed to process "${atlEsc(file.name)}"`, true);
             }
         }
 
@@ -7399,7 +7446,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         box.innerHTML = cvCertFilesData.map((f, i) => `
             <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;font-size:12px;">
                 <i class="fa-solid fa-paperclip" style="color:var(--gold3);"></i>
-                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span>
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${atlEsc(f.name)}</span>
                 <button onclick="removeCVCertFile(${i})" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:13px;"><i class="fa-solid fa-xmark"></i></button>
             </div>`).join('');
         const zoneTxt = document.getElementById('cvCertDropZoneTxt');
@@ -7792,18 +7839,18 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
     function _portfolioItemCard(it, isAR) {
         const isImg = it.fileData && /^data:image\/|\.(?:jpe?g|png|webp|gif)(?:\?|$)/i.test(it.fileData);
         const thumb = isImg
-            ? `<div class="portfolio-item-thumb" style="background-image:url('${it.fileData}');background-size:cover;background-position:center;cursor:pointer;" onclick="openPortfolioLightbox('${it.id}')"></div>`
+            ? `<div class="portfolio-item-thumb" style="background-image:url('${atlUrl(it.fileData)}');background-size:cover;background-position:center;cursor:pointer;" onclick="openPortfolioLightbox('${it.id}')"></div>`
             : `<div class="portfolio-item-thumb">${it.icon || '🗺️'}</div>`;
         const fileLink = (!isImg && it.fileData)
-            ? `<a href="${it.fileData}" download="${it.fileName||'project'}" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:var(--gold3);text-decoration:none;"><i class="fa-solid fa-download"></i> ${isAR?'تحميل الملف':'Download file'}</a>`
+            ? `<a href="${atlUrl(it.fileData)}" download="${atlEsc(it.fileName||'project')}" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:var(--gold3);text-decoration:none;"><i class="fa-solid fa-download"></i> ${isAR?'تحميل الملف':'Download file'}</a>`
             : '';
         return `
         <div class="portfolio-item">
             ${thumb}
             <div class="portfolio-item-body">
-                <h4>${it.title || ''}</h4>
-                <p>${it.desc || ''}</p>
-                <p style="margin-top:6px;font-size:11px;font-weight:700;color:var(--gold3);">${it.authorName || ''}</p>
+                <h4>${atlEsc(it.title || '')}</h4>
+                <p>${atlEsc(it.desc || '')}</p>
+                <p style="margin-top:6px;font-size:11px;font-weight:700;color:var(--gold3);">${atlEsc(it.authorName || '')}</p>
                 ${isImg ? `<button onclick="openPortfolioLightbox('${it.id}')" style="margin-top:8px;padding:5px 12px;background:rgba(var(--brand-rgb,30,122,52),0.12);border:1px solid rgba(var(--brand-rgb,30,122,52),0.3);border-radius:7px;color:var(--green4);font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:5px;"><i class="fa-solid fa-expand"></i> ${isAR?'عرض كاملاً':'Full Screen'}</button>` : ''}
                 ${fileLink}
             </div>
@@ -7838,13 +7885,13 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         lb.onclick = function(e) { if(e.target === lb) lb.remove(); };
         lb.innerHTML = `
             <div style="position:absolute;top:16px;right:16px;display:flex;gap:10px;z-index:1;">
-                <a href="${it.fileData}" download="${it.title||'map'}" style="width:40px;height:40px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:50%;color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;" title="${isAR?'تحميل':'Download'}"><i class="fa-solid fa-download"></i></a>
+                <a href="${atlUrl(it.fileData)}" download="${atlEsc(it.title||'map')}" style="width:40px;height:40px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:50%;color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;" title="${isAR?'تحميل':'Download'}"><i class="fa-solid fa-download"></i></a>
                 <button onclick="document.getElementById('portfolioLightbox').remove()" style="width:40px;height:40px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:50%;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <img src="${it.fileData}" alt="${it.title||''}" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,0.8);">
+            <img src="${atlUrl(it.fileData)}" alt="${atlEsc(it.title||'')}" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,0.8);">
             <div style="margin-top:14px;text-align:center;">
-                <div style="font-size:15px;font-weight:700;color:#fff;">${it.title||''}</div>
-                ${it.authorName ? `<div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px;">${it.authorName}</div>` : ''}
+                <div style="font-size:15px;font-weight:700;color:#fff;">${atlEsc(it.title||'')}</div>
+                ${it.authorName ? `<div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px;">${atlEsc(it.authorName)}</div>` : ''}
             </div>`;
         document.body.appendChild(lb);
     };
@@ -7859,7 +7906,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             const zone = document.getElementById('portDropZone');
             if (zone) {
                 const p = zone.querySelector('p');
-                if (p) p.textContent = `✓ ${file.name}`;
+                if (p) p.textContent = `✓ ${atlEsc(file.name)}`;
             }
         };
         reader.readAsDataURL(file);
@@ -8158,7 +8205,7 @@ window.CS = (function () {
 
 /* ─── CONSULTATIONS: STUDENT ─── */
 function _escapeHtml(text) {
-    return (text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return window.atlEsc(text);
 }
 function _linkifyText(text) {
     const escaped = _escapeHtml(text);
@@ -8689,10 +8736,7 @@ window.openConsultationModal = function () { csTab('book'); };
     }
 
     function escapeHtml(str) {
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
+        return window.atlEsc(str);
     }
 
     /* ── Open in-app chat room for a group ── */
@@ -8849,7 +8893,7 @@ window.openConsultationModal = function () { csTab('book'); };
         if (isMe) {
             return `<div style="display:flex;justify-content:${isAR?'flex-start':'flex-end'};margin-bottom:4px;">
                 <div style="max-width:72%;">
-                    <div style="background:${myBubbleBg};color:#fff;padding:10px 14px;border-radius:${isAR?'16px 16px 4px 16px':'16px 16px 16px 4px'};font-size:14px;line-height:1.55;word-break:break-word;">${m.text}</div>
+                    <div style="background:${myBubbleBg};color:#fff;padding:10px 14px;border-radius:${isAR?'16px 16px 4px 16px':'16px 16px 16px 4px'};font-size:14px;line-height:1.55;word-break:break-word;">${sanitizeRich(m.text)}</div>
                     <div style="font-size:11px;color:var(--muted);margin-top:2px;text-align:${isAR?'left':'right'};">${timeStr}</div>
                     ${reactionPills}
                     <div style="display:flex;justify-content:${isAR?'flex-start':'flex-end'};">${actionsRow}</div>
@@ -8860,7 +8904,7 @@ window.openConsultationModal = function () { csTab('book'); };
                 <div style="width:30px;height:30px;border-radius:50%;background:${avatarBg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;">${avatarLetter}</div>
                 <div style="max-width:72%;">
                     ${nameLabel}
-                    <div style="background:${otherBg};color:${otherColor};padding:10px 14px;border-radius:${isAR?'16px 16px 16px 4px':'16px 16px 4px 16px'};font-size:14px;line-height:1.55;word-break:break-word;border:1px solid var(--border);">${m.text}</div>
+                    <div style="background:${otherBg};color:${otherColor};padding:10px 14px;border-radius:${isAR?'16px 16px 16px 4px':'16px 16px 4px 16px'};font-size:14px;line-height:1.55;word-break:break-word;border:1px solid var(--border);">${sanitizeRich(m.text)}</div>
                     <div style="font-size:11px;color:var(--muted);margin-top:2px;">${timeStr}</div>
                     ${reactionPills}
                     ${actionsRow}
@@ -8925,7 +8969,7 @@ window.openConsultationModal = function () { csTab('book'); };
             </div>
             <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);flex-shrink:0;">
                 <div style="font-size:11px;font-weight:700;color:var(--gold4);margin-bottom:4px;">${escapeHtml(originalMsg.authorName||'')}</div>
-                <div style="font-size:13px;color:var(--text);line-height:1.6;word-break:break-word;">${originalMsg.text||''}</div>
+                <div style="font-size:13px;color:var(--text);line-height:1.6;word-break:break-word;">${sanitizeRich(originalMsg.text||'')}</div>
             </div>
             <div id="communityThreadReplies" style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
                 <div style="text-align:center;padding:20px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>
@@ -9001,7 +9045,7 @@ window.openConsultationModal = function () { csTab('book'); };
     window.sendCommunityMsg = async function(groupId) {
         const input = document.getElementById('communityChatInput');
         if (!input) return;
-        const html = input.innerHTML.trim();
+        const html = sanitizeRich(input.innerHTML).trim();
         const text = input.innerText.trim();
         if (!text) return;
         const isAR = lang === 'AR';
@@ -9316,13 +9360,13 @@ window.openConsultationModal = function () { csTab('book'); };
                 const avatarBg = hasImg ? `background-image:url('${u.profileImg}');background-size:cover;background-position:center;` : `background:linear-gradient(135deg,var(--g2),var(--g4));`;
                 const invitedNames = users
                     .filter(x => x.referredBy === u.uid)
-                    .map(x => ((x.firstName||'') + ' ' + (x.lastName||'')).trim() || 'User');
+                    .map(x => atlEsc(((x.firstName||'') + ' ' + (x.lastName||'')).trim() || 'User'));
                 return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;">
                     <div style="width:24px;text-align:center;font-size:12px;font-weight:700;color:var(--muted);flex-shrink:0;">${idx+1}</div>
                     <div style="width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff;border:2px solid rgba(var(--brand-rgb,30,122,52),0.4);${avatarBg}">${hasImg?'':letter}</div>
                     <div style="flex:1;min-width:0;">
-                        <div style="font-size:13px;font-weight:700;">${fullName}</div>
-                        <div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.email||'—'}</div>
+                        <div style="font-size:13px;font-weight:700;">${atlEsc(fullName)}</div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${atlEsc(u.email||'—')}</div>
                         ${invitedNames.length ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-solid fa-user-group" style="font-size:9px;"></i> ${invitedNames.join('، ')}</div>` : ''}
                     </div>
                     <div style="display:flex;gap:8px;flex-shrink:0;">
@@ -9451,8 +9495,8 @@ window.openConsultationModal = function () { csTab('book'); };
             <div style="display:flex;align-items:center;gap:12px;padding:14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;">
                 <div style="width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff;border:2px solid rgba(212,160,23,0.4);${avatarBg}">${hasImg?'':letter}</div>
                 <div style="flex:1;min-width:160px;">
-                    <div style="font-weight:700;font-size:13.5px;">${fullName}</div>
-                    <div style="font-size:11px;color:var(--muted);direction:ltr;text-align:${isAR?'right':'left'};">${u.email||''}</div>
+                    <div style="font-weight:700;font-size:13.5px;">${atlEsc(fullName)}</div>
+                    <div style="font-size:11px;color:var(--muted);direction:ltr;text-align:${isAR?'right':'left'};">${atlEsc(u.email||'')}</div>
                 </div>
                 <div style="text-align:center;padding:6px 14px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;">
                     <div id="coinMgmtBalance" style="font-size:15px;font-weight:800;color:var(--gold3);">${u.coins||0}</div>
@@ -10021,15 +10065,15 @@ window.openConsultationModal = function () { csTab('book'); };
                 ${items.map(it => {
                     const isImg = it.fileData && /^data:image\/|\.(?:jpe?g|png|webp|gif)(?:\?|$)/i.test(it.fileData);
                     const thumb = isImg
-                        ? `<div style="width:52px;height:52px;border-radius:8px;background-image:url('${it.fileData}');background-size:cover;background-position:center;flex-shrink:0;cursor:pointer;" onclick="openPortfolioLightbox('${it.id}')"></div>`
+                        ? `<div style="width:52px;height:52px;border-radius:8px;background-image:url('${atlUrl(it.fileData)}');background-size:cover;background-position:center;flex-shrink:0;cursor:pointer;" onclick="openPortfolioLightbox('${it.id}')"></div>`
                         : `<div style="width:52px;height:52px;border-radius:8px;background:rgba(var(--brand-rgb,30,122,52),0.1);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🗺️</div>`;
                     const timeStr = it.createdAt?.toDate ? it.createdAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric'}) : '';
                     return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;transition:0.2s;">
                         ${thumb}
                         <div style="flex:1;min-width:0;">
-                            <div style="font-size:13px;font-weight:700;color:var(--text);">${it.title||'—'}</div>
-                            <div style="font-size:11px;color:var(--gold3);font-weight:700;margin-top:2px;">${it.authorName||''}</div>
-                            ${it.desc ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${it.desc}</div>` : ''}
+                            <div style="font-size:13px;font-weight:700;color:var(--text);">${atlEsc(it.title||'—')}</div>
+                            <div style="font-size:11px;color:var(--gold3);font-weight:700;margin-top:2px;">${atlEsc(it.authorName||'')}</div>
+                            ${it.desc ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${atlEsc(it.desc)}</div>` : ''}
                             ${timeStr ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;"><i class="fa-regular fa-clock"></i> ${timeStr}</div>` : ''}
                         </div>
                         <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
@@ -10531,7 +10575,7 @@ window.openConsultationModal = function () { csTab('book'); };
             _libPdfPending = ev.target.result;
             _libPdfPendingName = file.name;
             const lbl = document.getElementById('libPdfPickedLabel');
-            if (lbl) lbl.textContent = `✓ ${file.name} (${Math.round(file.size/1024)}KB)`;
+            if (lbl) lbl.textContent = `✓ ${atlEsc(file.name)} (${Math.round(file.size/1024)}KB)`;
         };
         reader.onerror = () => showToast(isAR?'فشل قراءة الملف':'Failed to read file', true);
         reader.readAsDataURL(file);
@@ -11661,7 +11705,7 @@ window.openConsultationModal = function () { csTab('book'); };
             }
             listEl.innerHTML = matched.map(u => `
             <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
-                <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--g3),var(--gold3));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px;flex-shrink:0;">${(u.firstName||'؟')[0].toUpperCase()}</div>
+                <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--g3),var(--gold3));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px;flex-shrink:0;">${atlEsc((u.firstName||'؟')[0].toUpperCase())}</div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:13px;font-weight:700;">${escapeHtmlAC(u.firstName||'')} ${escapeHtmlAC(u.lastName||'')}</div>
                     <div style="font-size:11px;color:var(--muted);">${escapeHtmlAC(u.email||'')}</div>
@@ -12200,7 +12244,7 @@ async function csAdmOpen(id) {
     else if (mgr && ['pending', 'accepted'].includes(st)) h += `<div class="cs-actions"><button class="cs-btn danger sm" onclick="csAdmCancel('${e(r.id)}')"><i class="fa-solid fa-ban"></i> ${ar ? 'إلغاء الطلب' : 'Cancel request'}</button></div>`;
 
     if (st === 'completed' && !r.legacy) {
-        const res = Array.isArray(r.resources) ? r.resources.map(x => `${x.title || ''} | ${x.url}`).join('\n') : '';
+        const res = Array.isArray(r.resources) ? r.resources.map(x => `${atlEsc(x.title || '')} | ${x.url}`).join('\n') : '';
         h += `<div class="cs-sec"><i class="fa-solid fa-clipboard-check"></i> ${ar ? 'ملخص الاستشارة (يراه الطالب)' : 'Session summary (visible to the student)'}</div>
         <div class="cs-card" style="margin:0"><div class="cs-f"><label>${ar ? 'الملخص' : 'Summary'} <em>*</em></label><textarea id="csSmSum" maxlength="4000">${e(r.summary || '')}</textarea></div>
         <div class="cs-f"><label>${ar ? 'التوصيات' : 'Recommendations'}</label><textarea id="csSmRec" maxlength="3000" style="min-height:70px">${e(r.recommendations || '')}</textarea></div>
@@ -12535,7 +12579,7 @@ async function csAdmShowLink(id, btn) {
                         <div class="avatar-xl-overlay"><i class="fa-solid fa-camera"></i></div>
                     </div>
                     <input type="file" id="adminImgInput" accept="image/*" style="display:none;" onchange="handleAdminImageUpload(event)">
-                    <div class="profile-name">${adm.displayName}</div>
+                    <div class="profile-name">${atlEsc(adm.displayName)}</div>
                     <div class="profile-email" style="display:flex;align-items:center;gap:6px;margin-top:4px;">
                         <i class="fa-solid fa-shield-halved" style="color:var(--gold3);font-size:12px;"></i>
                         <span style="color:var(--gold3);font-weight:700;font-size:13px;">${window._adminIsSuper ? (isAR ? 'مشرف النظام' : 'System Admin') : (isAR ? 'عضو عادي' : 'Team Member')}</span>
@@ -12546,15 +12590,15 @@ async function csAdmShowLink(id, btn) {
                     <div class="form-grid">
                         <div class="form-group">
                             <label>${isAR ? 'الاسم الأول' : 'First Name'}</label>
-                            <input type="text" value="${adm.firstName}" disabled style="opacity:0.7;">
+                            <input type="text" value="${atlEsc(adm.firstName)}" disabled style="opacity:0.7;">
                         </div>
                         <div class="form-group">
                             <label>${isAR ? 'الاسم الأخير' : 'Last Name'}</label>
-                            <input type="text" value="${adm.lastName}" disabled style="opacity:0.7;">
+                            <input type="text" value="${atlEsc(adm.lastName)}" disabled style="opacity:0.7;">
                         </div>
                         <div class="form-group">
                             <label>${isAR ? 'اسم المستخدم' : 'Username'}</label>
-                            <input type="text" value="${adm.username}" disabled style="opacity:0.7;">
+                            <input type="text" value="${atlEsc(adm.username)}" disabled style="opacity:0.7;">
                         </div>
                         <div class="form-group">
                             <label>${isAR ? 'الصلاحية' : 'Role'}</label>
@@ -12800,35 +12844,35 @@ async function csAdmShowLink(id, btn) {
                     ${!img ? `<span>${letter}</span>` : ''}
                     <div class="avatar-xl-overlay"><i class="fa-solid fa-camera"></i></div>
                 </div>
-                <div class="profile-name" id="profileDisplayName">${(d.firstName||'')+' '+(d.lastName||'')}</div>
-                <div class="profile-email">${d.email||''}</div>
+                <div class="profile-name" id="profileDisplayName">${atlEsc((d.firstName||'')+' '+(d.lastName||''))}</div>
+                <div class="profile-email">${atlEsc(d.email||'')}</div>
             </div>
             <div class="form-card">
                 <h3>${isAR?'تعديل البيانات':'Edit Profile'}</h3>
                 <div class="form-grid">
                     <div class="form-group">
                         <label>${isAR?'الاسم الأول':'First Name'}</label>
-                        <input type="text" id="pFirstName" value="${d.firstName||''}" placeholder="${isAR?'الاسم الأول':'First name'}">
+                        <input type="text" id="pFirstName" value="${atlEsc(d.firstName||'')}" placeholder="${isAR?'الاسم الأول':'First name'}">
                     </div>
                     <div class="form-group">
                         <label>${isAR?'الاسم الأخير':'Last Name'}</label>
-                        <input type="text" id="pLastName" value="${d.lastName||''}" placeholder="${isAR?'الاسم الأخير':'Last name'}">
+                        <input type="text" id="pLastName" value="${atlEsc(d.lastName||'')}" placeholder="${isAR?'الاسم الأخير':'Last name'}">
                     </div>
                     <div class="form-group">
                         <label>${isAR?'رقم الهاتف':'Phone'}</label>
-                        <input type="tel" id="pPhone" value="${d.phone||''}" placeholder="+201xxxxxxxxx">
+                        <input type="tel" id="pPhone" value="${atlEsc(d.phone||'')}" placeholder="+201xxxxxxxxx">
                     </div>
                     <div class="form-group">
                         <label>${isAR?'البريد الإلكتروني':'Email'}</label>
-                        <input type="email" id="pEmail" value="${d.email||''}" disabled>
+                        <input type="email" id="pEmail" value="${atlEsc(d.email||'')}" disabled>
                     </div>
                     <div class="form-group">
                         <label>${isAR?'المسمى الوظيفي':'Job Title'}</label>
-                        <input type="text" id="pJob" value="${d.job||''}" placeholder="${isAR?'مثال: طالب':'e.g. Student'}">
+                        <input type="text" id="pJob" value="${atlEsc(d.job||'')}" placeholder="${isAR?'مثال: طالب':'e.g. Student'}">
                     </div>
                     <div class="form-group">
                         <label>${isAR?'الجامعة / الجهة':'University / Company'}</label>
-                        <input type="text" id="pCompany" value="${d.company||''}" placeholder="${isAR?'اسم الجامعة':'University or Company'}">
+                        <input type="text" id="pCompany" value="${atlEsc(d.company||'')}" placeholder="${isAR?'اسم الجامعة':'University or Company'}">
                     </div>
                     <div class="form-group">
                         <label>${isAR?'المستوى الأكاديمي':'Academic Level'}</label>
@@ -12838,7 +12882,7 @@ async function csAdmShowLink(id, btn) {
                     </div>
                     <div class="form-group">
                         <label>${isAR?'النبذة الشخصية':'Profile Bio'}</label>
-                        <textarea id="pBio" placeholder="${isAR?'نبذة عن خبراتك في GIS...':'Tell us about your GIS expertise...'}">${d.bio||''}</textarea>
+                        <textarea id="pBio" placeholder="${isAR?'نبذة عن خبراتك في GIS...':'Tell us about your GIS expertise...'}">${atlEsc(d.bio||'')}</textarea>
                     </div>
                 </div>
 
@@ -12961,15 +13005,15 @@ async function csAdmShowLink(id, btn) {
                 const isSuper = a.permissions === 'all' || a.role === 'superadmin';
                 return `
                 <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;">
-                    <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold3),var(--gold2));display:flex;align-items:center;justify-content:center;color:#0a0a0e;font-weight:800;flex-shrink:0;">${(a.firstName||'?')[0].toUpperCase()}</div>
+                    <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold3),var(--gold2));display:flex;align-items:center;justify-content:center;color:#0a0a0e;font-weight:800;flex-shrink:0;">${atlEsc((a.firstName||'?')[0].toUpperCase())}</div>
                     <div style="flex:1;min-width:150px;">
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                            <div style="font-weight:700;font-size:14px;">${a.displayName || ((a.firstName||'')+' '+(a.lastName||''))}</div>
+                            <div style="font-weight:700;font-size:14px;">${atlEsc(a.displayName || ((a.firstName||'')+' '+(a.lastName||'')))}</div>
                             <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);color:var(--gold3);">${orgLabel}</span>
                             ${isSuper ? `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.3);color:#2ecc71;">${isAR?'مشرف كامل':'Super Admin'}</span>` : ''}
                             ${isSelf ? `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,0.08);color:var(--muted);">${isAR?'أنت':'You'}</span>` : ''}
                         </div>
-                        <div style="font-size:12px;color:var(--muted);">${a.email || a.username || ''}</div>
+                        <div style="font-size:12px;color:var(--muted);">${atlEsc(a.email || a.username || '')}</div>
                         <div style="font-size:11px;color:var(--muted);margin-top:4px;">${isSuper ? (isAR?'كل الصلاحيات':'All sections') : (permLabels.length ? permLabels.join(' · ') : (isAR?'بدون صلاحيات':'No permissions'))}</div>
                     </div>
                     ${isSelf ? '' : `
@@ -13092,18 +13136,18 @@ async function csAdmShowLink(id, btn) {
                     const timeStr = r.requestedAt?.toDate ? r.requestedAt.toDate().toLocaleString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
                     const reviewedStr = r.reviewedAt?.toDate ? r.reviewedAt.toDate().toLocaleString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
                     const shotHtml = r.screenshot
-                        ? `<img src="${r.screenshot}" onclick="window.open(this.src,'_blank')" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0;" title="${isAR?'اضغط للتكبير':'Click to enlarge'}">`
+                        ? `<img src="${atlUrl(r.screenshot)}" onclick="window.open(this.src,'_blank')" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0;" title="${isAR?'اضغط للتكبير':'Click to enlarge'}">`
                         : `<div style="width:64px;height:64px;border-radius:8px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;flex-shrink:0;"><i class="fa-regular fa-image"></i></div>`;
                     return `<div id="req_${r.id}" style="padding:14px;background:rgba(212,160,23,0.04);border:1px solid rgba(212,160,23,0.18);border-radius:14px;transition:0.2s;">
                         <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                             ${shotHtml}
                             <div style="flex:1;min-width:180px;">
                                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
-                                    <span style="font-size:13.5px;font-weight:700;">${r.firstName||''} ${r.lastName||''}</span>
+                                    <span style="font-size:13.5px;font-weight:700;">${atlEsc(r.firstName||'')} ${atlEsc(r.lastName||'')}</span>
                                     ${statusBadge(status)}
                                 </div>
                                 <div style="font-size:11px;color:var(--muted);">
-                                    ${r.email||''}${r.username ? ' · @'+r.username : ''}
+                                    ${atlEsc(r.email||'')}${r.username ? ' · @'+atlEsc(r.username) : ''}
                                 </div>
                                 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--muted);">
                                     <span><i class="fa-solid fa-credit-card" style="margin-left:3px;color:var(--gold3);"></i>${methodLabel(r.paymentMethod)}</span>
@@ -13114,7 +13158,7 @@ async function csAdmShowLink(id, btn) {
                                 ${r.discountCode ? `<div style="font-size:11px;color:var(--gold3);margin-top:4px;"><i class="fa-solid fa-ticket" style="margin-left:3px;"></i>${isAR?`كود خصم مُطبّق: `:`Discount code applied: `}<strong style="direction:ltr;display:inline-block;">${escapeHtmlAC(r.discountCode)}</strong> (${r.discountPercent}%)</div>` : ''}
                                 <div style="font-size:11px;color:var(--muted);margin-top:4px;"><i class="fa-regular fa-clock" style="margin-left:3px;"></i>${isAR?'أُرسل':'Sent'}: ${timeStr}</div>
                                 ${reviewedStr ? `<div style="font-size:11px;color:var(--muted);margin-top:1px;"><i class="fa-solid fa-check-double" style="margin-left:3px;"></i>${isAR?'روجع':'Reviewed'}: ${reviewedStr}${r.approvedMonths ? ' · '+r.approvedMonths+(isAR?' شهر':' mo') : ''}</div>` : ''}
-                                ${r.rejectionReason ? `<div style="font-size:11px;color:#ff6b6b;margin-top:6px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.2);border-radius:8px;padding:6px 10px;">${isAR?'سبب الرفض':'Rejection reason'}: ${r.rejectionReason}</div>` : ''}
+                                ${r.rejectionReason ? `<div style="font-size:11px;color:#ff6b6b;margin-top:6px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.2);border-radius:8px;padding:6px 10px;">${isAR?'سبب الرفض':'Rejection reason'}: ${atlEsc(r.rejectionReason)}</div>` : ''}
                             </div>
                             ${status === 'pending' ? `
                             <div style="display:flex;gap:6px;flex-shrink:0;align-items:flex-start;">
@@ -13237,10 +13281,10 @@ async function csAdmShowLink(id, btn) {
                             <div onclick="showMemberDetail('${u.uid}')" style="width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff;border:2px solid ${isSuspended?'rgba(220,50,50,0.5)':isPro?'var(--gold3)':'rgba(var(--brand-rgb,30,122,52),0.4)'};${avatarBg}cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;${isSuspended?'filter:grayscale(60%);opacity:0.7;':''}" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">${hasImg?'':letter}</div>
                             <div style="flex:1;min-width:0;">
                                 <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                                    ${fullName}
+                                    ${atlEsc(fullName)}
                                     ${isSuspended?`<span style="background:rgba(220,50,50,0.18);color:#ff6b6b;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;"><i class="fa-solid fa-ban" style="font-size:8px;"></i> ${isAR?'موقوف':'Suspended'}</span>`:isPro?`<span style="background:var(--gold3);color:#000;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;"><i class="fa-solid fa-crown" style="font-size:8px;"></i> PRO</span>`:`<span style="background:rgba(var(--brand-rgb,30,122,52),0.2);color:var(--green4);font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;">BASIC</span>`}
                                 </div>
-                                <div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.email||'—'}</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${atlEsc(u.email||'—')}</div>
                                 <div style="font-size:10.5px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:4px;opacity:.85;"><i class="fa-regular fa-calendar" style="font-size:11px;"></i> ${isAR?'انضم:':'Joined:'} ${window._joinedMs(u) ? new Date(window._joinedMs(u)).toLocaleDateString(isAR?'ar-EG':'en-GB',{day:'numeric',month:'short',year:'numeric'}) : (isAR?'غير محدد':'Unknown')}</div>
                                 ${proRemRowHtml}
                             </div>
@@ -13257,11 +13301,11 @@ async function csAdmShowLink(id, btn) {
                                     <i class="fa-solid ${isSuspended?'fa-circle-check':'fa-ban'}"></i>
                                     <span class="row-btn-label">${isSuspended?(isAR?'رفع الإيقاف':'Enable'):(isAR?'إيقاف':'Suspend')}</span>
                                 </button>
-                                <button onclick="openAdminAlert('${u.uid}','${fullName.replace(/'/g,"&#39;")}')" style="display:flex;align-items:center;gap:4px;padding:6px 11px;background:rgba(100,149,237,0.08);border:1px solid rgba(100,149,237,0.25);border-radius:8px;color:#6495ed;font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" title="${isAR?'مراسلة':'Message'}">
+                                <button onclick="openAdminAlert('${u.uid}','${atlJs(fullName)}')" style="display:flex;align-items:center;gap:4px;padding:6px 11px;background:rgba(100,149,237,0.08);border:1px solid rgba(100,149,237,0.25);border-radius:8px;color:#6495ed;font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;transition:0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" title="${isAR?'مراسلة':'Message'}">
                                     <i class="fa-solid fa-paper-plane"></i>
                                     <span class="row-btn-label">${isAR?'رسالة':'Msg'}</span>
                                 </button>
-                                <button onclick="adminDeleteMember('${u.uid}','${fullName.replace(/'/g,"&#39;")}')" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.22);border-radius:8px;color:#ff6b6b;font-size:13px;cursor:pointer;transition:0.2s;" onmouseover="this.style.background='rgba(220,50,50,0.22)'" onmouseout="this.style.background='rgba(220,50,50,0.08)'" title="${isAR?'حذف نهائي':'Delete permanently'}">
+                                <button onclick="adminDeleteMember('${u.uid}','${atlJs(fullName)}')" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.22);border-radius:8px;color:#ff6b6b;font-size:13px;cursor:pointer;transition:0.2s;" onmouseover="this.style.background='rgba(220,50,50,0.22)'" onmouseout="this.style.background='rgba(220,50,50,0.08)'" title="${isAR?'حذف نهائي':'Delete permanently'}">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </div>
@@ -13291,7 +13335,7 @@ async function csAdmShowLink(id, btn) {
                             <i class="fa-solid ${icon}" style="color:var(--muted);width:16px;text-align:center;font-size:13px;flex-shrink:0;"></i>
                             <div>
                                 <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">${label}</div>
-                                <div style="font-size:13px;color:var(--text);font-weight:500;margin-top:1px;">${val}</div>
+                                <div style="font-size:13px;color:var(--text);font-weight:500;margin-top:1px;">${atlEsc(val)}</div>
                             </div>
                         </div>` : '';
 
@@ -13302,7 +13346,7 @@ async function csAdmShowLink(id, btn) {
                     document.getElementById('memberDetailContent').innerHTML = `
                         <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px;margin-top:4px;">
                             <div style="width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:26px;color:#fff;border:3px solid ${u.suspended?'rgba(220,50,50,0.6)':isPro?'var(--gold3)':'rgba(var(--brand-rgb,30,122,52),0.5)'};${avatarBg}margin-bottom:12px;${u.suspended?'filter:grayscale(50%);':''}">${hasImg?'':letter}</div>
-                            <div style="font-size:17px;font-weight:700;color:var(--text);">${fullName}</div>
+                            <div style="font-size:17px;font-weight:700;color:var(--text);">${atlEsc(fullName)}</div>
                             <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">
                                 ${u.suspended
                                     ? `<span style="background:rgba(220,50,50,0.18);color:#ff6b6b;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;"><i class="fa-solid fa-ban" style="font-size:11px;margin-left:3px;"></i> ${isAR?'موقوف مؤقتاً':'Suspended'}</span>`
@@ -13332,15 +13376,15 @@ async function csAdmShowLink(id, btn) {
                                 <i class="fa-solid ${u.suspended?'fa-circle-check':'fa-ban'}"></i>
                                 ${u.suspended?(isAR?'رفع الإيقاف':'Remove Suspension'):(isAR?'إيقاف مؤقت':'Suspend Account')}
                             </button>
-                            <button onclick="closeMemberModal();openAdminAlert('${u.uid}','${fullName.replace(/'/g,"&#39;")}');" style="width:100%;padding:11px;background:rgba(100,149,237,0.08);border:1px solid rgba(100,149,237,0.25);border-radius:10px;color:#6495ed;font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
+                            <button onclick="closeMemberModal();openAdminAlert('${u.uid}','${atlJs(fullName)}');" style="width:100%;padding:11px;background:rgba(100,149,237,0.08);border:1px solid rgba(100,149,237,0.25);border-radius:10px;color:#6495ed;font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
                                 <i class="fa-solid fa-paper-plane"></i>
                                 ${isAR?'إرسال رسالة تنبيه':'Send Alert Message'}
                             </button>
-                            <button onclick="closeMemberModal();navigate('admincoins', document.getElementById('menuAdminCoins'));setTimeout(()=>{const el=document.getElementById('coinMgmtEmail'); if(el){el.value='${(u.email||'').replace(/'/g,"&#39;")}'; adminCoinMgmtSearch();}},250);" style="width:100%;padding:11px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:10px;color:var(--gold3);font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
+                            <button onclick="closeMemberModal();navigate('admincoins', document.getElementById('menuAdminCoins'));setTimeout(()=>{const el=document.getElementById('coinMgmtEmail'); if(el){el.value='${atlJs(u.email||'')}'; adminCoinMgmtSearch();}},250);" style="width:100%;padding:11px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:10px;color:var(--gold3);font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
                                 <i class="fa-solid fa-coins"></i>
                                 ${isAR?'إدارة رصيد العملات':'Manage Coin Balance'}
                             </button>
-                            <button onclick="adminDeleteMember('${u.uid}','${fullName.replace(/'/g,"&#39;")}');closeMemberModal();" style="width:100%;padding:11px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.25);border-radius:10px;color:#ff6b6b;font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
+                            <button onclick="adminDeleteMember('${u.uid}','${atlJs(fullName)}');closeMemberModal();" style="width:100%;padding:11px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.25);border-radius:10px;color:#ff6b6b;font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:0.2s;">
                                 <i class="fa-solid fa-trash"></i>
                                 ${isAR?'حذف الحساب نهائياً':'Delete Account Permanently'}
                             </button>
@@ -13653,10 +13697,10 @@ async function csAdmShowLink(id, btn) {
                     const status = r.status || 'pending';
                     const timeStr = r.updatedAt?.toDate ? r.updatedAt.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',year:'numeric'}) : '';
                     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap;">
-                        <div onclick="showCVDetail('${r.uid}')" style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold2),var(--gold3));display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;font-size:15px;flex-shrink:0;cursor:pointer;">${(r.fullName||'U')[0].toUpperCase()}</div>
+                        <div onclick="showCVDetail('${r.uid}')" style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold2),var(--gold3));display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;font-size:15px;flex-shrink:0;cursor:pointer;">${atlEsc((r.fullName||'U')[0].toUpperCase())}</div>
                         <div onclick="showCVDetail('${r.uid}')" style="flex:1;min-width:160px;cursor:pointer;">
-                            <div style="font-size:13px;font-weight:700;">${r.fullName||'—'}</div>
-                            <div style="font-size:11px;color:var(--muted);margin-top:1px;">${r.targetTitle||''} ${r.email ? '· '+r.email : ''}</div>
+                            <div style="font-size:13px;font-weight:700;">${atlEsc(r.fullName||'—')}</div>
+                            <div style="font-size:11px;color:var(--muted);margin-top:1px;">${atlEsc(r.targetTitle||'')} ${r.email ? '· '+atlEsc(r.email) : ''}</div>
                             <div style="font-size:11px;color:var(--muted);margin-top:2px;"><i class="fa-regular fa-clock" style="margin-left:3px;"></i>${timeStr}</div>
                         </div>
                         <span style="font-size:11px;font-weight:700;color:${statusColor[status]};background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.25);padding:3px 10px;border-radius:99px;flex-shrink:0;">${statusLabel[status]}</span>
@@ -13682,7 +13726,7 @@ async function csAdmShowLink(id, btn) {
         const isAR = lang === 'AR';
         const r = (window._cvRequestsCache || []).find(x => x.uid === uid);
         if (!r) return;
-        const field = (label, val) => val ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:var(--gold3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">${label}</div><div style="font-size:13px;color:var(--text);white-space:pre-wrap;line-height:1.6;">${val}</div></div>` : '';
+        const field = (label, val) => val ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:var(--gold3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">${label}</div><div style="font-size:13px;color:var(--text);white-space:pre-wrap;line-height:1.6;">${atlEsc(val)}</div></div>` : '';
         const content = document.getElementById('cvDetailContent');
         if (!content) return;
         content.innerHTML = `<div style="text-align:center;padding:30px;"><div class="spinner" style="margin:0 auto;"></div></div>`;
@@ -13698,14 +13742,14 @@ async function csAdmShowLink(id, btn) {
             ? `<div style="margin-bottom:12px;">
                 <div style="font-size:11px;font-weight:700;color:var(--gold3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">${isAR?'ملفات الشهادات المرفوعة':'Uploaded Certificate Files'}</div>
                 <div style="display:flex;flex-direction:column;gap:6px;">
-                    ${r.certificateFiles.map(f => `<a href="${f.data}" download="${f.name}" style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--gold3);text-decoration:none;"><i class="fa-solid fa-paperclip"></i><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span><i class="fa-solid fa-download"></i></a>`).join('')}
+                    ${r.certificateFiles.map(f => `<a href="${atlUrl(f.data)}" download="${atlEsc(f.name)}" style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--gold3);text-decoration:none;"><i class="fa-solid fa-paperclip"></i><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${atlEsc(f.name)}</span><i class="fa-solid fa-download"></i></a>`).join('')}
                 </div>
               </div>`
             : '';
         const cvUploadHTML = `
             <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
                 <div style="font-size:11px;font-weight:700;color:var(--gold3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">${isAR?'رفع ملف الـ CV النهائي للطالب':'Upload Final CV File to Student'}</div>
-                ${existingFile?.fileData ? `<a href="${existingFile.fileData}" download="${existingFile.fileName||'CV'}" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:10px;padding:6px 12px;background:rgba(var(--brand-rgb,30,122,52),0.1);border:1px solid rgba(var(--brand-rgb,30,122,52),0.3);border-radius:8px;color:var(--green4);font-size:12px;text-decoration:none;"><i class="fa-solid fa-file-circle-check"></i>${existingFile.fileName||'CV'}</a>` : ''}
+                ${existingFile?.fileData ? `<a href="${atlUrl(existingFile.fileData)}" download="${atlEsc(existingFile.fileName||'CV')}" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:10px;padding:6px 12px;background:rgba(var(--brand-rgb,30,122,52),0.1);border:1px solid rgba(var(--brand-rgb,30,122,52),0.3);border-radius:8px;color:var(--green4);font-size:12px;text-decoration:none;"><i class="fa-solid fa-file-circle-check"></i>${atlEsc(existingFile.fileName||'CV')}</a>` : ''}
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     <input type="file" id="adminCVFileInput" accept=".pdf,.doc,.docx" style="flex:1;min-width:160px;font-size:12px;color:var(--muted);">
                     <button onclick="adminUploadCVFile('${uid}')" id="adminCVUploadBtn" style="padding:8px 16px;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;border:none;border-radius:8px;font-size:12px;font-weight:800;font-family:'Tajawal',sans-serif;cursor:pointer;flex-shrink:0;">
@@ -13714,11 +13758,11 @@ async function csAdmShowLink(id, btn) {
                 </div>
             </div>`;
         content.innerHTML = `
-            <h3 style="margin-bottom:16px;margin-top:6px;">${r.fullName||''}</h3>
+            <h3 style="margin-bottom:16px;margin-top:6px;">${atlEsc(r.fullName||'')}</h3>
             ${field(isAR?'البريد الإلكتروني':'Email', r.email)}
             ${field(isAR?'الهاتف':'Phone', r.phone)}
             ${field(isAR?'العنوان':'Address', r.address)}
-            ${field('LinkedIn', r.linkedin)}
+            ${atlEsc(field('LinkedIn', r.linkedin))}
             ${field(isAR?'بورتفوليو':'Portfolio', r.portfolio)}
             ${field(isAR?'المسمى الوظيفي المستهدف':'Target Job Title', r.targetTitle)}
             ${field(isAR?'النبذة':'Summary', r.summary)}
@@ -14273,7 +14317,7 @@ async function csAdmShowLink(id, btn) {
                 <td><span class="tk-status ${statusClass}">${ticketStatusLabel(tk.status, isAR)}</span></td>
                 <td><div class="tk-cell-clip">${escapeHtml(tk.message||'')}</div></td>
                 <td>${tk.reply ? `<div class="tk-cell-clip">${escapeHtml(tk.reply)}</div>` : `<span style="color:var(--muted);font-size:12px;">—</span>`}</td>
-                <td>${tk.screenshot ? `<img src="${tk.screenshot}" class="tk-screenshot-thumb" onclick="window.open('${tk.screenshot}','_blank')">` : `<span style="color:var(--muted);font-size:12px;">—</span>`}</td>
+                <td>${tk.screenshot ? `<img src="${atlUrl(tk.screenshot)}" class="tk-screenshot-thumb" onclick="window.open('${atlUrl(tk.screenshot)}','_blank')">` : `<span style="color:var(--muted);font-size:12px;">—</span>`}</td>
                 <td>${ratingCell}${tk.ratingComment ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;max-width:160px;">${escapeHtml(tk.ratingComment)}</div>` : ''}</td>
             </tr>`;
         }).join('');
@@ -14421,7 +14465,7 @@ async function csAdmShowLink(id, btn) {
             </div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${ticketDate(tk.createdAt, isAR)}</div>
             <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:12px;padding:14px;font-size:14px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;">${escapeHtml(tk.message)}</div>
-            ${tk.screenshot ? `<img src="${tk.screenshot}" class="tk-screenshot-thumb" style="max-width:320px;" onclick="window.open('${tk.screenshot}','_blank')">` : ''}
+            ${tk.screenshot ? `<img src="${atlUrl(tk.screenshot)}" class="tk-screenshot-thumb" style="max-width:320px;" onclick="window.open('${atlUrl(tk.screenshot)}','_blank')">` : ''}
             ${tk.reply ? `<div class="tk-reply-box" style="margin-top:16px;">
                 <div style="font-size:11px;font-weight:700;color:var(--g4);margin-bottom:6px;"><i class="fa-solid fa-headset"></i> ${isAR?'ردّك':'Your reply'}</div>
                 <div style="font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;">${escapeHtml(tk.reply)}</div>
@@ -14924,8 +14968,8 @@ async function csAdmShowLink(id, btn) {
                         <div style="display:flex;align-items:flex-start;gap:10px;">
                             <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--g2),var(--g4));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;">${letter}</div>
                             <div style="flex:1;min-width:0;">
-                                <div style="font-size:13px;font-weight:700;margin-bottom:2px;">${tk.studentName || 'User'}</div>
-                                <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tk.message || ''}</div>
+                                <div style="font-size:13px;font-weight:700;margin-bottom:2px;">${atlEsc(tk.studentName || 'User')}</div>
+                                <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${atlEsc(tk.message || '')}</div>
                                 <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap;">
                                     <span style="font-size:11px;color:var(--muted);">${date}</span>
                                     <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;background:rgba(212,160,23,0.15);color:var(--gold3);">
