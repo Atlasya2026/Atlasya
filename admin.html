@@ -4484,7 +4484,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         };
         window._consultLoadExperts = async () => {
             const snap = await getDocs(collection(db, 'admins'));
-            return snap.docs.map(d => {
+            const _seen = new Set();
+            return snap.docs.filter(d => !_seen.has(d.id) && _seen.add(d.id)).map(d => {
                 const x = d.data() || {};
                 const name = (x.name || ((x.firstName || '') + ' ' + (x.lastName || '')).trim() || x.email || d.id);
                 return { id: d.id, name };
@@ -4661,9 +4662,16 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
 
     window._loadTeamAccounts = async () => {
         const snap = await getDocs(collection(db, 'admins'));
+        const seen = new Set();   // نفس الشخص ممكن يتسجّل مرتين في الجدول — نعرضه مرة واحدة (بالـ id أو الإيميل)
         return snap.docs
             .map(d => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+            .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+            .filter(a => {
+                const em = String(a.email || '').trim().toLowerCase();
+                if (seen.has('id:' + a.id) || (em && seen.has('em:' + em))) return false;
+                seen.add('id:' + a.id); if (em) seen.add('em:' + em);
+                return true;
+            });
     };
 
     // ⚠️ ده بيشيل صلاحية الأدمن بمسح مستند admins/{uid} — الحساب يقف عن
@@ -5094,7 +5102,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
     window._loadCommunityMembers = async (groupId) => {
         const q = query(collection(db, 'community_groups', groupId, 'members'), orderBy('joinedAt', 'asc'));
         const snap = await getDocs(q);
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const _seen = new Set();   // العضو بيظهر مرة واحدة حتى لو اتسجّل مرتين في الجدول
+        return snap.docs.filter(d => !_seen.has(d.id) && _seen.add(d.id)).map(d => ({ id: d.id, ...d.data() }));
     };
 
     /* Real-time listener for a group's messages */
