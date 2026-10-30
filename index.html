@@ -8536,10 +8536,9 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             dcInjectStyles();
             dcInjectJourneyStyles();
             _dcView = 'hub';
-            if (!_dcQuestions) {
-                try { _dcQuestions = await window._loadDailyChallengeQs(); }
-                catch(e) { console.error('loadDailyChallengeQs error:', e); _dcQuestions = []; }
-            }
+            // بنحمّل الأسئلة في كل دخول للصفحة عشان أي أسئلة جديدة الإدارة تضيفها تفتح المربع المقفول فوراً
+            try { _dcQuestions = await window._loadDailyChallengeQs(); }
+            catch(e) { console.error('loadDailyChallengeQs error:', e); if (!_dcQuestions) _dcQuestions = []; }
             if (!_dcWeeklySettings) {
                 try { _dcWeeklySettings = await window._loadWeeklyChallengeSettings(); }
                 catch(e) { _dcWeeklySettings = { enabled: true, bonusCoins: 100 }; }
@@ -8760,7 +8759,23 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 .tm-badge { font-size:11.5px; font-weight:800; padding:4px 11px; border-radius:99px; background:rgba(var(--brand2-rgb,39,163,70),.14); border:1px solid rgba(var(--brand2-rgb,39,163,70),.35); color:var(--g4); white-space:nowrap; }
                 .tm-badge.gold { background:rgba(240,192,64,.14); border-color:rgba(240,192,64,.4); color:var(--gold4); }
 
-                .tm-path { position:relative; z-index:1; direction:ltr; height:450px; }
+                .tm-scroll-wrap { position:relative; z-index:1; }
+                .tm-scroller { direction:ltr; overflow-x:auto; overflow-y:hidden; cursor:grab; user-select:none; -webkit-user-select:none; -webkit-overflow-scrolling:touch; scrollbar-width:thin; padding-bottom:8px; outline:none; }
+                .tm-scroller.dragging { cursor:grabbing; }
+                .tm-path { position:relative; direction:ltr; height:350px; }
+                .tm-nav { position:absolute; top:50%; transform:translateY(-50%); z-index:4; width:34px; height:34px; border-radius:50%; border:1px solid var(--border2); background:var(--bg); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px; box-shadow:0 4px 12px rgba(0,0,0,.3); }
+                .tm-nav:hover { background:var(--bg3); }
+                .tm-nav-l { left:2px; } .tm-nav-r { right:2px; }
+                .tm-hint { position:relative; z-index:1; text-align:center; font-size:11.5px; color:var(--muted); padding:2px 0 8px; }
+                .tm-stage { position:absolute; top:8px; z-index:2; display:inline-flex; align-items:center; gap:7px; direction:rtl; white-space:nowrap; font-size:12.5px; font-weight:800; color:var(--text); }
+                .tm-stage > i { color:var(--gold3); }
+                .tm-divider { position:absolute; top:46px; bottom:14px; width:0; border-left:2px dashed var(--border2); opacity:.7; }
+                .tm-donebar { position:relative; z-index:1; display:flex; align-items:center; gap:12px; margin:8px 4px 6px; padding:12px 14px; border-radius:14px; border:1px solid rgba(240,192,64,.4); background:rgba(240,192,64,.08); font-size:12.5px; line-height:1.8; color:var(--muted); }
+                .tm-donebar > i { font-size:24px; color:var(--gold4); }
+                .tm-donebar b { color:var(--text); }
+                .tm-lockmark { position:absolute; inset-inline-start:-10px; bottom:-26px; font-size:170px; opacity:.05; pointer-events:none; }
+                .tm-done .tm-path { filter:saturate(.8); }
+                .tm-end .tm-circle { border-style:dashed; opacity:.85; color:var(--gold3); }
                 .tm-svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
                 .tm-base { fill:none; stroke:var(--muted); opacity:.5; stroke-width:3.5; stroke-dasharray:3 10; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
                 .tm-prog { fill:none; stroke:var(--g4); stroke-width:5; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; filter:drop-shadow(0 0 6px rgba(var(--brand2-rgb,39,163,70),.55)); }
@@ -8841,7 +8856,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             let lastActive = 0;
             nodes.forEach((n, i) => { if (n.q.scheduledDate <= today) lastActive = Math.floor(i / DC_SEG); });
             const segs = [];
-            for (let k = 0; k <= Math.min(lastActive, totalSegs - 1); k++) {
+            // المرحلة الحالية + المرحلة الجاية (لو فيها أسئلة اتضافت) عشان الدواير الجديدة تظهر مقفولة لحد ميعادها
+            for (let k = 0; k <= Math.min(lastActive + 1, totalSegs - 1); k++) {
                 const segNodes = nodes.slice(k * DC_SEG, k * DC_SEG + DC_SEG);
                 const full = segNodes.length === DC_SEG;
                 const anyBad = segNodes.some(n => n.status === 'wrong' || n.status === 'missed');
@@ -8854,7 +8870,13 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 else cs = 'locked';
                 segs.push({ k, nodes: segNodes, chest: { kind: 'chest', q: wq, a: wa, status: cs, coins: wq ? (wq.coins || DC_WEEKLY_DEFAULT_COINS) : DC_WEEKLY_DEFAULT_COINS } });
             }
-            return { nodes, segs, weeklies, dailies, lastActive };
+            // خلصت التحديات = مفيش دايرة لسه (النهارده/جاية)، آخر مرحلة كاملة 7 أيام، وكل صناديق الكنز في حالة نهائية (اتفتحت/اتقفلت).
+            // أول ما أسئلة جديدة تتضاف بتظهر دايرة لسه ← finished بترجع false والمربع بيتفتح.
+            const lastSeg = segs[Math.min(lastActive, segs.length - 1)];
+            const finished = nodes.length > 0 && !!lastSeg && lastSeg.nodes.length === DC_SEG
+                && !nodes.some(n => n.status === 'current' || n.status === 'locked')
+                && segs.every(s => s.chest.status === 'correct' || s.chest.status === 'wrong' || s.chest.status === 'failed');
+            return { nodes, segs, weeklies, dailies, lastActive, finished };
         }
 
         // Is this weekly question's chest currently unlocked for the student? (used before submitting)
@@ -8867,18 +8889,16 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         };
 
         // ── Geometry ──
-        // خريطة أكبر: صفّين × 4 دواير، كل دايرة أعلى/أوطى من اللي قبلها، والخطوط بينهم زجزاج مستقيم
-        const TM_ROW_H = 220, TM_TOP = 112, TM_ZIG = 40, TM_H = 450;
-        function tmPos(i) {
-            const row = Math.floor(i / 4);
-            const col = row % 2 === 0 ? (i % 4) : (3 - (i % 4));
-            const zig = (i % 2 === 0) ? -TM_ZIG : TM_ZIG;
-            return { row, col, x: (col + 0.5) * 100, y: TM_TOP + row * TM_ROW_H + zig };
+        // مسار أفقي واحد لكل التحديات (كل الأيام + صناديق الكنز) في مربع واحد — بيتحرّك بالسكرول أو بالسحب
+        const TM_PAD = 64, TM_H = 350, TM_Y = 196, TM_ZIG = 34;
+        function tmStep() { return window.innerWidth <= 420 ? 92 : 112; }
+        function tmPos(i, step) {
+            return { x: TM_PAD + i * step, y: TM_Y + (i % 2 === 0 ? -TM_ZIG : TM_ZIG) };
         }
-        function tmPathD(count) {
+        function tmPathD(count, step) {
             let d = '';
             for (let i = 0; i < count; i++) {
-                const p = tmPos(i);
+                const p = tmPos(i, step);
                 d += (i === 0 ? 'M ' : ' L ') + p.x + ' ' + p.y;
             }
             return d;
@@ -8899,17 +8919,36 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             return `<div class="tm-circle">${item.day}</div>`;
         }
 
-        function dcSegmentHTML(seg, avatarKey, isAR) {
+        /* مربع واحد فيه كل المراحل ورا بعض (7 أيام + صندوق كنز لكل مرحلة) على شريط أفقي قابل للسحب.
+           لو كل الأسئلة اتحلّت (آخر يوم + صندوق الكنز) المربع بيتقفل 🔒، ولما أسئلة جديدة تتضاف بيتفتح تلقائي. */
+        function dcJourneyHTML(J, avatarKey, isAR) {
+            const finished = !!J.finished;
+            const step = tmStep();
             const items = [];
-            for (let i = 0; i < DC_SEG; i++) items.push(seg.nodes[i] || { kind: 'day', status: 'empty', day: i + 1 });
-            items.push(seg.chest);
-            const islandName = (isAR ? DC_ISLANDS_AR : DC_ISLANDS_EN)[seg.k % DC_ISLANDS_AR.length];
-            const correctCount = seg.nodes.filter(n => n.status === 'correct').length;
-            // path highlights up to the avatar (explorer) position
-            let avatarIdx = items.findIndex(it => (it.kind === 'day' ? it.q && it.q.id : 'chest' + seg.k) === avatarKey);
+            J.segs.forEach(seg => {
+                for (let i = 0; i < DC_SEG; i++) items.push({ it: seg.nodes[i] || { kind: 'day', status: 'empty', day: i + 1 }, seg });
+                items.push({ it: seg.chest, seg });
+            });
+            const total = items.length + (finished ? 1 : 0);
+            const width = TM_PAD * 2 + (total - 1) * step;
+            let avatarIdx = items.findIndex(({ it, seg }) => (it.kind === 'day' ? (it.q && it.q.id) : 'chest' + seg.k) === avatarKey);
             if (avatarIdx < 0) avatarIdx = 0;
-            const nodesHTML = items.map((it, i) => {
-                const p = tmPos(i);
+
+            const badgeOf = (seg) => {
+                const correctCount = seg.nodes.filter(n => n.status === 'correct').length;
+                return {
+                    ready: isAR ? '🎁 الصندوق مفتوح!' : '🎁 Chest unlocked!',
+                    correct: isAR ? '🏆 تم' : '🏆 Done',
+                    wrong: isAR ? 'تم' : 'Done',
+                    failed: isAR ? 'الصندوق اتقفل' : 'Chest lost',
+                    locked: `${correctCount}/${DC_SEG}`,
+                    soon: isAR ? 'السؤال قريباً' : 'Coming soon'
+                }[seg.chest.status];
+            };
+            const islandOf = (seg) => (isAR ? DC_ISLANDS_AR : DC_ISLANDS_EN)[seg.k % DC_ISLANDS_AR.length];
+
+            const nodesHTML = items.map(({ it }, i) => {
+                const p = tmPos(i, step);
                 const isChest = it.kind === 'chest';
                 let label, sub, click = '';
                 if (isChest) {
@@ -8926,31 +8965,94 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 }
                 const pin = i === avatarIdx ? `<div class="tm-pin"><i class="fa-solid fa-person-hiking"></i></div>` : '';
                 const cls = `tm-node ${isChest ? 'tm-chest' : ''} tm-${it.status} ${click ? '' : 'tm-static'}`;
-                return `<div class="${cls}" style="left:${(p.col + 0.5) * 25}%;top:${p.y}px;" ${click}>${pin}${tmNodeInner(it, isAR)}<div class="tm-label">${label}</div><div class="tm-sub">${sub}</div></div>`;
+                return `<div class="${cls}" style="left:${p.x}px;top:${p.y}px;" ${click}>${pin}${tmNodeInner(it, isAR)}<div class="tm-label">${label}</div><div class="tm-sub">${sub}</div></div>`;
             }).join('');
-            const progD = avatarIdx > 0 ? tmPathD(avatarIdx + 1) : '';
-            const chestBadge = {
-                ready: isAR ? '🎁 الصندوق مفتوح!' : '🎁 Chest unlocked!',
-                correct: isAR ? '🏆 تم' : '🏆 Done',
-                wrong: isAR ? 'تم' : 'Done',
-                failed: isAR ? 'الصندوق اتقفل' : 'Chest lost',
-                locked: `${correctCount}/${DC_SEG}`,
-                soon: isAR ? 'السؤال قريباً' : 'Coming soon'
-            }[seg.chest.status];
+
+            const stagesHTML = J.segs.map(seg => {
+                const x = tmPos(seg.k * (DC_SEG + 1), step).x;
+                const divider = seg.k > 0 ? `<div class="tm-divider" style="left:${x - step / 2}px;"></div>` : '';
+                return divider + `<div class="tm-stage" style="left:${x - 44}px;"><i class="fa-solid fa-flag"></i> ${isAR ? 'المرحلة' : 'Stage'} ${seg.k + 1} · ${islandOf(seg)} <span class="tm-badge ${seg.chest.status === 'ready' ? 'gold' : ''}">${badgeOf(seg)}</span></div>`;
+            }).join('');
+
+            const endHTML = finished ? (() => {
+                const p = tmPos(items.length, step);
+                return `<div class="tm-node tm-static tm-end" style="left:${p.x}px;top:${p.y}px;"><div class="tm-circle"><i class="fa-solid fa-lock" style="font-size:22px;"></i></div><div class="tm-label">${isAR ? 'تحديات جديدة' : 'New challenges'}</div><div class="tm-sub">${isAR ? 'قريباً' : 'Coming soon'}</div></div>`;
+            })() : '';
+
+            const curSeg = J.segs[Math.min(J.lastActive, J.segs.length - 1)];
+            const headBadge = finished
+                ? `<span class="tm-badge gold"><i class="fa-solid fa-lock"></i> ${isAR ? 'مكتملة' : 'Completed'}</span>`
+                : `<span class="tm-badge ${curSeg.chest.status === 'ready' ? 'gold' : ''}">${badgeOf(curSeg)}</span>`;
+            const doneBar = finished ? `
+                <div class="tm-donebar"><i class="fa-solid fa-lock"></i>
+                    <div><b>${isAR ? 'خلّصت كل التحديات المتاحة 🎉' : 'You finished every available challenge 🎉'}</b><br>
+                    ${isAR ? 'المربع مقفول دلوقتي — أول ما الإدارة تضيف أسئلة جديدة هيتفتح تلقائي وتظهر لك الدواير الجديدة.' : 'This box is locked for now — it unlocks automatically as soon as new questions are added.'}</div>
+                </div>` : '';
+
             return `
-            <div class="tm-island">
+            <div class="tm-island ${finished ? 'tm-done' : ''}">
+                ${finished ? '<i class="fa-solid fa-lock tm-lockmark"></i>' : ''}
                 <div class="tm-island-head">
-                    <div class="tm-island-title"><i class="fa-solid fa-map-location-dot"></i> ${isAR ? 'المرحلة' : 'Stage'} ${seg.k + 1} · ${islandName}</div>
-                    <span class="tm-badge ${seg.chest.status === 'ready' ? 'gold' : ''}">${chestBadge}</span>
+                    <div class="tm-island-title"><i class="fa-solid fa-map-location-dot"></i> ${isAR ? 'رحلة التحديات' : 'Challenge Journey'} <small>${isAR ? 'المرحلة' : 'Stage'} ${curSeg.k + 1} · ${islandOf(curSeg)}</small></div>
+                    ${headBadge}
                 </div>
-                <div class="tm-path">
-                    <svg class="tm-svg" viewBox="0 0 400 ${TM_H}" preserveAspectRatio="none">
-                        <path class="tm-base" d="${tmPathD(8)}"/>
-                        ${progD ? `<path class="tm-prog" d="${progD}"/>` : ''}
-                    </svg>
-                    ${nodesHTML}
+                ${doneBar}
+                <div class="tm-scroll-wrap">
+                    <button class="tm-nav tm-nav-l" type="button" onclick="dcTmScroll(-1)" aria-label="prev"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button class="tm-nav tm-nav-r" type="button" onclick="dcTmScroll(1)" aria-label="next"><i class="fa-solid fa-chevron-right"></i></button>
+                    <div class="tm-scroller" tabindex="0" data-avatar-x="${tmPos(avatarIdx, step).x}" data-step="${step}">
+                        <div class="tm-path" style="width:${width}px;">
+                            <svg class="tm-svg" viewBox="0 0 ${width} ${TM_H}" preserveAspectRatio="none">
+                                <path class="tm-base" d="${tmPathD(total, step)}"/>
+                                ${avatarIdx > 0 ? `<path class="tm-prog" d="${tmPathD(avatarIdx + 1, step)}"/>` : ''}
+                            </svg>
+                            ${stagesHTML}${nodesHTML}${endHTML}
+                        </div>
+                    </div>
                 </div>
+                <div class="tm-hint"><i class="fa-solid fa-hand-pointer"></i> ${isAR ? 'اسحب يمين وشمال (أو اسكرول) عشان تتنقل من دايرة لدايرة' : 'Drag or scroll sideways to move from circle to circle'}</div>
             </div>`;
+        }
+
+        // Arrow buttons: move ~3 circles at a time
+        window.dcTmScroll = function (dir) {
+            const sc = document.querySelector('.tm-scroller');
+            if (!sc) return;
+            const step = parseInt(sc.dataset.step, 10) || 112;
+            sc.scrollBy({ left: dir * step * 3, behavior: 'smooth' });
+        };
+
+        // Mouse drag-to-scroll (touch/trackpad already scroll natively), keyboard arrows, and
+        // auto-centering on the explorer. Click is suppressed after a drag so circles don't open by accident.
+        function dcInitTmScroller(area) {
+            const sc = area.querySelector('.tm-scroller');
+            if (!sc) return;
+            const ax = parseFloat(sc.dataset.avatarX) || 0;
+            sc.scrollLeft = Math.max(0, ax - sc.clientWidth / 2);
+            let down = false, dragging = false, sx = 0, sl = 0, pid = null, justDragged = false;
+            sc.addEventListener('pointerdown', e => {
+                if (e.pointerType !== 'mouse' || e.button !== 0) return;
+                down = true; dragging = false; sx = e.clientX; sl = sc.scrollLeft; pid = e.pointerId;
+            });
+            sc.addEventListener('pointermove', e => {
+                if (!down) return;
+                const dx = e.clientX - sx;
+                if (!dragging && Math.abs(dx) > 5) { dragging = true; sc.classList.add('dragging'); try { sc.setPointerCapture(pid); } catch (err) {} }
+                if (dragging) sc.scrollLeft = sl - dx;
+            });
+            const end = () => {
+                if (!down) return;
+                down = false;
+                if (dragging) { justDragged = true; setTimeout(() => { justDragged = false; }, 0); }
+                dragging = false; sc.classList.remove('dragging');
+            };
+            sc.addEventListener('pointerup', end);
+            sc.addEventListener('pointercancel', end);
+            sc.addEventListener('click', e => { if (justDragged) { e.stopPropagation(); e.preventDefault(); } }, true);
+            sc.addEventListener('keydown', e => {
+                if (e.key === 'ArrowLeft') { e.preventDefault(); dcTmScroll(-1); }
+                else if (e.key === 'ArrowRight') { e.preventDefault(); dcTmScroll(1); }
+            });
         }
 
         async function dcRenderJourney(area) {
@@ -8972,7 +9074,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             }
 
             // Where the explorer stands: today's open circle, else the latest answered one.
-            const curSeg = J.segs[J.segs.length - 1];
+            const curSeg = J.segs[Math.min(J.lastActive, J.segs.length - 1)];
             let avatarKey = null;
             const curNode = J.nodes.find(n => n.status === 'current');
             if (curNode) avatarKey = curNode.q.id;
@@ -8981,8 +9083,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 avatarKey = answered ? answered.q.id : J.nodes[0].q.id;
             }
             if (curSeg.chest.status === 'ready') avatarKey = 'chest' + curSeg.k;
-            // the avatar only lives in its own island
-            const avatarSeg = J.segs.find(s => s.nodes.some(n => n.q.id === avatarKey) || ('chest' + s.k) === avatarKey);
+            // خلّص كل حاجة: المستكشف يقف عند صندوق الكنز الأخير
+            if (J.finished && (curSeg.chest.status === 'correct' || curSeg.chest.status === 'wrong')) avatarKey = 'chest' + curSeg.k;
 
             let streak = 0;
             for (const n of curSeg.nodes) { if (n.status === 'correct') streak++; else break; }
@@ -9015,12 +9117,11 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     </ul>
                 </details>
                 ${readySeg ? `<div class="tm-rules" style="border-style:solid;border-color:rgba(240,192,64,.5);background:rgba(240,192,64,.08);color:var(--text);font-weight:800;"><i class="fa-solid fa-gift" style="color:var(--gold4);margin-inline-end:8px;"></i>${isAR ? `صندوق الكنز في المرحلة ${readySeg.k + 1} مفتوح — اضغط عليه وجاوب سؤال الأسبوع واكسب ${readySeg.chest.coins} عملة!` : `The Stage ${readySeg.k + 1} treasure chest is open — tap it and win ${readySeg.chest.coins} coins!`}</div>` : ''}
-                ${J.segs.map(s => dcSegmentHTML(s, avatarSeg && avatarSeg.k === s.k ? avatarKey : null, isAR)).join('')}
+                ${dcJourneyHTML(J, avatarKey, isAR)}
             </div>`;
             dcStartCountdown();
-            // bring the explorer into view
-            const pin = area.querySelector('.tm-pin');
-            if (pin && pin.scrollIntoView) setTimeout(() => pin.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250);
+            // الشريط الأفقي: سحب بالماوس + توسيط المستكشف
+            dcInitTmScroller(area);
         }
 
         function dcStartCountdown() {
