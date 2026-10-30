@@ -104,7 +104,8 @@ const AUTH_MAP = [
   [/password.*(short|weak|least)|weak_password/i, 'auth/weak-password'],
   [/rate limit|too many|over_.*rate/i, 'auth/too-many-requests'],
   [/invalid.*email|email_address_invalid|unable to validate email/i, 'auth/invalid-email'],
-  [/banned|disabled/i, 'auth/user-disabled'],
+  [/sign.?ups?.*(not allowed|disabled)|signup.*disabled/i, 'auth/operation-not-allowed'],
+  [/banned|user.*disabled|account.*disabled/i, 'auth/user-disabled'],
   [/failed to fetch|network/i, 'auth/network-request-failed'],
 ];
 function authErr(e) {
@@ -336,7 +337,7 @@ function buildSelect(db, target, countOnly) {
         case '>=': q = q.gte(m.c, v); break;
         case 'in': q = q.in(m.c, v); break;
         case 'array-contains': q = q.contains(m.c, [v]); break;
-        case 'array-contains-any': q = q.or(v.map(x => m.c + '.cs.' + JSON.stringify([x])).join(',')); break;
+        case 'array-contains-any': q = q.or(v.map(x => { const lit = JSON.stringify([x]); return /[,()\\"]/.test(String(x)) ? m.c + '.cs."' + lit.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"' : m.c + '.cs.' + lit; }).join(',')); break;
         default: throw new Error('Unsupported operator ' + c.op);
       }
     }
@@ -361,6 +362,7 @@ export async function getDocs(target) {
   let rows = [];
   if (lim && !clientSort.length) { const { data, error } = await q.limit(lim); if (error) throw mkErr(error); rows = data; }
   else {
+    for (const ic of idCols(info.spec)) q = q.order(ic, { ascending: true });   // ترتيب ثابت (tiebreaker) عشان الصفحات ماتكررش/تضيّع صفوف
     for (let from = 0; ; from += 1000) {
       const { data, error } = await q.range(from, from + 999); if (error) throw mkErr(error);
       rows = rows.concat(data); if (data.length < 1000) break;
