@@ -5041,6 +5041,19 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         };
         window._deletePortfolioComment = async (id) => { await deleteDoc(doc(db, 'portfolio_comments', id)); };
 
+        /* ─── تقييمات التطبيق (app_reviews — شوف app-reviews.sql) — تقييم واحد لكل طالب ─── */
+        window._loadAppReviews = async () => {
+            const snap = await getDocs(query(collection(db, 'app_reviews'), orderBy('createdAt', 'desc')));
+            return snap.docs.map(d => { const x = d.data(); return { id: d.id, uid: x.uid || d.id, authorName: x.authorName || '', rating: Number(x.rating) || 0, text: x.text || '', createdAt: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : 0 }; });
+        };
+        window._saveAppReview = async (rating, text) => {
+            if (!currentUid) throw new Error('غير مسجل الدخول');
+            const authorName = ((window._userData?.firstName || '') + ' ' + (window._userData?.lastName || '')).trim() || 'User';
+            const r = Math.max(1, Math.min(5, Math.round(Number(rating) || 0)));
+            await setDoc(doc(db, 'app_reviews', currentUid), { uid: currentUid, authorName, rating: r, text: String(text || '').trim().slice(0, 500), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        };
+        window._deleteAppReview = async (id) => { await deleteDoc(doc(db, 'app_reviews', id || currentUid)); };
+
         /* ─── DIGITAL LIBRARY (ATLASYA) — student-facing ─── */
         window._loadLibraryBooks = async () => {
             const snap = await getDocs(collection(db, 'library_books'));
@@ -14105,7 +14118,7 @@ window.openConsultationModal = function () { csTab('book'); };
                 return `<div id="wbUpdate" style="position:relative;z-index:1;margin-top:12px;"><button type="button" onclick="atlUpdateApp(this)" style="display:inline-flex;align-items:center;gap:9px;padding:10px 18px;border-radius:12px;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:800;color:#e9f0ed;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.25);"><i class="fa-solid fa-arrows-rotate"></i> ${ar ? 'تحديث التطبيق' : 'Update the app'}</button></div>`;
             } catch (e) { return ''; }
         };
-        window.atlUpdateApp = async function (btn) {
+        window.atlUpdateApp = async function (btn, beforeReload) {
             const ar = _pushAR();
             if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-arrows-rotate fa-spin"></i> ${ar ? 'جاري التحديث...' : 'Updating...'}`; }
             try {
@@ -14115,12 +14128,147 @@ window.openConsultationModal = function () { csTab('book'); };
                 }
                 if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); }
             } catch (e) { console.warn('app update:', e); }
+            try { if (typeof beforeReload === 'function') beforeReload(); } catch (e) {}
+            try { localStorage.setItem('atl_app_ver', window.ATL_APP_VERSION); } catch (e) {}
             try { const u = new URL(location.href); u.searchParams.set('_u', Date.now()); location.replace(u.toString()); }
             catch (e) { location.reload(); }
         };
+
+        /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
+           لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
+        window.ATL_APP_VERSION = '2026.10.31.1';
+        try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
+
+        window.atlCheckVersion = async function () {
+            try {
+                const r = await fetch('version.json?_=' + Date.now(), { cache: 'no-store' });
+                if (!r.ok) throw new Error('http ' + r.status);
+                const j = await r.json(); const v = String((j && j.version) || '');
+                return { ok: !!v, remote: v, has: !!v && v !== window.ATL_APP_VERSION };
+            } catch (e) { return { ok: false }; }
+        };
+
+        /* النافذة العايمة الإجبارية: بتظهر أول دخول بس، ومفيهاش إغلاق — الطريق الوحيد هو تحديث التطبيق */
+        window.atlForceUpdateOnce = function () {
+            try {
+                if (window._isAdmin === true) return;
+                if (document.getElementById('atlForceUpd')) return;
+                let done = false; try { done = localStorage.getItem('atl_force_upd_done') === '1'; } catch (e) {}
+                if (done) return;
+                const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+                const o = document.createElement('div');
+                o.id = 'atlForceUpd';
+                o.setAttribute('role', 'alertdialog'); o.setAttribute('aria-modal', 'true');
+                o.dir = ar ? 'rtl' : 'ltr';
+                o.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,10,16,.86);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:inherit;';
+                o.innerHTML = `<div style="width:100%;max-width:400px;text-align:center;background:var(--card,#0e1f2b);color:var(--text,#e9f0ed);border:1px solid var(--border2,rgba(255,255,255,.18));border-radius:22px;padding:28px 22px;box-shadow:0 24px 70px rgba(0,0,0,.6);">
+                    <div style="width:78px;height:78px;margin:0 auto 14px;border-radius:22px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;"><img src="icons/icon-192.png" alt="" style="width:56px;height:56px;object-fit:contain;" onerror="this.style.display='none'"></div>
+                    <div style="font-size:20px;font-weight:800;margin-bottom:8px;">${ar ? 'تحديث التطبيق' : 'Update the app'}</div>
+                    <div style="font-size:13.5px;line-height:1.9;opacity:.85;margin-bottom:20px;">${ar ? 'عشان تستخدم التطبيق بأفضل حال (الشعار الجديد، الإشعارات، وآخر المميزات) لازم تعمل تحديث دلوقتي. التحديث بياخد ثواني.' : 'To get the best experience (new logo, notifications and the latest features) please update now. It only takes a few seconds.'}</div>
+                    <button id="atlForceUpdBtn" type="button" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 18px;border:none;border-radius:13px;cursor:pointer;font-family:inherit;font-size:15px;font-weight:800;color:#04120a;background:linear-gradient(135deg,var(--green4,#34d399),var(--cs-cyan,#22d3ee));"><i class="fa-solid fa-arrows-rotate"></i> ${ar ? 'تحديث التطبيق الآن' : 'Update now'}</button>
+                </div>`;
+                document.body.appendChild(o);
+                const prevOv = document.body.style.overflow; document.body.style.overflow = 'hidden';
+                const block = (e) => { if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); const b = document.getElementById('atlForceUpdBtn'); if (b) b.focus(); } };
+                document.addEventListener('keydown', block, true);
+                const b = document.getElementById('atlForceUpdBtn');
+                b.onclick = () => window.atlUpdateApp(b, () => { try { localStorage.setItem('atl_force_upd_done', '1'); } catch (e) {} });
+                try { b.focus(); } catch (e) {}
+            } catch (e) { console.warn('force update:', e); }
+        };
+
+        /* قسم الإشعارات داخل معلومات التطبيق */
+        window.atlAppInfoNotif = function () {
+            const el = document.getElementById('aiNotif'); if (!el) return;
+            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+            const mode = _appBarMode();
+            const M = {
+                install: { l: ar ? 'ثبّت التطبيق على جهازك' : 'Install the app', s: ar ? 'لازم تثبّت التطبيق الأول عشان توصلك الإشعارات' : 'Install the app first to receive notifications', ic: 'fa-download', st: 'p' },
+                notify: { l: ar ? 'تفعيل الإشعارات' : 'Enable notifications', s: ar ? 'تنبيهات المنصة وإعلانات الإدارة حتى والتطبيق مقفول' : 'Platform alerts and announcements even when closed', ic: 'fa-bell', st: 'p' },
+                again: { l: ar ? 'إعادة تفعيل الإشعارات' : 'Re-enable notifications', s: ar ? 'الإشعارات مفعّلة ✓ — اضغط لو التنبيهات مش بتوصلك' : 'Notifications are on ✓ — tap if alerts are not arriving', ic: 'fa-rotate', st: 'g' },
+                denied: { l: ar ? 'الإشعارات محظورة — إزاي أفعّلها؟' : 'Blocked — how to enable?', s: '', ic: 'fa-bell-slash', st: 'b' }
+            }[mode];
+            if (!M) { el.innerHTML = `<div style="font-size:12.5px;color:var(--muted);">${ar ? 'الإشعارات غير متاحة على هذا الجهاز أو المتصفح.' : 'Notifications are not available on this device/browser.'}</div>`; return; }
+            const css = M.st === 'p' ? 'color:#04120a;background:linear-gradient(135deg,var(--green4,#34d399),var(--cs-cyan,#22d3ee));border:none;' : M.st === 'g' ? 'color:var(--text);background:rgba(255,255,255,.06);border:1px solid var(--border2,rgba(255,255,255,.2));' : 'color:#fca5a5;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.4);';
+            el.innerHTML = `<button type="button" onclick="_appBarAction('${mode}')" style="width:100%;display:flex;align-items:center;justify-content:center;gap:9px;padding:12px 16px;border-radius:12px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:800;${css}"><i class="fa-solid ${M.ic}"></i> ${M.l}</button>${M.s ? `<div style="font-size:11.5px;color:var(--muted);margin-top:6px;text-align:center;">${M.s}</div>` : ''}`;
+        };
+
+        /* زر التحديث: مفتوح لما فيه إصدار أحدث، ومقفول طالما التطبيق محدّث */
+        window.atlAppInfoUpd = async function () {
+            const el = document.getElementById('aiUpd'); if (!el) return;
+            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+            const base = 'width:100%;display:flex;align-items:center;justify-content:center;gap:9px;padding:12px 16px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:800;';
+            const locked = (icon, label, sub) => { el.innerHTML = `<button type="button" disabled style="${base}cursor:not-allowed;opacity:.55;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--border);"><i class="fa-solid ${icon}"></i> ${label}</button>${sub ? `<div style="font-size:11.5px;color:var(--muted);margin-top:6px;text-align:center;">${sub}</div>` : ''}`; };
+            locked('fa-spinner fa-spin', ar ? 'جاري فحص التحديثات...' : 'Checking for updates...');
+            const r = await window.atlCheckVersion();
+            if (!document.getElementById('aiUpd')) return;
+            if (!r.ok) { locked('fa-lock', ar ? 'تعذّر فحص التحديثات' : 'Could not check for updates', `<a href="javascript:void(0)" onclick="atlAppInfoUpd()" style="color:var(--gold3,#e6b84a);">${ar ? 'إعادة المحاولة' : 'Retry'}</a>`); return; }
+            if (r.has) {
+                el.innerHTML = `<button type="button" onclick="atlUpdateApp(this)" style="${base}cursor:pointer;color:#0a0a0e;background:linear-gradient(135deg,var(--gold3,#e6b84a),var(--gold2,#c99a2e));border:none;"><i class="fa-solid fa-arrows-rotate"></i> ${ar ? 'تحديث التطبيق' : 'Update the app'}</button><div style="font-size:11.5px;color:var(--muted);margin-top:6px;text-align:center;">${ar ? 'يوجد إصدار جديد متاح' : 'A new version is available'} (<span dir="ltr">${atlEsc(r.remote)}</span>)</div>`;
+            } else locked('fa-circle-check', ar ? 'التطبيق محدّث ✓' : 'App is up to date ✓', ar ? 'هتتفتح لما ينزل إصدار جديد' : 'Unlocks when a new version is released');
+        };
+
+        /* تقييم التطبيق */
+        window._aiStars = 0; window._aiList = [];
+        window.atlReviewsInit = async function () {
+            const rate = document.getElementById('aiRate'), box = document.getElementById('aiReviews'); if (!rate || !box) return;
+            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+            box.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);"><div class="spinner" style="margin:0 auto;"></div></div>`;
+            try { window._aiList = await window._loadAppReviews(); }
+            catch (e) { console.warn('reviews:', e); box.innerHTML = `<div style="font-size:12.5px;color:var(--muted);text-align:center;">${ar ? 'تعذّر تحميل التقييمات (تأكد من تشغيل app-reviews.sql).' : 'Could not load reviews.'}</div>`; window._aiList = null; }
+            const mine = (window._aiList || []).find(x => x.uid === window._currentUid);
+            window._aiStars = mine ? mine.rating : 0; window._aiMine = mine || null;
+            atlReviewForm(); atlReviewList();
+        };
+        window.atlStarsHtml = function (n, size) { let s = ''; for (let i = 1; i <= 5; i++) s += `<span style="color:${i <= n ? '#f5b82e' : 'rgba(255,255,255,.2)'};font-size:${size || 16}px;">★</span>`; return `<span dir="ltr" style="letter-spacing:2px;white-space:nowrap;">${s}</span>`; };
+        window.atlReviewForm = function () {
+            const rate = document.getElementById('aiRate'); if (!rate) return;
+            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+            const mine = window._aiMine, n = window._aiStars || 0;
+            const keep = document.getElementById('aiTxt') ? document.getElementById('aiTxt').value : (mine ? mine.text : '');
+            let st = ''; for (let i = 1; i <= 5; i++) st += `<button type="button" onclick="atlSetStars(${i})" aria-label="${i}" style="background:none;border:none;cursor:pointer;font-size:34px;line-height:1;padding:2px 3px;color:${i <= n ? '#f5b82e' : 'rgba(255,255,255,.22)'};transition:transform .12s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform=''">★</button>`;
+            rate.innerHTML = `<div style="font-size:15px;font-weight:800;margin-bottom:4px;">${mine ? (ar ? 'تقييمك للتطبيق' : 'Your rating') : (ar ? 'قيّم التطبيق' : 'Rate the app')}</div>
+                <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${ar ? 'رأيك بيظهر لكل الطلبة وللإدارة' : 'Your review is shown to all students and the admin'}</div>
+                <div dir="ltr" style="text-align:center;margin-bottom:10px;">${st}</div>
+                <textarea id="aiTxt" maxlength="500" rows="3" placeholder="${ar ? 'اكتب تعليقك (اختياري)...' : 'Write a comment (optional)...'}" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-family:inherit;font-size:13.5px;resize:vertical;">${atlEsc(keep || '')}</textarea>
+                <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+                    <button type="button" id="aiPub" onclick="atlPublishReview(this)" style="flex:1;min-width:120px;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 16px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:800;color:#0a0a0e;background:linear-gradient(135deg,var(--gold3,#e6b84a),var(--gold2,#c99a2e));"><i class="fa-solid fa-paper-plane"></i> ${mine ? (ar ? 'تحديث التقييم' : 'Update') : (ar ? 'نشر' : 'Publish')}</button>
+                    ${mine ? `<button type="button" onclick="atlDeleteMyReview(this)" style="padding:11px 16px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:#fca5a5;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);">${ar ? 'حذف تقييمي' : 'Delete'}</button>` : ''}
+                </div>`;
+        };
+        window.atlSetStars = function (n) { window._aiStars = n; atlReviewForm(); };
+        window.atlPublishReview = async function (btn) {
+            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+            if (!window._aiStars) { showToast(ar ? 'اختار عدد النجوم الأول ⭐' : 'Pick a star rating first ⭐', true); return; }
+            const txt = (document.getElementById('aiTxt') || {}).value || '';
+            btn.disabled = true;
+            try { await window._saveAppReview(window._aiStars, txt); showToast(ar ? '✅ تم نشر تقييمك، شكرًا ليك!' : '✅ Review published, thank you!'); await window.atlReviewsInit(); }
+            catch (e) { console.warn(e); btn.disabled = false; showToast(ar ? 'تعذّر النشر، حاول تاني' : 'Could not publish', true); }
+        };
+        window.atlDeleteMyReview = async function (btn) {
+            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+            if (!confirm(ar ? 'تحذف تقييمك؟' : 'Delete your review?')) return;
+            btn.disabled = true;
+            try { await window._deleteAppReview(window._currentUid); window._aiStars = 0; await window.atlReviewsInit(); showToast(ar ? 'تم الحذف' : 'Deleted'); }
+            catch (e) { btn.disabled = false; showToast(ar ? 'تعذّر الحذف' : 'Could not delete', true); }
+        };
+        window.atlReviewList = function () {
+            const box = document.getElementById('aiReviews'); const L = window._aiList; if (!box || !L) return;
+            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+            const avg = L.length ? (L.reduce((a, x) => a + x.rating, 0) / L.length) : 0;
+            const head = `<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;"><div style="font-size:34px;font-weight:900;line-height:1;" dir="ltr">${L.length ? avg.toFixed(1) : '—'}</div><div>${atlStarsHtml(Math.round(avg), 18)}<div style="font-size:12px;color:var(--muted);margin-top:3px;">${ar ? `${L.length} تقييم من الطلبة` : `${L.length} student review(s)`}</div></div></div>`;
+            const items = L.length ? L.map(x => {
+                const dt = x.createdAt ? new Date(x.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-GB') : '';
+                const nm = atlEsc(x.authorName || 'User');
+                return `<div style="padding:12px 0;border-top:1px solid var(--border);"><div style="display:flex;align-items:center;gap:10px;"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold3,#e6b84a),var(--gold2,#c99a2e));color:#0a0a0e;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${atlEsc((x.authorName || 'U').trim()[0] || 'U')}</div><div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:700;">${nm}${x.uid === window._currentUid ? ` <span style="font-size:11px;color:var(--gold3,#e6b84a);">(${ar ? 'أنت' : 'you'})</span>` : ''}</div><div style="display:flex;gap:8px;align-items:center;">${atlStarsHtml(x.rating, 13)}<span style="font-size:11px;color:var(--muted);">${dt}</span></div></div></div>${x.text ? `<div style="font-size:13px;line-height:1.8;margin-top:8px;white-space:pre-wrap;word-break:break-word;">${atlEsc(x.text)}</div>` : ''}</div>`;
+            }).join('') : `<div style="text-align:center;color:var(--muted);font-size:13px;padding:10px;">${ar ? 'لسه مفيش تقييمات — كن أول من يقيّم!' : 'No reviews yet — be the first!'}</div>`;
+            box.innerHTML = `<div style="font-size:15px;font-weight:800;margin-bottom:12px;">${ar ? 'تقييمات الطلبة' : 'Student reviews'}</div>${head}${items}`;
+        };
+
         try { const _u = new URL(location.href); if (_u.searchParams.has('_u')) { _u.searchParams.delete('_u'); history.replaceState(null, '', _u.toString()); } } catch (e) {}
 
         function _appBarRefresh() {
+            try { if (window.atlAppInfoNotif) window.atlAppInfoNotif(); } catch (e) {}
             try {
                 const el = document.getElementById('wbPush'); if (!el) return;
                 const h = _pushWelcomeHtml();
@@ -14134,6 +14282,7 @@ window.openConsultationModal = function () { csTab('book'); };
                 if (!window._currentUid) return;
                 if (_pushKeyOK() && _pushSupported() && Notification.permission === 'granted') { try { await _pushSubscribeAndSave(); } catch (e) { console.warn('push save:', e); } }
                 setTimeout(_appBarRefresh, 1500);
+                try { window.atlForceUpdateOnce(); } catch (e) {}
             } catch (e) { console.warn('push init:', e); }
         };
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && window._currentUid) window._pushInit(); });
@@ -15996,7 +16145,36 @@ async function csAdmShowLink(id, btn) {
                         </div>
                         <i class="fa-solid fa-${isAR?'angle-left':'angle-right'} settings-hub-arrow"></i>
                     </div>
+                    <div class="settings-hub-item" onclick="goSettings('appinfo')">
+                        <div class="settings-hub-icon"><i class="fa-solid fa-circle-info"></i></div>
+                        <div class="settings-hub-text">
+                            <div class="settings-hub-title">${isAR?'معلومات التطبيق':'App Info'}</div>
+                            <div class="settings-hub-desc">${isAR?'الإشعارات، تحديث التطبيق، وتقييمك للتطبيق':'Notifications, app update, and rate the app'}</div>
+                        </div>
+                        <i class="fa-solid fa-${isAR?'angle-left':'angle-right'} settings-hub-arrow"></i>
+                    </div>
                 </div>`;
+                return;
+            }
+
+            /* ── APP INFO (notifications / update / rating) ── */
+            if (tab === 'appinfo') {
+                area.innerHTML = `
+                <div class="page-header">
+                    <h2>${isAR?'معلومات التطبيق':'App Info'}</h2>
+                    <p>${isAR?'فعّل الإشعارات، حدّث التطبيق، وقيّم تجربتك':'Enable notifications, update the app, and rate your experience'}</p>
+                </div>
+                ${backBtn}
+                <div class="form-card" style="margin-top:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;font-size:13px;color:var(--muted);">
+                        <span>${isAR?'إصدار التطبيق':'App version'}</span><b dir="ltr" style="color:var(--text);">${window.ATL_APP_VERSION}</b>
+                    </div>
+                    <div id="aiNotif" style="margin-bottom:12px;"></div>
+                    <div id="aiUpd"></div>
+                </div>
+                <div class="form-card" id="aiRate" style="margin-top:16px;"></div>
+                <div class="form-card" id="aiReviews" style="margin-top:16px;"></div>`;
+                window.atlAppInfoNotif(); window.atlAppInfoUpd(); window.atlReviewsInit();
                 return;
             }
 
