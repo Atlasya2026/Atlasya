@@ -14058,7 +14058,7 @@ window.openConsultationModal = function () { csTab('book'); };
                 const res = await Notification.requestPermission();   // لازم يتنادى من ضغطة المستخدم
                 if (res === 'granted') {
                     const reg = await _pushSubscribeAndSave(force === true);
-                    try { await reg.showNotification(ar ? 'تم تفعيل الإشعارات ✅' : 'Notifications enabled ✅', { body: ar ? 'هتوصلك تنبيهات المنصة وإعلانات الإدارة على هذا الجهاز.' : 'You will get platform updates and team announcements here.', icon: 'icons/icon-192.png' }); } catch (e) {}
+                    try { await reg.showNotification(ar ? 'تم تفعيل الإشعارات ✅' : 'Notifications enabled ✅', { body: ar ? 'هتوصلك تنبيهات المنصة وإعلانات الإدارة على هذا الجهاز.' : 'You will get platform updates and team announcements here.', icon: 'icons/icon-192.png', badge: 'icons/badge-96.png' }); } catch (e) {}
                     if (typeof showToast === 'function') showToast(ar ? '🔔 تم تفعيل الإشعارات' : '🔔 Notifications enabled');
                 } else if (res === 'denied') { _pushHelpModal('denied'); }
             } catch (e) {
