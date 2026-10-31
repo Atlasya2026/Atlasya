@@ -14175,35 +14175,46 @@ window.openConsultationModal = function () { csTab('book'); };
             } catch (e) { console.warn('force update:', e); }
         };
 
-        /* قسم الإشعارات داخل معلومات التطبيق */
-        window.atlAppInfoNotif = function () {
-            const el = document.getElementById('aiNotif'); if (!el) return;
-            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
-            const mode = _appBarMode();
-            const M = {
-                install: { l: ar ? 'ثبّت التطبيق على جهازك' : 'Install the app', s: ar ? 'لازم تثبّت التطبيق الأول عشان توصلك الإشعارات' : 'Install the app first to receive notifications', ic: 'fa-download', st: 'p' },
-                notify: { l: ar ? 'تفعيل الإشعارات' : 'Enable notifications', s: ar ? 'تنبيهات المنصة وإعلانات الإدارة حتى والتطبيق مقفول' : 'Platform alerts and announcements even when closed', ic: 'fa-bell', st: 'p' },
-                again: { l: ar ? 'إعادة تفعيل الإشعارات' : 'Re-enable notifications', s: ar ? 'الإشعارات مفعّلة ✓ — اضغط لو التنبيهات مش بتوصلك' : 'Notifications are on ✓ — tap if alerts are not arriving', ic: 'fa-rotate', st: 'g' },
-                denied: { l: ar ? 'الإشعارات محظورة — إزاي أفعّلها؟' : 'Blocked — how to enable?', s: '', ic: 'fa-bell-slash', st: 'b' }
-            }[mode];
-            if (!M) { el.innerHTML = `<div style="font-size:12.5px;color:var(--muted);">${ar ? 'الإشعارات غير متاحة على هذا الجهاز أو المتصفح.' : 'Notifications are not available on this device/browser.'}</div>`; return; }
-            const css = M.st === 'p' ? 'color:#04120a;background:linear-gradient(135deg,var(--green4,#34d399),var(--cs-cyan,#22d3ee));border:none;' : M.st === 'g' ? 'color:var(--text);background:rgba(255,255,255,.06);border:1px solid var(--border2,rgba(255,255,255,.2));' : 'color:#fca5a5;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.4);';
-            el.innerHTML = `<button type="button" onclick="_appBarAction('${mode}')" style="width:100%;display:flex;align-items:center;justify-content:center;gap:9px;padding:12px 16px;border-radius:12px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:800;${css}"><i class="fa-solid ${M.ic}"></i> ${M.l}</button>${M.s ? `<div style="font-size:11.5px;color:var(--muted);margin-top:6px;text-align:center;">${M.s}</div>` : ''}`;
+        /* صفوف معلومات التطبيق (شكل إعدادات أندرويد) */
+        window.atlAiRow = function (title, sub, subColor, btnHtml) {
+            return `<div style="display:flex;align-items:center;gap:12px;padding:16px 18px;"><div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:700;">${title}</div><div style="font-size:12.5px;margin-top:3px;color:${subColor || 'var(--muted)'};">${sub}</div></div>${btnHtml || ''}</div>`;
+        };
+        window.atlAiBtn = function (label, onclick, kind) {
+            const base = 'flex-shrink:0;padding:9px 15px;border-radius:11px;font-family:inherit;font-size:13px;font-weight:800;';
+            if (kind === 'off') return `<button type="button" disabled style="${base}cursor:not-allowed;opacity:.5;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--border);"><i class="fa-solid fa-lock"></i> ${label}</button>`;
+            const css = kind === 'p' ? 'color:#04120a;background:linear-gradient(135deg,var(--green4,#34d399),var(--cs-cyan,#22d3ee));border:none;' : kind === 'gold' ? 'color:#0a0a0e;background:linear-gradient(135deg,var(--gold3,#e6b84a),var(--gold2,#c99a2e));border:none;' : kind === 'b' ? 'color:#fca5a5;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.4);' : 'color:var(--text);background:rgba(255,255,255,.06);border:1px solid var(--border2,rgba(255,255,255,.2));';
+            return `<button type="button" onclick="${onclick}" style="${base}cursor:pointer;${css}">${label}</button>`;
         };
 
-        /* زر التحديث: مفتوح لما فيه إصدار أحدث، ومقفول طالما التطبيق محدّث */
+        /* رأس الصفحة + صف الإشعارات */
+        window.atlAppInfoNotif = function () {
+            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+            const head = document.getElementById('aiHead');
+            if (head) {
+                const inst = _pushStandalone();
+                head.innerHTML = `<div style="width:66px;height:66px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><img src="icons/icon-192.png" alt="" style="width:48px;height:48px;object-fit:contain;" onerror="this.style.display='none'"></div>
+                    <div style="min-width:0;"><div style="font-size:22px;font-weight:800;" dir="ltr">ATLASYA</div>
+                    <div style="font-size:13px;margin-top:3px;display:flex;align-items:center;gap:6px;color:${inst ? 'var(--green4,#34d399)' : 'var(--muted)'};"><span style="width:8px;height:8px;border-radius:50%;background:${inst ? 'var(--green4,#34d399)' : 'var(--muted)'};"></span>${inst ? (ar ? 'مثبّت على هاتفك' : 'Installed on your device') : (ar ? 'غير مثبّت — بيعمل من المتصفح' : 'Not installed — running in browser')}</div></div>`;
+            }
+            const el = document.getElementById('aiNotif'); if (!el) return;
+            const mode = _appBarMode(), T = ar ? 'الإشعارات' : 'Notifications';
+            if (mode === 'again') el.innerHTML = atlAiRow(T, ar ? 'مفعّلة ✓' : 'Enabled ✓', 'var(--green4,#34d399)', atlAiBtn(ar ? 'إعادة التفعيل' : 'Re-enable', "_appBarAction('again')", 'g'));
+            else if (mode === 'notify') el.innerHTML = atlAiRow(T, ar ? 'غير مفعّلة' : 'Not enabled', '#f5b82e', atlAiBtn(ar ? 'تفعيل' : 'Enable', "_appBarAction('notify')", 'p'));
+            else if (mode === 'denied') el.innerHTML = atlAiRow(T, ar ? 'محظورة من إعدادات الجهاز' : 'Blocked in device settings', '#fca5a5', atlAiBtn(ar ? 'إزاي أفعّلها؟' : 'How to enable?', "_appBarAction('denied')", 'b'));
+            else if (mode === 'install') el.innerHTML = atlAiRow(T, ar ? 'ثبّت التطبيق أولًا لتفعيل الإشعارات' : 'Install the app first to enable notifications', '', atlAiBtn(ar ? 'تثبيت' : 'Install', "_appBarAction('install')", 'p'));
+            else el.innerHTML = atlAiRow(T, ar ? 'غير متاحة على هذا الجهاز' : 'Not available on this device', '', '');
+        };
+
+        /* صف التحديث: مفتوح لما فيه إصدار أحدث، ومقفول طالما التطبيق محدّث */
         window.atlAppInfoUpd = async function () {
             const el = document.getElementById('aiUpd'); if (!el) return;
-            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
-            const base = 'width:100%;display:flex;align-items:center;justify-content:center;gap:9px;padding:12px 16px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:800;';
-            const locked = (icon, label, sub) => { el.innerHTML = `<button type="button" disabled style="${base}cursor:not-allowed;opacity:.55;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--border);"><i class="fa-solid ${icon}"></i> ${label}</button>${sub ? `<div style="font-size:11.5px;color:var(--muted);margin-top:6px;text-align:center;">${sub}</div>` : ''}`; };
-            locked('fa-spinner fa-spin', ar ? 'جاري فحص التحديثات...' : 'Checking for updates...');
+            const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR', T = ar ? 'تحديث التطبيق' : 'App update';
+            el.innerHTML = atlAiRow(T, ar ? 'جاري فحص التحديثات...' : 'Checking for updates...', '', atlAiBtn(ar ? 'تحديث' : 'Update', '', 'off'));
             const r = await window.atlCheckVersion();
             if (!document.getElementById('aiUpd')) return;
-            if (!r.ok) { locked('fa-lock', ar ? 'تعذّر فحص التحديثات' : 'Could not check for updates', `<a href="javascript:void(0)" onclick="atlAppInfoUpd()" style="color:var(--gold3,#e6b84a);">${ar ? 'إعادة المحاولة' : 'Retry'}</a>`); return; }
-            if (r.has) {
-                el.innerHTML = `<button type="button" onclick="atlUpdateApp(this)" style="${base}cursor:pointer;color:#0a0a0e;background:linear-gradient(135deg,var(--gold3,#e6b84a),var(--gold2,#c99a2e));border:none;"><i class="fa-solid fa-arrows-rotate"></i> ${ar ? 'تحديث التطبيق' : 'Update the app'}</button><div style="font-size:11.5px;color:var(--muted);margin-top:6px;text-align:center;">${ar ? 'يوجد إصدار جديد متاح' : 'A new version is available'} (<span dir="ltr">${atlEsc(r.remote)}</span>)</div>`;
-            } else locked('fa-circle-check', ar ? 'التطبيق محدّث ✓' : 'App is up to date ✓', ar ? 'هتتفتح لما ينزل إصدار جديد' : 'Unlocks when a new version is released');
+            if (!r.ok) el.innerHTML = atlAiRow(T, `${ar ? 'تعذّر فحص التحديثات' : 'Could not check for updates'} · <a href="javascript:void(0)" onclick="atlAppInfoUpd()" style="color:var(--gold3,#e6b84a);">${ar ? 'إعادة المحاولة' : 'Retry'}</a>`, '', atlAiBtn(ar ? 'تحديث' : 'Update', '', 'off'));
+            else if (r.has) el.innerHTML = atlAiRow(T, ar ? 'يوجد إصدار جديد متاح' : 'A new version is available', '#f5b82e', atlAiBtn(ar ? 'تحديث' : 'Update', 'atlUpdateApp(this)', 'gold'));
+            else el.innerHTML = atlAiRow(T, ar ? 'التطبيق محدّث ✓' : 'App is up to date ✓', 'var(--green4,#34d399)', atlAiBtn(ar ? 'تحديث' : 'Update', '', 'off'));
         };
 
         /* تقييم التطبيق */
@@ -16216,12 +16227,14 @@ async function csAdmShowLink(id, btn) {
                     <p>${isAR?'فعّل الإشعارات، حدّث التطبيق، وقيّم تجربتك':'Enable notifications, update the app, and rate your experience'}</p>
                 </div>
                 ${backBtn}
-                <div class="form-card" style="margin-top:16px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;font-size:13px;color:var(--muted);">
-                        <span>${isAR?'إصدار التطبيق':'App version'}</span><b dir="ltr" style="color:var(--text);">${window.ATL_APP_VERSION}</b>
+                <div id="aiHead" style="display:flex;align-items:center;gap:14px;margin:18px 4px 18px;"></div>
+                <div id="aiRows" style="background:var(--card);border:1px solid var(--border);border-radius:22px;overflow:hidden;">
+                    <div style="padding:16px 18px;">
+                        <div style="font-size:15px;font-weight:700;">${isAR?'الإصدار':'Version'}</div>
+                        <div dir="ltr" style="font-size:12.5px;color:var(--muted);margin-top:3px;text-align:${isAR?'right':'left'};">Version ${window.ATL_APP_VERSION}</div>
                     </div>
-                    <div id="aiNotif" style="margin-bottom:12px;"></div>
-                    <div id="aiUpd"></div>
+                    <div id="aiNotif" style="border-top:1px solid var(--border);"></div>
+                    <div id="aiUpd" style="border-top:1px solid var(--border);"></div>
                 </div>
                 <div class="form-card" id="aiRate" style="margin-top:16px;"></div>
                 <div class="form-card" id="aiReviews" style="margin-top:16px;"></div>`;
