@@ -746,13 +746,6 @@
 
             /* ─── DESKTOP: sidebar hides → main goes full width ─── */
             @media (min-width: 769px) {
-                .sidebar.collapsed {
-                    width: 0 !important;
-                    min-width: 0 !important;
-                    padding: 0 !important;
-                    overflow: hidden !important;
-                    border: none !important;
-                }
             }
 
             /* ─── MOBILE: sidebar opens from the center outward ─── */
@@ -3501,6 +3494,72 @@ body.rtl .sm-link{animation-name:smSlideR}
 .notif-link{transition:background .15s,transform .1s;}
         .notif-link:hover{background:rgba(var(--brand-rgb,30,122,52),0.14) !important;}
         .notif-link:active{transform:scale(0.99);}
+/* ═══ ATLASYA HOME V2 + ICON RAIL SIDEBAR ═══ */
+@keyframes hmPop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+@media (min-width:769px){
+ .sidebar.collapsed{width:88px!important;min-width:88px!important;padding:14px 8px!important;scrollbar-width:none}
+ .sidebar.collapsed::-webkit-scrollbar{display:none}
+ .sidebar.collapsed .brand{justify-content:center;padding:0 0 12px;margin-bottom:10px}
+ .sidebar.collapsed .brand>div,.sidebar.collapsed .sidebar-footer,.sidebar.collapsed .nav-group-chevron,.sidebar.collapsed .nav-item .badge{display:none!important}
+ .sidebar.collapsed .brand img{width:46px!important;height:46px!important}
+ .sidebar.collapsed .nav-section{margin:0 0 6px!important}
+ .sidebar.collapsed>.nav-section>.nav-item,.sidebar.collapsed .nav-group-toggle{flex-direction:column;justify-content:center;gap:5px;padding:10px 4px;text-align:center;border-radius:14px;border-left:none!important;border-right:none!important;font-size:10.5px;letter-spacing:0;text-transform:none;line-height:1.25}
+ .sidebar.collapsed>.nav-section>.nav-item i{font-size:19px;width:auto}
+ .sidebar.collapsed .nav-group-toggle-label{flex-direction:column;gap:5px;font-size:10.5px}
+ .sidebar.collapsed .nav-group-toggle-label i:first-child{font-size:19px;width:auto}
+ .sidebar.collapsed>.nav-section>.nav-item.active,.sidebar.collapsed .nav-section:has(.nav-item.active)>.nav-group-toggle,.sidebar.collapsed .nav-section.flyout-open>.nav-group-toggle{background:linear-gradient(135deg,rgba(var(--brand-rgb,30,122,52),.28),rgba(var(--brand-rgb,30,122,52),.1));color:var(--green4);box-shadow:inset 0 0 0 1px var(--border2)}
+ .sidebar.collapsed .nav-group-items{display:none;max-height:none;overflow-y:auto;position:fixed;z-index:10001;min-width:230px;padding:8px;background:var(--sidebar);border:1px solid var(--border2);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+ .sidebar.collapsed .nav-section.flyout-open .nav-group-items{display:block;animation:hmPop .18s ease both}
+ .sidebar.collapsed .nav-group-items::before{content:attr(data-title);display:block;padding:6px 10px 8px;margin-bottom:4px;font-size:11px;font-weight:800;color:var(--muted);border-bottom:1px solid var(--border)}
+ .sidebar.collapsed .nav-group-items .nav-item{padding:10px 12px}
+}
+.hm-hero{direction:ltr;position:relative;overflow:hidden;border-radius:20px;min-height:196px;padding:22px 34px;margin-bottom:22px;display:flex;align-items:center;gap:28px;color:#fff;border:1px solid rgba(var(--brand-rgb,30,122,52),.4);background:linear-gradient(110deg,#07141a,#0b2a2c 45%,#0a2230);animation:fadeUp .4s ease both}
+.hm-hero-bg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.hm-hero>*:not(.hm-hero-bg){position:relative;z-index:1}
+.hm-sat{position:absolute!important;left:63%;top:12px;font-size:26px;color:rgba(255,255,255,.75);transform:rotate(-20deg)}
+.hm-hero-logo{width:92px;height:92px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 0 18px rgba(39,163,70,.5))}
+.hm-hero-text{flex:1;max-width:520px;margin:0 auto;text-align:left}
+body.rtl .hm-hero-text{direction:rtl;text-align:right}
+.hm-hero-text h1{font-size:clamp(24px,3vw,34px);font-weight:900;line-height:1.3;color:#fff}
+.hm-hero-text h1 b{color:#6ee7a0;font-family:'Space Mono',monospace;letter-spacing:1px}
+.hm-pulse{display:block;width:96px;height:14px;margin:6px 0 10px}
+.hm-hero-text p{font-size:clamp(14px,1.6vw,18px);color:rgba(255,255,255,.84);margin-bottom:8px}
+.hm-words{display:flex;gap:10px;align-items:center;font-size:14px;color:rgba(255,255,255,.7)}
+.hm-words i{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.45)}
+.hm-coins{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:6px 14px;border-radius:99px;cursor:pointer;background:rgba(212,160,23,.14);border:1px solid rgba(212,160,23,.38);color:#f0c040;font-size:13px}
+.hm-coins b{font-weight:800}.hm-coins span{color:rgba(255,255,255,.7);font-size:12px}
+.hm-glass{width:200px;flex-shrink:0;padding:16px 18px;border-radius:16px;background:rgba(10,30,40,.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);font-size:13.5px;line-height:2;color:rgba(255,255,255,.88);text-align:left}
+body.rtl .hm-glass{direction:rtl;text-align:right}
+.hm-glass::after{content:'';display:block;width:34px;height:2px;margin-top:6px;background:#27a346;border-radius:2px}
+.hm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+.hm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.hm-stat,.hm-card{--c:39,163,70;position:relative;cursor:pointer;border-radius:16px;border:1px solid rgba(var(--c),.28);background:linear-gradient(135deg,rgba(var(--c),.16),rgba(var(--c),.04) 70%),var(--card);transition:transform .25s,box-shadow .25s,border-color .25s;animation:fadeUp .4s ease both}
+.hm-stat:hover,.hm-card:hover{transform:translateY(-3px);border-color:rgba(var(--c),.65);box-shadow:0 10px 30px rgba(var(--c),.22)}
+.hm-ico{width:54px;height:54px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;color:rgb(var(--c));background:rgba(var(--c),.18);box-shadow:inset 0 0 0 1px rgba(var(--c),.25)}
+.hm-stat{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px}
+.hm-stat-info{min-width:0;flex:1}
+.hm-stat-num{font-size:30px;font-weight:800;line-height:1.1;color:rgb(var(--c))}
+.hm-stat-lbl{font-size:13px;color:var(--muted);margin:3px 0 10px}
+.hm-stat-go{font-size:12.5px;font-weight:800;color:rgb(var(--c));display:flex;align-items:center;gap:6px}
+.hm-stat-go i{font-size:11px}
+.hm-card{display:flex;align-items:center;gap:14px;padding:20px 18px;min-height:104px}
+.hm-card .hm-ico{width:50px;height:50px}
+.hm-card-info{flex:1;min-width:0}
+.hm-card-info h4{font-size:15px;font-weight:800;margin-bottom:4px}
+.hm-card-info p{font-size:12px;color:var(--muted);line-height:1.6}
+.hm-go{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;color:rgb(var(--c));border:1px solid rgba(var(--c),.5);background:rgba(var(--c),.1);transition:.25s}
+.hm-card:hover .hm-go{background:rgb(var(--c));color:#fff}
+@media (max-width:1100px){.hm-stats,.hm-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:768px){
+ .hm-hero{flex-direction:column;padding:22px 16px;gap:12px;text-align:center}
+ .hm-glass,.hm-sat{display:none}
+ .hm-hero-logo{width:70px;height:70px}
+ .hm-hero-text,body.rtl .hm-hero-text{text-align:center}
+ .hm-pulse{margin-inline:auto}.hm-words{justify-content:center}
+ .hm-stats{gap:12px}.hm-stat{padding:14px}.hm-stat .hm-ico{width:44px;height:44px;font-size:18px}.hm-stat-num{font-size:24px}
+ .hm-grid{gap:10px}.hm-card{flex-direction:column;text-align:center;padding:16px 10px;gap:8px}
+ .hm-card-info p,.hm-go{display:none}
+}
     </style>
         <style>
             /* ===== STUDENT FULL-SCREEN BACKGROUND LOGIN ===== */
@@ -8144,13 +8203,39 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         /* ─── NAVIGATION ─── */
         window._currentPage = 'dashboard';
 
+        /* ─── Sidebar groups: accordion when open, pop-out flyout when collapsed to the icon rail ─── */
+        function closeNavFlyouts() {
+            document.querySelectorAll('.sidebar .nav-section.flyout-open').forEach(s => s.classList.remove('flyout-open'));
+            document.querySelectorAll('.sidebar .nav-group-items').forEach(i => { i.style.maxHeight = ''; i.style.top = ''; i.style.left = ''; i.style.right = ''; });
+        }
         function toggleNavGroup(btn) {
             const sec = btn.closest('.nav-section');
             if (!sec) return;
+            const sb = document.querySelector('.sidebar');
+            if (sb && sb.classList.contains('collapsed') && window.innerWidth > 768) {
+                const was = sec.classList.contains('flyout-open');
+                closeNavFlyouts();
+                if (was) return;
+                const items = sec.querySelector('.nav-group-items');
+                if (!items) return;
+                const lbl = sec.querySelector('.nav-group-toggle-label span');
+                items.dataset.title = lbl ? lbl.textContent.trim() : '';
+                sec.classList.add('flyout-open');
+                const r = btn.getBoundingClientRect(), sbr = sb.getBoundingClientRect();
+                items.style.maxHeight = (window.innerHeight - 24) + 'px';
+                items.style.top = Math.max(12, Math.min(r.top, window.innerHeight - items.offsetHeight - 12)) + 'px';
+                if (sbr.left > window.innerWidth / 2) { items.style.right = (window.innerWidth - sbr.left + 8) + 'px'; items.style.left = 'auto'; }
+                else { items.style.left = (sbr.right + 8) + 'px'; items.style.right = 'auto'; }
+                return;
+            }
             const isOpen = sec.classList.contains('open');
             document.querySelectorAll('.sidebar .nav-section.collapsible').forEach(s => s.classList.remove('open'));
             if (!isOpen) sec.classList.add('open');
         }
+        document.addEventListener('click', e => { if (!e.target.closest('.sidebar .nav-section.flyout-open')) closeNavFlyouts(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNavFlyouts(); });
+        window.addEventListener('resize', closeNavFlyouts);
+        document.addEventListener('scroll', e => { if (e.target.classList && e.target.classList.contains('sidebar')) closeNavFlyouts(); }, true);
 
         function goSettings(tab) {
             window._accountTab = tab || 'hub';
@@ -8359,27 +8444,24 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 : (_d.firstName || '');
             const _nameStr = _firstName ? `, <span style="color:var(--green4);">${escapeHtml(_firstName)}</span>` : '';
 
+            const _logoSrc = document.querySelector('.sidebar .brand img')?.src || '';
+            const _globe = `<svg class="hm-hero-bg" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><radialGradient id="hmG" cx="42%" cy="30%" r="75%"><stop offset="0" stop-color="#d9b26a" stop-opacity=".9"/><stop offset=".35" stop-color="#2f8f5b"/><stop offset=".75" stop-color="#0e4a63"/><stop offset="1" stop-color="#06202c"/></radialGradient><linearGradient id="hmF" x1="0" x2="1"><stop offset="0" stop-color="#07141a" stop-opacity=".85"/><stop offset=".5" stop-color="#07141a" stop-opacity="0"/><stop offset=".85" stop-color="#07141a" stop-opacity="0"/><stop offset="1" stop-color="#07141a" stop-opacity=".7"/></linearGradient></defs><circle cx="640" cy="330" r="300" fill="url(#hmG)"/><g fill="none" stroke="#9fe8c0" stroke-opacity=".16"><ellipse cx="640" cy="330" rx="300" ry="100"/><ellipse cx="640" cy="330" rx="300" ry="190"/><ellipse cx="640" cy="330" rx="130" ry="300"/><ellipse cx="640" cy="330" rx="230" ry="300"/><path d="M340 330H940"/></g><g stroke="#7fe3b0" stroke-opacity=".35" fill="#b6ffd6"><path fill="none" d="M520 110L610 82L700 120L790 78L880 112"/><circle cx="520" cy="110" r="3"/><circle cx="610" cy="82" r="3"/><circle cx="700" cy="120" r="3"/><circle cx="790" cy="78" r="3"/><circle cx="880" cy="112" r="3"/></g><rect width="1200" height="220" fill="url(#hmF)"/></svg>`;
             area.innerHTML = `
-            <div class="welcome-banner">
-                <i class="fa-solid fa-earth-africa globe-bg"></i>
-                <h1>${isAR
-                    ? `${greetAR}${_nameStr} <span style="font-size:0.75em;">${greetIcon}</span>`
-                    : `${greetEN}${_nameStr} <span style="font-size:0.75em;">${greetIcon}</span>`}
-                </h1>
-                <p>${isAR
-                    ? 'منصتك الشاملة لتعلّم نظم المعلومات الجغرافية والجغرافيا<br>اختر ما تريد استكشافه وابدأ رحلتك 🚀'
-                    : 'Your comprehensive hub for learning GIS and Geography<br>Pick what you want to explore and start your journey 🚀'}</p>
-                ${window._isAdmin ? '' : `
-                <div onclick="goSettings('wallet')" style="position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:7px 14px;background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:99px;cursor:pointer;">
-                    <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--gold3),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:11px;color:#0a0a0e;flex-shrink:0;"><i class="fa-solid fa-coins"></i></div>
-                    <span style="font-size:13px;font-weight:800;color:var(--gold3);">${_d.coins||0}</span>
-                    <span style="font-size:12px;color:var(--muted);">${isAR?'عملة':'coins'}</span>
-                </div>`}
+            <div class="hm-hero">
+                ${_globe}
+                <i class="fa-solid fa-satellite hm-sat"></i>
+                ${_logoSrc ? '<img class="hm-hero-logo" id="hmHeroLogo" alt="ATLASYA">' : ''}
+                <div class="hm-hero-text">
+                    <h1>${isAR ? 'مرحباً بك في' : 'Welcome to'} <b>ATLASYA</b></h1>
+                    <svg class="hm-pulse" viewBox="0 0 96 14" aria-hidden="true"><path d="M0 7H34L38 2L43 12L48 4L52 7H96" fill="none" stroke="#27a346" stroke-width="1.5"/></svg>
+                    <p>${isAR ? 'رحلتك في عالم الجغرافيا تبدأ من هنا ..' : 'Your journey into geography starts here ..'}</p>
+                    <div class="hm-words"><span>${isAR?'تعلّم':'Learn'}</span><i></i><span>${isAR?'استكشف':'Explore'}</span><i></i><span>${isAR?'حقق':'Achieve'}</span></div>
+                    ${window._isAdmin ? '' : `<div class="hm-coins" onclick="goSettings('wallet')"><i class="fa-solid fa-coins"></i><b>${_d.coins||0}</b><span>${isAR?'عملة':'coins'}</span></div>`}
+                </div>
+                <div class="hm-glass">${isAR ? 'المعرفة الجغرافية<br>تصنع قرارات أفضل<br>لمستقبل أكثر استدامة' : 'Geographic knowledge<br>makes better decisions<br>for a more sustainable future'}</div>
             </div>
 
-            ${''/* dashboard install box removed per request */}
-
-            <div class="stats-row">
+            <div class="hm-stats">
                 ${statNavCard('playlists', 'g', 'fa-clapperboard', 'stat_videos', 0,
                     isAR?'فيديو':'Videos', isAR?'استكشف قوائم التشغيل':'Explore Playlists', 'menuPlay')}
                 ${statNavCard('library', 'b', 'fa-book-bookmark', 'stat_library', 0,
@@ -8391,21 +8473,19 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             </div>
 
             ${window._isAdmin ? '' : `
-            <div style="display:flex;align-items:center;gap:10px;margin:6px 0 16px;">
-                <div style="font-size:16px;font-weight:800;">${isAR?'🚀 استكشف ATLASYA':'🚀 Explore ATLASYA'}</div>
-            </div>
-            <div class="sections-grid">
-                ${sectionCard('library','fa-book-bookmark',isAR?'المكتبة الرقمية':'Digital Library',isAR?'كتب ومراجع تقنية في علوم GIS':'Technical books and GIS references', true)}
-                ${sectionCard('datasets','fa-database',isAR?'البيانات المكانية':'Spatial Datasets',isAR?'تحميل مجموعات البيانات المكانية':'Download spatial data collections', true)}
-                ${sectionCard('courses','fa-building-shield',isAR?'الكورسات والشركات':'Courses & Companies',isAR?'دورات تدريبية وشركات GIS الرائدة':'Training courses and leading GIS firms', true)}
-                ${sectionCard('playlists','fa-clapperboard',isAR?'قوائم التشغيل':'Playlists',isAR?'قوائم فيديوهات تعليمية في نظم المعلومات الجغرافية':'Educational video playlists in GIS', true)}
-                ${sectionCard('tools','fa-laptop-code',isAR?'أدوات البرامج':'GIS Software Tools',isAR?'أفضل برامج وأدوات GIS للمبتدئين والمحترفين':'Top GIS tools for all levels', true)}
-                ${sectionCard('portfolio','fa-map-location-dot',isAR?'خرائط الطلبة':'Student Maps',isAR?'شارك مشاريعك وخرائطك مع باقي الطلاب':'Share your maps and projects with other students', true)}
-                ${sectionCard('insights','fa-lightbulb',isAR?'نصائح GIS':'GIS Insights',isAR?'نصيحة يومية جديدة في نظم المعلومات الجغرافية':'A new GIS tip every day', true)}
-                ${sectionCard('dailychallenge','fa-calendar-check',isAR?'التحديات':'Challenges',isAR?'جاوب على سؤال اليوم وتحدي الأسبوع واكسب عملات ومكافأة إكمال':"Answer today's question and the weekly challenge to earn coins and a completion bonus", true)}
-                ${sectionCard('wheel','fa-dharmachakra',isAR?'عجلة الحظ':'Fortune Wheel',isAR?'محاولة مجانية كل 24 ساعة — اكسب عملات، لفات إضافية، أو هدايا مفاجئة':'One free spin every 24 hours — win coins, extra spins, or surprise gifts', true)}
-                ${sectionCard('jobs','fa-briefcase',isAR?'لوحة الوظائف':'Job Board',isAR?'فرص وظيفية في مجال الخرائط وتحليل البيانات':'GIS & mapping job opportunities', true)}
+            <div class="hm-grid">
+                ${sectionCard('library','fa-book-bookmark',isAR?'المكتبة الرقمية':'Digital Library',isAR?'كتب ومراجع تقنية في علوم GIS':'Technical books and GIS references')}
+                ${sectionCard('datasets','fa-database',isAR?'البيانات المكانية':'Spatial Datasets',isAR?'تحميل مجموعات البيانات المكانية':'Download spatial data collections')}
+                ${sectionCard('courses','fa-building-shield',isAR?'الكورسات والشركات':'Courses & Companies',isAR?'دورات تدريبية وشركات GIS الرائدة':'Training courses and leading GIS firms')}
+                ${sectionCard('playlists','fa-clapperboard',isAR?'قوائم التشغيل':'Playlists',isAR?'قوائم فيديوهات تعليمية في نظم المعلومات الجغرافية':'Educational video playlists in GIS')}
+                ${sectionCard('tools','fa-laptop-code',isAR?'أدوات البرامج':'GIS Software Tools',isAR?'أفضل برامج وأدوات GIS للمبتدئين والمحترفين':'Top GIS tools for all levels')}
+                ${sectionCard('portfolio','fa-map-location-dot',isAR?'خرائط الطلبة':'Student Maps',isAR?'شارك مشاريعك وخرائطك مع باقي الطلاب':'Share your maps and projects with other students')}
+                ${sectionCard('insights','fa-lightbulb',isAR?'نصائح GIS':'GIS Insights',isAR?'نصيحة يومية جديدة في نظم المعلومات الجغرافية':'A new GIS tip every day')}
+                ${sectionCard('dailychallenge','fa-calendar-check',isAR?'التحديات':'Challenges',isAR?'جاوب على سؤال اليوم وتحدي الأسبوع واكسب عملات':"Answer today's question and the weekly challenge to earn coins")}
+                ${sectionCard('wheel','fa-dharmachakra',isAR?'عجلة الحظ':'Fortune Wheel',isAR?'محاولة مجانية كل 24 ساعة — اكسب عملات أو هدايا':'One free spin every 24 hours — win coins or gifts')}
+                ${sectionCard('jobs','fa-briefcase',isAR?'لوحة الوظائف':'Job Board',isAR?'فرص وظيفية في مجال الخرائط وتحليل البيانات':'GIS & mapping job opportunities')}
             </div>`}`;
+            { const _lg = document.getElementById('hmHeroLogo'); if (_lg) _lg.src = _logoSrc; }
 
             // Load live counts from Firestore for the clickable stat cards
             (async () => {
@@ -8446,28 +8526,31 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             })();
         }
 
-        /* A dashboard stat card that's also a nav shortcut: clicking anywhere on
-           it (not just the "explore" line) jumps straight to that section. */
+        /* A dashboard stat card that's also a nav shortcut (new "hm" look) */
+        function _hmArrow() {
+            return document.getElementById('pageBody')?.classList.contains('rtl') ? 'fa-arrow-left' : 'fa-arrow-right';
+        }
         function statNavCard(page, colorClass, icon, numId, numDefault, label, exploreText, navElId) {
-            const arrowIcon = document.getElementById('pageBody')?.classList.contains('rtl') ? 'fa-arrow-left' : 'fa-arrow-right';
+            const col = { g: '139,92,246', b: '245,166,35', y: '20,184,166', p: '34,197,94' }[colorClass] || '39,163,70';
             return `
-            <div class="stat-card stat-nav-card" onclick="navigate('${page}', document.getElementById('${navElId}'))" role="button" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
-                <div class="stat-icon ${colorClass}"><i class="fa-solid ${icon}"></i></div>
-                <div class="stat-num" id="${numId}">${numDefault}</div>
-                <div class="stat-label">${label}</div>
-                <div class="stat-nav-explore"><span>${exploreText}</span> <i class="fa-solid ${arrowIcon}"></i></div>
+            <div class="hm-stat" style="--c:${col}" onclick="navigate('${page}', document.getElementById('${navElId}'))" role="button" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
+                <div class="hm-stat-info">
+                    <div class="hm-stat-num" id="${numId}">${numDefault}</div>
+                    <div class="hm-stat-lbl">${label}</div>
+                    <div class="hm-stat-go"><span>${exploreText}</span> <i class="fa-solid ${_hmArrow()}"></i></div>
+                </div>
+                <div class="hm-ico"><i class="fa-solid ${icon}"></i></div>
             </div>`;
         }
 
-        function sectionCard(page, icon, title, desc, hideMobile=false) {
+        const HM_COLORS = { library:'99,102,241', datasets:'16,185,129', courses:'20,184,166', playlists:'168,85,247', tools:'245,158,11', portfolio:'59,130,246', insights:'234,179,8', dailychallenge:'244,114,82', wheel:'236,72,153', jobs:'6,182,212' };
+        function sectionCard(page, icon, title, desc) {
+            const navId = (typeof PAGE_NAV_ID_MAP !== 'undefined' && PAGE_NAV_ID_MAP[page]) || '';
             return `
-            <div class="section-card${hideMobile?' mob-hidden-card':''}" onclick="navigate('${page}', document.getElementById('menu${page.charAt(0).toUpperCase()+page.slice(1)}'))">
-                <div class="section-icon"><i class="fa-solid ${icon}"></i></div>
-                <div class="section-info">
-                    <h4>${title}</h4>
-                    <p>${desc}</p>
-                </div>
-                <i class="fa-solid fa-chevron-right section-arrow"></i>
+            <div class="hm-card" style="--c:${HM_COLORS[page] || '39,163,70'}" onclick="navigate('${page}', document.getElementById('${navId}'))" role="button" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
+                <div class="hm-ico"><i class="fa-solid ${icon}"></i></div>
+                <div class="hm-card-info"><h4>${title}</h4><p>${desc}</p></div>
+                <span class="hm-go"><i class="fa-solid ${_hmArrow()}"></i></span>
             </div>`;
         }
 
@@ -18925,10 +19008,12 @@ async function csAdmShowLink(id, btn) {
                     if (ov) ov.classList.remove('active');
                 }
             } else {
+                closeNavFlyouts();
                 sb.classList.toggle('collapsed');
             }
         }
         function closeSidebar() {
+            closeNavFlyouts();
             const sb = document.querySelector('.sidebar');
             const ov = document.getElementById('sidebarOverlay');
             if (sb) sb.classList.remove('open');
