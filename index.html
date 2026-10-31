@@ -3533,6 +3533,9 @@ body.rtl .hm-hero-text{direction:rtl;text-align:right}
 .hm-glass{width:180px;flex-shrink:0;padding:16px 18px;border-radius:16px;background:rgba(10,30,40,.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);font-size:13.5px;line-height:2;color:rgba(255,255,255,.88);text-align:left}
 body.rtl .hm-glass{direction:rtl;text-align:right}
 .hm-glass::after{content:'';display:block;width:34px;height:2px;margin-top:6px;background:#27a346;border-radius:2px}
+.pf-coins-btn{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:8px 16px;border-radius:99px;cursor:pointer;font-family:inherit;font-size:13px;background:rgba(212,160,23,.14);border:1px solid rgba(212,160,23,.4);color:var(--gold3);transition:.2s}
+.pf-coins-btn:hover{background:rgba(212,160,23,.24);transform:translateY(-1px)}
+.pf-coins-btn b{font-weight:800;font-size:15px}.pf-coins-btn span{color:var(--muted);font-size:12px}.pf-coins-go{font-size:10px}
 .hm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
 .hm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .hm-stat,.hm-card{--c:39,163,70;position:relative;cursor:pointer;border-radius:16px;border:1px solid rgba(var(--c),.28);background:linear-gradient(135deg,rgba(var(--c),.16),rgba(var(--c),.04) 70%),var(--card);transition:transform .25s,box-shadow .25s,border-color .25s;animation:fadeUp .4s ease both}
@@ -8463,7 +8466,6 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     <svg class="hm-pulse" viewBox="0 0 96 14" aria-hidden="true"><path d="M0 7H34L38 2L43 12L48 4L52 7H96" fill="none" stroke="#27a346" stroke-width="1.5"/></svg>
                     <p>${isAR ? 'رحلتك في عالم الجغرافيا تبدأ من هنا ..' : 'Your journey into geography starts here ..'}</p>
                     <div class="hm-words"><span>${isAR?'تعلّم':'Learn'}</span><i></i><span>${isAR?'استكشف':'Explore'}</span><i></i><span>${isAR?'حقق':'Achieve'}</span></div>
-                    ${window._isAdmin ? '' : `<div class="hm-coins" onclick="goSettings('wallet')"><i class="fa-solid fa-coins"></i><b>${_d.coins||0}</b><span>${isAR?'عملة':'coins'}</span></div>`}
                 </div>
                 ${_logoSrc ? '<img class="hm-hero-logo" id="hmHeroLogo" alt="ATLASYA">' : ''}
             </div>
@@ -16431,6 +16433,7 @@ async function csAdmShowLink(id, btn) {
                         </div>
                         <div class="profile-name" id="profileDisplayName">${atlEsc((d.firstName||'')+' '+(d.lastName||''))}</div>
                         <div class="profile-email">${atlEsc(d.email||'')}</div>
+                        <button type="button" class="pf-coins-btn" onclick="goSettings('wallet')"><i class="fa-solid fa-coins"></i><b id="pfCoinsNum">${d.coins||0}</b><span>${isAR?'عملة':'coins'}</span><i class="fa-solid fa-${isAR?'chevron-left':'chevron-right'} pf-coins-go"></i></button>
                     </div>
                     <div class="form-card">
                         <h3>${isAR?'تعديل البيانات':'Edit Profile'}</h3>
