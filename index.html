@@ -10243,7 +10243,14 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 let fsTips = [];
                 try { fsTips = window._loadDailyTips ? await window._loadDailyTips() : []; }
                 catch(e) { console.error('loadDailyTips error:', e); }
-                _insTips = [...INS_SEED_TIPS, ...fsTips];
+                // صفوف daily_tips اللي id بتاعها زي نصيحة جاهزة بتدمج اللايكات/المشاركات فيها (مش بتتعرض كنصيحة تانية)، والصفوف اللي من غير عنوان بتتجاهل
+                const seedMap = new Map(INS_SEED_TIPS.map(t => [t.id, { ...t }]));
+                const extra = [];
+                fsTips.forEach(t => {
+                    if (seedMap.has(t.id)) { const sd = seedMap.get(t.id); sd.likes = t.likes || 0; sd.shares = t.shares || 0; }
+                    else if (t.titleAR || t.titleEN) extra.push(t);
+                });
+                _insTips = [...seedMap.values(), ...extra];
             }
             // first-ever visit: kick off this student's personal 24h-per-box journey
             if (!window._userData?.tipsStartedAt) {
@@ -10277,155 +10284,228 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         function insLikedIds() { return window._userData?.tipLikes || []; }
         function insIsLiked(id) { return insLikedIds().includes(id); }
 
-        function insActionsHTML(tip, isAR) {
+        /* ═══════════════════════════════════════════════════════════
+           رؤى GIS — نصايح بكروت احترافية: كل تصنيف له هويته (لون + أيقونة)، لايك، ومشاركة مباشرة
+           (واتساب / تيليجرام / فيسبوك / نسخ / مشاركة الجهاز). نظام فتح بوكس كل 24 ساعة زي ما هو.
+           ═══════════════════════════════════════════════════════════ */
+        const TI_PALETTES = [['#22c55e', '#15803d'], ['#f0b429', '#b7791f'], ['#38bdf8', '#0369a1'], ['#a78bfa', '#6d28d9'],
+                             ['#2dd4bf', '#0f766e'], ['#fb7185', '#be123c'], ['#fb923c', '#c2410c'], ['#60a5fa', '#1d4ed8']];
+        let _tiFilter = 'all';
+        function tiCatKey(tip) { return String(tip.categoryEN || tip.categoryAR || 'other'); }
+        function tiPalette(tip) { let h = 0; for (const ch of tiCatKey(tip)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return TI_PALETTES[h % TI_PALETTES.length]; }
+
+        function tiInjectStyles() {
+            if (document.getElementById('tiStyles')) return;
+            const st = document.createElement('style'); st.id = 'tiStyles';
+            st.textContent = `
+            .ti-top { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:14px; }
+            .ti-stat { display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:99px; background:var(--bg3); border:1px solid var(--border); font-size:12.5px; font-weight:700; color:var(--muted); }
+            .ti-stat b { color:var(--text); } .ti-stat i { color:var(--gold3); }
+            .ti-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+            .ti-chip { padding:7px 14px; border-radius:99px; border:1px solid var(--border2); background:transparent; color:var(--muted); font-size:12.5px; font-weight:800; font-family:'Tajawal',sans-serif; cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; gap:6px; }
+            .ti-chip:hover { color:var(--text); border-color:var(--gold3); }
+            .ti-chip.on { background:rgba(240,192,64,.14); border-color:var(--gold3); color:var(--gold4); }
+            .ti-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:18px; }
+            .ti-card { --a:#22c55e; --b:#15803d; position:relative; overflow:hidden; display:flex; flex-direction:column; gap:12px; padding:22px 20px 16px; border-radius:20px; border:1px solid var(--border);
+                background: radial-gradient(420px 200px at 100% 0%, color-mix(in srgb, var(--a) 16%, transparent), transparent 70%), var(--card); transition:transform .22s, box-shadow .22s, border-color .22s; }
+            .ti-card::before { content:''; position:absolute; inset-inline:0; top:0; height:4px; background:linear-gradient(90deg,var(--a),var(--b)); }
+            .ti-card:hover { transform:translateY(-4px); border-color:color-mix(in srgb, var(--a) 55%, var(--border)); box-shadow:0 18px 40px -20px color-mix(in srgb, var(--a) 60%, #000); }
+            .ti-num { position:absolute; inset-inline-end:14px; top:8px; font-size:64px; font-weight:900; line-height:1; color:var(--a); opacity:.1; pointer-events:none; font-family:system-ui,sans-serif; }
+            .ti-head { display:flex; align-items:center; gap:12px; position:relative; }
+            .ti-ic { width:46px; height:46px; border-radius:14px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:20px; color:#fff; background:linear-gradient(135deg,var(--a),var(--b)); box-shadow:0 8px 20px -8px var(--a); }
+            .ti-cat { display:inline-block; padding:3px 11px; border-radius:99px; font-size:11.5px; font-weight:800; color:var(--a); background:color-mix(in srgb, var(--a) 14%, transparent); border:1px solid color-mix(in srgb, var(--a) 35%, transparent); }
+            .ti-meta { font-size:11px; color:var(--muted); margin-top:5px; display:flex; align-items:center; gap:5px; }
+            .ti-meta b { color:var(--a); }
+            .ti-title { margin:0; font-size:17px; font-weight:900; line-height:1.5; position:relative; }
+            .ti-body { font-size:13.5px; line-height:1.95; color:var(--muted); max-height:7.9em; overflow:hidden; position:relative; transition:max-height .3s; }
+            .ti-body.open { max-height:1200px; }
+            .ti-body:not(.open).clip::after { content:''; position:absolute; inset-inline:0; bottom:0; height:2.6em; background:linear-gradient(transparent,var(--card)); }
+            .ti-body strong { color:var(--text); } .ti-body ul { margin:8px 0 0; padding-inline-start:20px; } .ti-body li { margin-bottom:4px; }
+            .ti-more { align-self:flex-start; background:none; border:none; padding:0; color:var(--a); font-size:12.5px; font-weight:800; font-family:'Tajawal',sans-serif; cursor:pointer; display:none; }
+            .ti-foot { margin-top:auto; padding-top:12px; border-top:1px dashed var(--border2); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+            .ti-like { display:inline-flex; align-items:center; gap:7px; padding:7px 14px; border-radius:99px; border:1px solid var(--border2); background:transparent; color:var(--muted); font-size:13px; font-weight:800; font-family:'Tajawal',sans-serif; cursor:pointer; transition:all .18s; }
+            .ti-like:hover { border-color:#ff6b81; color:#ff6b81; }
+            .ti-like.on { background:rgba(255,107,129,.12); border-color:rgba(255,107,129,.5); color:#ff6b81; }
+            .ti-like.pop i { animation:tiPop .4s ease; }
+            @keyframes tiPop { 0% { transform:scale(1); } 40% { transform:scale(1.5); } 100% { transform:scale(1); } }
+            .ti-share { display:flex; align-items:center; gap:6px; }
+            .ti-share > span { font-size:11.5px; color:var(--muted); font-weight:700; margin-inline-end:2px; }
+            .ti-share button { width:34px; height:34px; border-radius:50%; border:1px solid var(--border2); background:transparent; color:var(--muted); font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+            .ti-share button:hover { color:#fff; transform:translateY(-2px); }
+            .ti-share .wa:hover { background:#25d366; border-color:#25d366; } .ti-share .tg:hover { background:#229ed9; border-color:#229ed9; }
+            .ti-share .fb:hover { background:#1877f2; border-color:#1877f2; } .ti-share .cp:hover, .ti-share .nv:hover { background:var(--a); border-color:var(--a); }
+            .ti-hero { grid-column:1/-1; padding:28px 26px 18px; }
+            .ti-hero .ti-title { font-size:22px; } .ti-hero .ti-body { font-size:14.5px; max-height:none; } .ti-hero .ti-more { display:none !important; }
+            .ti-hero .ti-ic { width:56px; height:56px; font-size:24px; border-radius:18px; } .ti-hero .ti-num { font-size:110px; }
+            .ti-hero .ti-body.clip::after { display:none; }
+            .ti-locked { align-items:center; justify-content:center; text-align:center; min-height:200px; border-style:dashed; background:var(--bg2); }
+            .ti-locked::before { opacity:.35; } .ti-locked .lk { font-size:34px; color:var(--muted); }
+            .ti-locked h4 { margin:0; font-size:15px; font-weight:800; } .ti-locked p { margin:0; font-size:12.5px; color:var(--muted); }
+            .ti-locked .val { font-size:22px; font-weight:900; color:var(--gold4); font-variant-numeric:tabular-nums; direction:ltr; }
+            .ti-done { grid-column:1/-1; text-align:center; padding:20px; border-radius:16px; border:1px dashed var(--border2); color:var(--muted); font-weight:700; }
+            .ti-empty { grid-column:1/-1; text-align:center; padding:40px; color:var(--muted); }
+            .ti-flash { animation:tiFlash 1.2s ease; } @keyframes tiFlash { 0%,100% { box-shadow:none; } 30% { box-shadow:0 0 0 4px color-mix(in srgb, var(--a) 55%, transparent); } }
+            `;
+            document.head.appendChild(st);
+        }
+
+        function tiCardHTML(tip, num, isAR, hero) {
+            const [a, b] = tiPalette(tip);
             const liked = insIsLiked(tip.id);
+            const body = (isAR ? tip.bodyAR : tip.bodyEN) || tip.bodyAR || '';
+            const mins = Math.max(1, Math.round(body.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length / 170));
+            const canNative = !!navigator.share;
             return `
-            <button class="ins-act-btn ${liked?'liked':''}" onclick="insToggleLike('${tip.id}')">
-                <i class="fa-solid fa-heart"></i> ${isAR?'إعجاب':'Like'} <span class="cnt">${tip.likes||0}</span>
-            </button>
-            <button class="ins-act-btn" onclick="insOpenShare('${tip.id}')">
-                <i class="fa-solid fa-share-nodes"></i> ${isAR?'مشاركة':'Share'}
-            </button>`;
+            <article class="ti-card ${hero ? 'ti-hero' : ''}" style="--a:${a};--b:${b};" id="tiCard_${tip.id}">
+                <span class="ti-num">${String(num).padStart(2, '0')}</span>
+                <div class="ti-head">
+                    <div class="ti-ic"><i class="fa-solid ${atlEsc(tip.icon || 'fa-lightbulb')}"></i></div>
+                    <div>
+                        <span class="ti-cat">${atlEsc(isAR ? (tip.categoryAR || tip.categoryEN || '') : (tip.categoryEN || tip.categoryAR || ''))}</span>
+                        <div class="ti-meta"><i class="fa-regular fa-clock"></i> ${mins} ${isAR ? 'دقيقة قراءة' : 'min read'}${hero ? ` · <b>${isAR ? 'أحدث نصيحة' : 'Latest tip'}</b>` : ''}</div>
+                    </div>
+                </div>
+                <h3 class="ti-title">${isAR ? tip.titleAR : (tip.titleEN || tip.titleAR)}</h3>
+                <div class="ti-body" id="tiBody_${tip.id}">${body}</div>
+                <button class="ti-more" id="tiMore_${tip.id}" onclick="tiToggleBody('${tip.id}')">${isAR ? 'اقرأ المزيد' : 'Read more'}</button>
+                <div class="ti-foot">
+                    <button class="ti-like ${liked ? 'on' : ''}" onclick="insToggleLike('${tip.id}')"><i class="fa-${liked ? 'solid' : 'regular'} fa-heart"></i><span>${tip.likes || 0}</span></button>
+                    <div class="ti-share"><span>${isAR ? 'شارك' : 'Share'}</span>
+                        <button class="wa" title="WhatsApp" onclick="insShare('${tip.id}','whatsapp')"><i class="fa-brands fa-whatsapp"></i></button>
+                        <button class="tg" title="Telegram" onclick="insShare('${tip.id}','telegram')"><i class="fa-brands fa-telegram"></i></button>
+                        <button class="fb" title="Facebook" onclick="insShare('${tip.id}','facebook')"><i class="fa-brands fa-facebook-f"></i></button>
+                        <button class="cp" title="${isAR ? 'نسخ' : 'Copy'}" onclick="insShare('${tip.id}','copy')"><i class="fa-regular fa-copy"></i></button>
+                        ${canNative ? `<button class="nv" title="${isAR ? 'مشاركة' : 'Share'}" onclick="insShare('${tip.id}','native')"><i class="fa-solid fa-share-nodes"></i></button>` : ''}
+                    </div>
+                </div>
+            </article>`;
         }
 
         function insRenderPage(area) {
+            tiInjectStyles();
             const isAR = lang === 'AR';
             const total = insTotalStages();
             const unlocked = insUnlockedStage();
+            const open = _insTips.slice(0, unlocked).map((t, i) => ({ t, n: i + 1 })).reverse();   // الأحدث الأول
+            const myLikes = open.filter(x => insIsLiked(x.t.id)).length;
 
-            const INS_GROUP_SIZE = 15;
-            const insGroups = [];
-            for (let gi = 0; gi * INS_GROUP_SIZE < _insTips.length; gi++) {
-                insGroups.push(_insTips.slice(gi * INS_GROUP_SIZE, gi * INS_GROUP_SIZE + INS_GROUP_SIZE));
+            const cats = []; const seen = new Set();
+            open.slice().reverse().forEach(x => { const k = tiCatKey(x.t); if (!seen.has(k)) { seen.add(k); cats.push({ k, label: isAR ? (x.t.categoryAR || k) : k }); } });
+            if (_tiFilter !== 'all' && _tiFilter !== 'liked' && !seen.has(_tiFilter)) _tiFilter = 'all';
+            const shown = open.filter(x => _tiFilter === 'all' ? true : (_tiFilter === 'liked' ? insIsLiked(x.t.id) : tiCatKey(x.t) === _tiFilter));
+
+            const chips = `<button class="ti-chip ${_tiFilter === 'all' ? 'on' : ''}" onclick="tiSetFilter('all')">${isAR ? 'الكل' : 'All'}</button>
+                <button class="ti-chip ${_tiFilter === 'liked' ? 'on' : ''}" onclick="tiSetFilter('liked')"><i class="fa-solid fa-heart" style="color:#ff6b81;"></i> ${isAR ? 'المفضلة' : 'Favourites'}</button>`
+                + cats.map(c => `<button class="ti-chip ${_tiFilter === c.k ? 'on' : ''}" onclick="tiSetFilter('${atlJs(c.k)}')">${atlEsc(c.label)}</button>`).join('');
+
+            let cards = shown.map((x, i) => tiCardHTML(x.t, x.n, isAR, i === 0 && _tiFilter === 'all')).join('');
+            if (!shown.length) cards = `<div class="ti-empty"><i class="fa-regular fa-heart" style="font-size:30px;display:block;margin-bottom:10px;"></i>${isAR ? 'لسه ما حطّيتش أي نصيحة في المفضلة' : 'No favourite tips yet'}</div>`;
+
+            // الباكس الجاي (مقفول) + عدّاد
+            let tail = '';
+            if (unlocked >= total) {
+                tail = `<div class="ti-done"><i class="fa-solid fa-flag-checkered"></i> ${isAR ? 'خلصت كل النصائح المتاحة — نصائح جديدة جاية قريب 🚀' : 'You have read every available tip — new ones are coming soon 🚀'}</div>`;
+            } else if (_tiFilter === 'all') {
+                const more = total - unlocked - 1;
+                tail = `<div class="ti-card ti-locked" style="--a:#8896a5;--b:#556270;">
+                    <i class="fa-solid fa-lock lk"></i>
+                    <h4>${isAR ? `نصيحة رقم ${unlocked + 1} هتفتح بعد` : `Tip #${unlocked + 1} unlocks in`}</h4>
+                    <div class="val" id="insCountdownVal">--:--:--</div>
+                    ${more > 0 ? `<p>${isAR ? `و${more} نصيحة كمان في الطريق` : `${more} more on the way`}</p>` : ''}
+                </div>`;
             }
-            const boxesHTML = insGroups.map((group, gi) => {
-                const startNum = gi * INS_GROUP_SIZE + 1;
-                const endNum = startNum + group.length - 1;
-                const groupBoxes = group.map((t, j) => {
-                    const stage = startNum + j;
-                    const cls = stage < unlocked ? 'done' : (stage === unlocked ? 'current' : 'locked');
-                    const icon = stage < unlocked ? '<i class="fa-solid fa-check ic"></i>'
-                               : (stage === unlocked ? '<i class="fa-solid fa-box-open ic"></i>' : '<i class="fa-solid fa-lock ic"></i>');
-                    return `<div class="ins-stage-box ${cls}" onclick="insOpenStage(${stage})" title="${isAR?'بوكس':'Box'} ${stage}">
-                                <span class="num">${stage}</span>
-                                ${icon}
-                            </div>`;
-                }).join('');
-                const groupLabel = insGroups.length > 1
-                    ? `<div class="ins-stage-group-label">${isAR?`المجموعة ${gi+1}`:`Batch ${gi+1}`} <span>(${startNum}–${endNum})</span></div>`
-                    : '';
-                return `<div class="ins-stage-group">${groupLabel}<div class="ins-stage-grid">${groupBoxes}</div></div>`;
-            }).join('');
-
-            const countdownHTML = unlocked >= total
-                ? `<div class="ins-next-countdown"><i class="fa-solid fa-flag-checkered"></i>
-                     <span class="lbl">${isAR?'خلصت كل البوكسات المتاحة — نصائح جديدة جاية قريب 🚀':'You finished all available boxes — new ones are coming soon 🚀'}</span></div>`
-                : `<div class="ins-next-countdown">
-                     <i class="fa-solid fa-hourglass-half"></i>
-                     <span class="lbl">${isAR?'البوكس الجاي يفتح بعد:':'Next box unlocks in:'}</span>
-                     <span class="val" id="insCountdownVal">--:--:--</span>
-                   </div>`;
 
             area.innerHTML = `
             <div class="page-header">
-                <h2>${isAR ? 'رحلة النصائح' : 'Tips Journey'}</h2>
-                <p>${isAR ? 'كل 24 ساعة يتفتح بوكس جديد فيه نصيحة — اقرأ، اعمل لايك، وشارك' : 'A new box unlocks every 24 hours — read, like, and share'}</p>
+                <h2>${isAR ? 'رؤى GIS' : 'GIS Insights'}</h2>
+                <p>${isAR ? 'نصيحة جديدة كل 24 ساعة من خبراء GIS — اقرأ، أعجب، وشارك مع زمايلك' : 'A new expert tip every 24 hours — read, like and share with friends'}</p>
             </div>
-
-            <div class="ins-stage-wrap">
-                ${boxesHTML}
-                ${countdownHTML}
+            <div class="ti-top">
+                <span class="ti-stat"><i class="fa-solid fa-lightbulb"></i> <b>${unlocked}/${total}</b> ${isAR ? 'نصيحة متاحة' : 'tips unlocked'}</span>
+                <span class="ti-stat"><i class="fa-solid fa-heart" style="color:#ff6b81;"></i> <b>${myLikes}</b> ${isAR ? 'في المفضلة' : 'favourites'}</span>
             </div>
+            <div class="ti-chips">${chips}</div>
+            <div class="ti-grid">${cards}${tail}</div>`;
 
-            <!-- share sheet -->
-            <div class="ins-sheet-overlay" id="insSheetOverlay" onclick="insCloseShare()"></div>
-            <div class="ins-share-sheet" id="insShareSheet">
-                <h4>${isAR?'مشاركة النصيحة عبر':'Share this tip via'}</h4>
-                <div class="ins-share-grid">
-                    <div class="ins-share-opt wa" onclick="insDoShare('whatsapp')"><i class="fa-brands fa-whatsapp"></i> ${isAR?'واتساب':'WhatsApp'}</div>
-                    <div class="ins-share-opt tg" onclick="insDoShare('telegram')"><i class="fa-brands fa-telegram"></i> ${isAR?'تيليجرام':'Telegram'}</div>
-                    <div class="ins-share-opt fb" onclick="insDoShare('facebook')"><i class="fa-brands fa-facebook"></i> ${isAR?'فيسبوك':'Facebook'}</div>
-                    <div class="ins-share-opt cp" onclick="insDoShare('copy')"><i class="fa-solid fa-copy"></i> ${isAR?'نسخ النص':'Copy text'}</div>
-                </div>
-                <button class="ins-sheet-close" onclick="insCloseShare()">${isAR?'إغلاق':'Close'}</button>
-            </div>
-
-            <!-- stage (box) tip modal -->
-            <div class="ins-modal-overlay" id="insStageOverlay">
-                <div class="ins-modal-card" id="insStageModalContent"></div>
-            </div>`;
+            // زرار "اقرأ المزيد" بيظهر بس للنصايح الطويلة
+            area.querySelectorAll('.ti-card:not(.ti-hero) .ti-body').forEach(el => {
+                if (el.scrollHeight > el.clientHeight + 6) { el.classList.add('clip'); const id = el.id.replace('tiBody_', ''); const btn = document.getElementById('tiMore_' + id); if (btn) btn.style.display = 'inline-block'; }
+            });
 
             insTickCountdown();
             if (_insCountdownTimer) clearInterval(_insCountdownTimer);
-            _insCountdownTimer = setInterval(insTickCountdown, 1000);
+            if (document.getElementById('insCountdownVal')) _insCountdownTimer = setInterval(insTickCountdown, 1000);
 
-            // auto-popup the newest unlocked box the student hasn't seen yet (e.g. box 1 on their very first visit)
+            // نسجّل آخر بوكس اتشاف (للإحصائيات) من غير بوب-أب
             const lastShown = window._userData?.tipsLastShownStage || 0;
             if (unlocked > lastShown) {
-                insOpenStage(unlocked);
+                try { window.insOpenStage(unlocked, true); } catch (e) {}   // بيحتسب النشاط (Streak) زي ما كان بيحصل مع البوب-أب القديم
+                if (window._markTipStageShown) window._markTipStageShown(unlocked).catch(e => console.error(e));
             }
         }
-
-        window.insOpenStage = function(stage) {
-            const isAR = lang === 'AR';
-            const unlocked = insUnlockedStage();
-            if (stage > unlocked) return; // still locked, nothing to show
-            const tip = _insTips[stage - 1];
-            if (!tip) return;
-            document.getElementById('insStageModalContent').innerHTML = `
-                <div class="ins-eyebrow"><i class="fa-solid fa-box-open"></i> ${isAR?`بوكس ${stage}`:`Box ${stage}`}</div>
-                <span class="ins-cat">${isAR?tip.categoryAR:tip.categoryEN}</span>
-                <h3 class="tip-title" style="font-size:19px;">${isAR?tip.titleAR:tip.titleEN}</h3>
-                <div class="tip-body" style="font-size:14.5px;margin-top:8px;">${isAR?tip.bodyAR:tip.bodyEN}</div>
-                <div class="ins-actions" id="insStageActions">${insActionsHTML(tip, isAR)}</div>
-                <button class="ins-modal-close" onclick="document.getElementById('insStageOverlay').classList.remove('open')">${isAR?'تمام':'Got it'}</button>`;
-            document.getElementById('insStageOverlay').classList.add('open');
-
-            const lastShown = window._userData?.tipsLastShownStage || 0;
-            if (stage > lastShown) {
-                window._markTipStageShown(stage).catch(e => console.error(e));
-            }
+        // محتفظين بالاسم ده لأن نظام الـ Streak بيراقبه: بنستدعيه لما الطالب يفتح/يقرأ نصيحة
+        window.insOpenStage = function (stage, noScroll) {
+            const tip = (_insTips || [])[stage - 1];
+            if (!tip || stage > insUnlockedStage()) return;
+            const el = document.getElementById('tiCard_' + tip.id);
+            if (el && !noScroll) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('ti-flash'); setTimeout(() => el.classList.remove('ti-flash'), 1400); }
         };
 
-        window.insToggleLike = async function(tipId) {
-            if (!window._currentUid) { showToast(lang==='AR'?'سجّل الدخول الأول':'Please log in first', true); return; }
+        window.tiSetFilter = function (k) {
+            _tiFilter = k;
+            const area = document.getElementById('contentArea');
+            if (area && _insTips) insRenderPage(area);
+        };
+        window.tiToggleBody = function (id) {
+            const isAR = lang === 'AR';
+            const body = document.getElementById('tiBody_' + id), btn = document.getElementById('tiMore_' + id);
+            if (!body) return;
+            const open = body.classList.toggle('open');
+            if (open) { const i = (_insTips || []).findIndex(t => t.id === id); if (i >= 0) window.insOpenStage(i + 1, true); }
+            if (btn) btn.textContent = open ? (isAR ? 'عرض أقل' : 'Show less') : (isAR ? 'اقرأ المزيد' : 'Read more');
+        };
+
+        window.insToggleLike = async function (tipId) {
+            if (!window._currentUid) { showToast(lang === 'AR' ? 'سجّل الدخول الأول' : 'Please log in first', true); return; }
             const wasLiked = insIsLiked(tipId);
             const t = _insTips.find(x => x.id === tipId);
-            try {
-                await window._toggleTipLike(tipId, !wasLiked);
-                if (t) t.likes = (t.likes || 0) + (wasLiked ? -1 : 1);
-                const actionsEl = document.getElementById('insStageActions');
-                if (actionsEl && t) actionsEl.innerHTML = insActionsHTML(t, lang === 'AR');
-            } catch(e) { console.error(e); showToast(lang==='AR'?'حدث خطأ':'An error occurred', true); }
+            const btn = document.querySelector(`#tiCard_${tipId} .ti-like`);
+            const paint = (liked) => {
+                if (!btn || !t) return;
+                btn.classList.toggle('on', liked);
+                btn.innerHTML = `<i class="fa-${liked ? 'solid' : 'regular'} fa-heart"></i><span>${t.likes || 0}</span>`;
+                if (liked) { btn.classList.add('pop'); setTimeout(() => btn.classList.remove('pop'), 450); }
+            };
+            if (t) t.likes = Math.max(0, (t.likes || 0) + (wasLiked ? -1 : 1));   // فوراً (optimistic)
+            if (window._userData) { const arr = window._userData.tipLikes || []; window._userData.tipLikes = wasLiked ? arr.filter(x => x !== tipId) : [...new Set([...arr, tipId])]; }
+            paint(!wasLiked);
+            try { await window._toggleTipLike(tipId, !wasLiked); }
+            catch (e) {
+                console.error(e);
+                if (t) t.likes = Math.max(0, (t.likes || 0) + (wasLiked ? 1 : -1));
+                if (window._userData) { const arr = window._userData.tipLikes || []; window._userData.tipLikes = wasLiked ? [...new Set([...arr, tipId])] : arr.filter(x => x !== tipId); }
+                paint(wasLiked);
+                showToast(lang === 'AR' ? 'حدث خطأ' : 'An error occurred', true);
+            }
         };
 
-        window.insOpenShare = function(tipId) {
-            _insShareTipId = tipId;
-            document.getElementById('insSheetOverlay')?.classList.add('open');
-            document.getElementById('insShareSheet')?.classList.add('open');
-        };
-        window.insCloseShare = function() {
-            document.getElementById('insSheetOverlay')?.classList.remove('open');
-            document.getElementById('insShareSheet')?.classList.remove('open');
-        };
         function insShareText(tip) {
             const isAR = lang === 'AR';
-            const cat = isAR ? tip.categoryAR : tip.categoryEN;
-            const title = isAR ? tip.titleAR : tip.titleEN;
-            const body = (isAR ? tip.bodyAR : tip.bodyEN).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-            return `💡 ${isAR?'نصيحة':'A'} ${cat} ${isAR?'من منصة':'tip from'} ATLASYA\n\n${title}\n${body}\n\n📚 ${isAR?'المزيد من النصائح والكتب والكورسات وبيانات GIS:':'More tips, books, courses, and GIS data:'}\n${INS_SHARE_LINK}`;
+            const cat = isAR ? (tip.categoryAR || tip.categoryEN) : (tip.categoryEN || tip.categoryAR);
+            const title = isAR ? tip.titleAR : (tip.titleEN || tip.titleAR);
+            const body = ((isAR ? tip.bodyAR : tip.bodyEN) || tip.bodyAR || '').replace(/<br\s*\/?>/gi, '\n').replace(/<li[^>]*>/gi, '\n• ').replace(/<[^>]+>/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n\s+/g, '\n').trim();
+            return `💡 ${isAR ? 'نصيحة' : 'A'} ${cat} ${isAR ? 'من منصة' : 'tip from'} ATLASYA\n\n*${title}*\n${body}\n\n📚 ${isAR ? 'المزيد من النصائح والكتب والكورسات وبيانات GIS:' : 'More tips, books, courses, and GIS data:'}\n${INS_SHARE_LINK}`;
         }
-        window.insDoShare = function(channel) {
-            const tip = _insTips.find(t => t.id === _insShareTipId);
+        window.insShare = function (tipId, channel) {
+            const tip = (_insTips || []).find(t => t.id === tipId);
             if (!tip) return;
-            const text = insShareText(tip);
-            const enc = encodeURIComponent(text);
-            if (channel === 'whatsapp') window.open(`https://wa.me/?text=${enc}`, '_blank');
-            else if (channel === 'telegram') window.open(`https://t.me/share/url?url=${encodeURIComponent(INS_SHARE_LINK)}&text=${enc}`, '_blank');
-            else if (channel === 'facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(INS_SHARE_LINK)}&quote=${enc}`, '_blank');
-            else if (channel === 'copy') { navigator.clipboard?.writeText(text).then(() => showToast(lang==='AR'?'✅ اتنسخ النص':'✅ Copied')); }
+            const text = insShareText(tip), enc = encodeURIComponent(text);
+            if (channel === 'whatsapp') window.open(`https://wa.me/?text=${enc}`, '_blank', 'noopener');
+            else if (channel === 'telegram') window.open(`https://t.me/share/url?url=${encodeURIComponent(INS_SHARE_LINK)}&text=${enc}`, '_blank', 'noopener');
+            else if (channel === 'facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(INS_SHARE_LINK)}&quote=${enc}`, '_blank', 'noopener');
+            else if (channel === 'copy') { navigator.clipboard?.writeText(text).then(() => showToast(lang === 'AR' ? '✅ اتنسخ النص' : '✅ Copied')); }
+            else if (channel === 'native') { navigator.share({ title: lang === 'AR' ? tip.titleAR : (tip.titleEN || tip.titleAR), text, url: INS_SHARE_LINK }).catch(() => {}); }
             if (window._trackTipShare) window._trackTipShare(tip.id).catch(e => console.error('trackTipShare error:', e));
-            insCloseShare();
         };
 
         function insTickCountdown() {
