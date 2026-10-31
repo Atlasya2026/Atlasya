@@ -3519,6 +3519,9 @@
                     <button class="nav-item" id="menuAdminTips" onclick="navigate('admintips', this)" style="display:none;">
                         <i class="fa-solid fa-lightbulb"></i> <span id="menuAdminTipsTxt">نصيحة اليوم</span>
                     </button>
+                    <button class="nav-item" id="menuAdminReviews" onclick="navigate('adminreviews', this)" style="display:none;">
+                        <i class="fa-solid fa-star"></i> <span id="menuAdminReviewsTxt">تقييمات التطبيق</span>
+                    </button>
                 </div>
             </div>
 
@@ -4989,6 +4992,12 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         return { likes, comments };
     };
     window._deletePortfolioComment = async (id) => { await deleteDoc(doc(db, 'portfolio_comments', id)); };
+    /* تقييمات التطبيق (app_reviews — شوف app-reviews.sql) */
+    window._loadAppReviews = async () => {
+        const snap = await getDocs(query(collection(db, 'app_reviews'), orderBy('createdAt', 'desc')));
+        return snap.docs.map(d => { const x = d.data(); return { id: d.id, uid: x.uid || d.id, authorName: x.authorName || '', rating: Number(x.rating) || 0, text: x.text || '', createdAt: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : 0 }; });
+    };
+    window._deleteAppReview = async (id) => { await deleteDoc(doc(db, 'app_reviews', id)); };
 
     // Sums coin_transactions specifically tagged as referral rewards, grouped by userId.
     // More reliable than the `referralCoinsEarned` field alone, since that field was only
@@ -5594,6 +5603,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             menuAdminDatasetsTxt: 'مكتبة البيانات المكانية',
             menuAdminToolsTxt: 'أدوات البرامج',
             menuAdminTipsTxt: 'نصيحة اليوم',
+            menuAdminReviewsTxt: 'تقييمات التطبيق',
             menuAdminMentorshipTxt: 'حجوزات الاستشارات',
             menuAdminDailyChallengesTxt: 'التحديات',
             menuAdminProTxt: 'طلبات البرو',
@@ -5636,6 +5646,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             menuAdminDatasetsTxt: 'Spatial Data Library',
             menuAdminToolsTxt: 'Software Tools',
             menuAdminTipsTxt: 'Daily Tip',
+            menuAdminReviewsTxt: 'App Reviews',
             menuAdminMentorshipTxt: 'Consultation Bookings',
             menuAdminDailyChallengesTxt: 'Challenges',
             menuAdminProTxt: 'Pro Requests',
@@ -5907,7 +5918,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
         admincourses: 'menuAdminCourses', adminlibrary: 'menuAdminLibrary',
         adminplaylists: 'menuAdminPlaylists', admindatasets: 'menuAdminDatasets',
-        admintools: 'menuAdminTools', admintips: 'menuAdminTips',
+        admintools: 'menuAdminTools', admintips: 'menuAdminTips', adminreviews: 'menuAdminReviews',
         admindailychallenges: 'menuAdminDailyChallenges'
     };
 
@@ -5974,6 +5985,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             admindatasets: lang==='AR'?'إدارة مكتبة البيانات المكانية':'Manage Spatial Data Library',
             admintools: lang==='AR'?'إدارة أدوات البرامج':'Manage Software Tools',
             admintips: lang==='AR'?'إدارة نصيحة اليوم':'Manage Daily Tips',
+            adminreviews: lang==='AR'?'تقييمات التطبيق':'App Reviews',
             admindailychallenges: lang==='AR'?'إدارة التحدي اليومي والأسبوعي':'Manage Daily & Weekly Challenge',
             adminmentorship: lang==='AR'?'حجوزات الاستشارات':'Consultation Bookings',
             portfolio:     lang==='AR'?'خرائط الطلبة':'Student Maps',
@@ -6019,6 +6031,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         else if (page === 'admindatasets') renderAdminDatasets(area);
         else if (page === 'admintools') renderAdminTools(area);
         else if (page === 'admintips') renderAdminTips(area);
+        else if (page === 'adminreviews') renderAdminReviews(area);
         else if (page === 'admindailychallenges') renderAdminDailyChallenges(area);
         else if (page === 'adminmentorship') renderAdminMentorship(area);
         else if (page === 'portfolio') renderPortfolio(area);
@@ -11787,6 +11800,69 @@ window.openConsultationModal = function () { csTab('book'); };
     /* ─── ADMIN: DAILY TIPS ─── */
     let _adminTips = [];
 
+    /* ─── أدمن: تقييمات التطبيق من الطلبة ─── */
+    let _arList = [], _arFilter = 0;
+    function renderAdminReviews(area) {
+        area = area || document.getElementById('contentArea');
+        const isAR = lang === 'AR';
+        area.innerHTML = `
+        <div class="page-header">
+            <h2>${isAR?'تقييمات التطبيق':'App Reviews'}</h2>
+            <p>${isAR?'تقييمات وتعليقات الطلبة على التطبيق — بتظهر لكل الطلبة. اضغط على اسم الطالب لعرض بياناته.':'Student ratings and comments — visible to all students. Tap a name to see the student profile.'}</p>
+        </div>
+        <div id="arBody"><div style="text-align:center;padding:40px;color:var(--muted);"><div class="spinner" style="margin:0 auto;"></div></div></div>`;
+        loadAdminReviews();
+    }
+    async function loadAdminReviews() {
+        const isAR = lang === 'AR', body = document.getElementById('arBody'); if (!body) return;
+        try {
+            _arList = await window._loadAppReviews();
+            window._pfAdminUsers = window._pfAdminUsers || {};
+            try {
+                const us = (window._adminUsersCache && window._adminUsersCache.length) ? window._adminUsersCache : await window._loadAllUsers();
+                window._adminUsersCache = us; us.forEach(u => { window._pfAdminUsers[u.uid] = u; });
+            } catch (e) {}
+            arDraw();
+        } catch (e) {
+            console.warn(e);
+            body.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">${isAR?'تعذّر التحميل — تأكد إنك شغّلت app-reviews.sql في Supabase.':'Could not load — make sure app-reviews.sql was run.'}</div>`;
+        }
+    }
+    function arStars(n, sz) { let s = ''; for (let i = 1; i <= 5; i++) s += `<span style="color:${i <= n ? '#f5b82e' : 'rgba(255,255,255,.2)'};font-size:${sz||15}px;">★</span>`; return `<span dir="ltr" style="letter-spacing:2px;white-space:nowrap;">${s}</span>`; }
+    function arSetFilter(n) { _arFilter = n; arDraw(); }
+    function arDraw() {
+        const isAR = lang === 'AR', body = document.getElementById('arBody'); if (!body) return;
+        const L = _arList, total = L.length;
+        const avg = total ? L.reduce((a, x) => a + x.rating, 0) / total : 0;
+        const cnt = [0, 0, 0, 0, 0, 0]; L.forEach(x => { if (x.rating >= 1 && x.rating <= 5) cnt[x.rating]++; });
+        const bars = [5, 4, 3, 2, 1].map(n => `<div style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;opacity:${_arFilter && _arFilter !== n ? .45 : 1};" onclick="arSetFilter(${_arFilter === n ? 0 : n})"><span style="width:14px;">${n}★</span><div style="flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:6px;overflow:hidden;"><div style="height:100%;width:${total ? cnt[n] / total * 100 : 0}%;background:#f5b82e;"></div></div><span style="width:26px;text-align:end;color:var(--muted);">${cnt[n]}</span></div>`).join('');
+        const shown = _arFilter ? L.filter(x => x.rating === _arFilter) : L;
+        const items = shown.length ? shown.map(x => {
+            const dt = x.createdAt ? new Date(x.createdAt).toLocaleString(isAR?'ar-EG':'en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+            return `<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="cursor:pointer;" onclick="adminShowStudent('${atlJs(x.uid)}')">${adminAvatarHTML(x.uid, x.authorName, 38)}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:14px;font-weight:700;cursor:pointer;" onclick="adminShowStudent('${atlJs(x.uid)}')">${atlEsc(x.authorName || 'User')}</div>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">${arStars(x.rating, 14)}<span style="font-size:11px;color:var(--muted);">${dt}</span></div>
+                    </div>
+                    <button onclick="adminDeleteReview('${atlJs(x.id)}')" title="${isAR?'حذف':'Delete'}" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#fca5a5;border-radius:9px;padding:7px 11px;cursor:pointer;font-family:inherit;"><i class="fa-solid fa-trash"></i></button>
+                </div>
+                ${x.text ? `<div style="font-size:13.5px;line-height:1.9;margin-top:10px;white-space:pre-wrap;word-break:break-word;">${atlEsc(x.text)}</div>` : `<div style="font-size:12px;color:var(--muted);margin-top:8px;">${isAR?'بدون تعليق':'No comment'}</div>`}
+            </div>`;
+        }).join('') : `<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">${isAR?'مفيش تقييمات لسه':'No reviews yet'}</div>`;
+        body.innerHTML = `<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px;">
+            <div style="text-align:center;min-width:110px;"><div style="font-size:42px;font-weight:900;line-height:1;" dir="ltr">${total ? avg.toFixed(1) : '—'}</div>${arStars(Math.round(avg), 18)}<div style="font-size:12px;color:var(--muted);margin-top:4px;">${isAR ? total + ' تقييم' : total + ' review(s)'}</div></div>
+            <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px;">${bars}</div>
+        </div>${_arFilter ? `<button onclick="arSetFilter(0)" style="margin-bottom:12px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;font-size:12.5px;">${isAR?'عرض الكل':'Show all'} ✕</button>` : ''}${items}`;
+    }
+    window.adminDeleteReview = async function (id) {
+        const isAR = lang === 'AR';
+        if (!confirm(isAR ? 'حذف هذا التقييم؟' : 'Delete this review?')) return;
+        try { await window._deleteAppReview(id); _arList = _arList.filter(x => x.id !== id); arDraw(); showToast(isAR ? 'تم الحذف' : 'Deleted'); }
+        catch (e) { console.warn(e); showToast(isAR ? 'تعذّر الحذف' : 'Could not delete', true); }
+    };
+
     function renderAdminTips(area) {
         area = area || document.getElementById('contentArea');
         const isAR = lang === 'AR';
@@ -14888,6 +14964,7 @@ async function csAdmShowLink(id, btn) {
         { key:'spatialdata',labelAR:'مكتبة البيانات المكانية', labelEN:'Spatial Data Library', icon:'fa-database' },
         { key:'softwaretools',labelAR:'أدوات البرامج', labelEN:'Software Tools', icon:'fa-toolbox' },
         { key:'dailytips',  labelAR:'نصيحة اليوم',        labelEN:'Daily Tip',             icon:'fa-lightbulb' },
+        { key:'appreviews', labelAR:'تقييمات التطبيق',    labelEN:'App Reviews',           icon:'fa-star' },
         { key:'mentorship', labelAR:'حجوزات استشارات',    labelEN:'Consultation Bookings', icon:'fa-user-tie' },
             { key:'mentorship_own', labelAR:'استشاراتي المسندة فقط', labelEN:'Assigned Consultations Only', icon:'fa-user-check' },
         { key:'dailychallenges', labelAR:'التحديات', labelEN:'Challenges', icon:'fa-calendar-check' },
@@ -14907,6 +14984,7 @@ async function csAdmShowLink(id, btn) {
         spatialdata:['menuAdminDatasets'],
         softwaretools:['menuAdminTools'],
         dailytips:  ['menuAdminTips'],
+        appreviews: ['menuAdminReviews'],
         mentorship: ['menuAdminMentorship'],
         jobs:       ['menuJob'],
         support:    ['menuExpert'],
@@ -14924,6 +15002,7 @@ async function csAdmShowLink(id, btn) {
         admindatasets: 'spatialdata',
         admintools: 'softwaretools',
         admintips: 'dailytips',
+        adminreviews: 'appreviews',
         jobs: 'jobs', expert: 'support',
         community: 'community',
         admindailychallenges: 'dailychallenges',
@@ -14987,7 +15066,7 @@ async function csAdmShowLink(id, btn) {
         const menuExpertBtn = document.getElementById('menuExpert');
         if (menuExpertBtn) menuExpertBtn.style.display = '';
 
-        ['menuAdminMembers','menuAdminReferrals','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminMentorship'].forEach(id => {
+        ['menuAdminMembers','menuAdminReferrals','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminReviews','menuAdminMentorship'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = '';
         });
