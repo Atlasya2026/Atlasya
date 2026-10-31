@@ -3486,7 +3486,10 @@ body.rtl .sm-link{animation-name:smSlideR}
 #appBar .ab-tx strong{display:block;font-size:13.5px;font-weight:800;color:#e8e6f0;margin-bottom:2px}
 #appBar .ab-tx span{display:block;font-size:11.5px;color:#9aa0b4;line-height:1.5}
 @media(max-width:768px){#appBar{bottom:76px;left:16px;right:16px;width:auto;transform:none}}
-</style>
+.notif-link{transition:background .15s,transform .1s;}
+        .notif-link:hover{background:rgba(var(--brand-rgb,30,122,52),0.14) !important;}
+        .notif-link:active{transform:scale(0.99);}
+    </style>
         <style>
             /* ===== STUDENT FULL-SCREEN BACKGROUND LOGIN ===== */
             #authBox.split-auth {
@@ -19075,8 +19078,7 @@ async function csAdmShowLink(id, btn) {
         { key:'portfolio',      ar:'خرائط الطلبة',        en:'Student Maps' },
         { key:'mentorship',     ar:'اسأل خبير GIS',       en:'Ask a GIS Expert' },
         { key:'expert',         ar:'الدعم الفني',         en:'Technical Support' },
-        { key:'connect',        ar:'سوشيال ميديا',        en:'Social Media' },
-        { key:'account',        ar:'الإعدادات',           en:'Settings' }
+        { key:'appreviews',    ar:'تقييمات الطلبة',     en:'Student Reviews' }
     ];
     function notifTargetLabel(key, isAR) {
         const t = NOTIF_TARGETS.find(x => x.key === key);
@@ -19094,7 +19096,7 @@ async function csAdmShowLink(id, btn) {
             if (!NOTIF_TARGETS.some(t => t.key === page)) return;
             try { if (window._markNotifsAsSeen) window._markNotifsAsSeen(); } catch(e) {}
             if (_notifOpen) toggleNotifDropdown();
-            if (page === 'account') { goSettings('hub'); return; }
+            if (page === 'appreviews') { goSettings('appinfo'); return; }
             const navId = (typeof PAGE_NAV_ID_MAP !== 'undefined' && PAGE_NAV_ID_MAP[page]) || null;
             navigate(page, navId ? document.getElementById(navId) : null);
         }
@@ -19208,16 +19210,15 @@ async function csAdmShowLink(id, btn) {
                     const isNew = !seenIds.includes(n.id);
                     const date = n.createdAt?.toDate ? n.createdAt.toDate().toLocaleDateString() : '';
                     const _tgt = NOTIF_TARGETS.find(x => x.key === n.target);
-                    const _tgtChip = _tgt ? '<div style="margin-top:8px;padding-right:38px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--green4);background:rgba(var(--brand-rgb,30,122,52),0.12);border:1px solid rgba(var(--brand-rgb,30,122,52),0.3);border-radius:20px;padding:3px 10px;"><i class="fa-solid fa-arrow-up-right-from-square"></i> ' + (isAR ? 'افتح: ' + _tgt.ar : 'Open: ' + _tgt.en) + '</span></div>' : '';
-                    return '<div ' + (_tgt ? 'onclick="openNotifTarget(\'' + _tgt.key + '\')" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\')this.click()"' : '') + ' style="padding:14px 16px;border-bottom:1px solid ' + borderColor + ';' + (_tgt ? 'cursor:pointer;' : '') + (isNew ? 'background:rgba(var(--brand-rgb,30,122,52),0.07);' : '') + '">'
+                    return '<div ' + (_tgt ? 'class="notif-link" onclick="openNotifTarget(\'' + _tgt.key + '\')" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\')this.click()"' : '') + ' style="padding:14px 16px;border-bottom:1px solid ' + borderColor + ';' + (_tgt ? 'cursor:pointer;border-inline-start:3px solid var(--green4);' : '') + (isNew ? 'background:rgba(var(--brand-rgb,30,122,52),0.07);' : '') + '">'
                         + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
                         + '<div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#b07d00,#f0c040);display:flex;align-items:center;justify-content:center;font-size:13px;color:#0a0a0e;flex-shrink:0;"><i class="fa-solid fa-bullhorn"></i></div>'
                         + '<div style="font-size:13px;font-weight:700;color:' + textColor + ';flex:1;">' + n.title + '</div>'
+                        + (_tgt ? '<i class="fa-solid fa-chevron-' + (isAR ? 'left' : 'right') + '" style="color:var(--green4);font-size:12px;flex-shrink:0;"></i>' : '')
                         + (isNew ? '<span style="width:8px;height:8px;border-radius:50%;background:var(--green4);flex-shrink:0;display:inline-block;"></span>' : '')
                         + '</div>'
                         + (n.body ? '<div style="font-size:12px;color:' + mutedColor + ';padding-right:38px;line-height:1.5;">' + n.body + '</div>' : '')
                         + '<div style="font-size:11px;color:' + mutedColor + ';margin-top:6px;padding-right:38px;">' + date + '</div>'
-                        + _tgtChip
                         + '</div>';
                 }).join('');
 
