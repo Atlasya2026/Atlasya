@@ -3148,7 +3148,25 @@
 @media(max-width:900px){.cs-stats{grid-template-columns:repeat(2,1fr)}.cs-tools{grid-template-columns:1fr 1fr}.cs-tools .cs-f:first-child{grid-column:1/-1}.cs-steps{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.cs-grid2,.cs-grid3{grid-template-columns:1fr}.cs-hero{flex-direction:column}.cs-steps{grid-template-columns:1fr}.cs-kv{grid-template-columns:1fr}.cs-kv dt{margin-top:6px}.cs-modal{padding:16px}.cs-actions .cs-btn{flex:1 1 100%}.cs-cal-c{min-height:44px}}
 
-</style>
+        /* ─── Dashboard activity (admin) ─── */
+        .dash-act-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin:4px 0 22px; }
+        .dash-act-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px 8px 8px; min-width:0; }
+        .dash-act-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:2px 10px 10px; }
+        .dash-act-head h3 { font-size:14.5px; font-weight:800; display:flex; align-items:center; gap:8px; margin:0; }
+        .dash-act-pill { font-size:11.5px; font-weight:800; padding:3px 10px; border-radius:20px; color:#f5b82e; border:1px solid #f5b82e55; background:#f5b82e1a; white-space:nowrap; }
+        .dash-act-row { display:flex; align-items:center; gap:10px; padding:10px; border-radius:12px; cursor:pointer; transition:background .15s; }
+        .dash-act-row:hover { background:rgba(128,128,128,.12); }
+        .dash-act-av, .dash-act-ic { width:36px; height:36px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; background:rgba(128,128,128,.14); color:var(--green4); }
+        .dash-act-main { flex:1; min-width:0; }
+        .dash-act-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+        .dash-act-name { font-size:13px; font-weight:800; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .dash-act-sub { font-size:12px; color:var(--muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .dash-act-chip { font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:20px; border:1px solid; white-space:nowrap; }
+        .dash-act-time { font-size:11px; color:var(--muted); white-space:nowrap; flex-shrink:0; }
+        .dash-act-empty { text-align:center; padding:22px 10px; color:var(--muted); font-size:13px; }
+        .dash-act-more { text-align:center; padding:10px; font-size:12.5px; font-weight:800; color:var(--green4); cursor:pointer; border-top:1px solid var(--border); margin-top:4px; }
+        .dash-act-more:hover { text-decoration:underline; }
+    </style>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style id="appRedesign">
 /* ═══════════ APP REDESIGN — same identity as the new sign-in screen ═══════════
@@ -6158,6 +6176,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             </div>
         </div>
 
+        ${window._isAdmin ? '<div id="dashActivity"></div>' : ''}
+
         ${window._isAdmin ? '' : `<div class="sections-grid">
             ${sectionCard('playlists','fa-clapperboard',isAR?'قوائم التشغيل':'Playlists',isAR?'قوائم فيديوهات تعليمية في نظم المعلومات الجغرافية':'Educational video playlists in GIS', true)}
             ${sectionCard('library','fa-book-bookmark',isAR?'المكتبة الرقمية':'Digital Library',isAR?'كتب ومراجع تقنية في علوم GIS':'Technical books and GIS references', true)}
@@ -6166,6 +6186,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             ${sectionCard('jobs','fa-briefcase',isAR?'لوحة الوظائف':'Job Board',isAR?'فرص وظيفية في مجال الخرائط وتحليل البيانات':'GIS & mapping job opportunities', true)}
             ${sectionCard('courses','fa-building-shield',isAR?'الكورسات والشركات':'Courses & Companies',isAR?'دورات تدريبية وشركات GIS الرائدة':'Training courses and leading GIS firms', true)}
         </div>`}`;
+
+        if (window._isAdmin) dashLoadActivity();
 
         // Load live counts from Firestore for all 4 dashboard stat cards
         (async () => {
@@ -6205,6 +6227,124 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 }
             } catch(e) { /* silent fail — keep default 0 */ }
         })();
+    }
+
+    /* ─── DASHBOARD (أدمن): آخر تقييمات الطلبة + آخر الطلبات ─── */
+    function dashCan(key) {
+        const p = window._adminPermissions;
+        return p === 'all' || window._adminIsSuper === true || (Array.isArray(p) && p.includes(key));
+    }
+    function dashMs(v) {
+        if (!v) return 0;
+        if (typeof v === 'number') return v;
+        if (typeof v.toMillis === 'function') { try { return v.toMillis(); } catch (e) {} }
+        if (typeof v.seconds === 'number') return v.seconds * 1000;
+        const t = Date.parse(v); return isNaN(t) ? 0 : t;
+    }
+    function dashAgo(ms, isAR) {
+        if (!ms) return '';
+        const m = Math.floor(Math.max(0, Date.now() - ms) / 60000);
+        if (m < 1) return isAR ? 'الآن' : 'now';
+        if (m < 60) return isAR ? `منذ ${m} د` : `${m}m ago`;
+        const h = Math.floor(m / 60);
+        if (h < 24) return isAR ? `منذ ${h} س` : `${h}h ago`;
+        const d = Math.floor(h / 24);
+        if (d < 30) return isAR ? `منذ ${d} يوم` : `${d}d ago`;
+        return new Date(ms).toLocaleDateString(isAR ? 'ar-EG' : 'en-GB');
+    }
+    function dashStars(n, sz) {
+        let o = '';
+        for (let i = 1; i <= 5; i++) o += `<span style="color:${i <= n ? '#f5b82e' : 'rgba(148,163,184,.6)'};font-size:${sz || 13}px;">★</span>`;
+        return `<span dir="ltr" style="letter-spacing:1px;white-space:nowrap;">${o}</span>`;
+    }
+    const DASH_STATUS = {
+        pending:   { ar: 'قيد الانتظار', en: 'Pending',   c: '#f5b82e' },
+        accepted:  { ar: 'مقبول',        en: 'Accepted',  c: '#34d399' },
+        confirmed: { ar: 'مؤكد',         en: 'Confirmed', c: '#34d399' },
+        completed: { ar: 'مكتمل',        en: 'Completed', c: '#34d399' },
+        approved:  { ar: 'تم التفعيل',   en: 'Approved',  c: '#34d399' },
+        done:      { ar: 'تم التسليم',   en: 'Done',      c: '#34d399' },
+        rejected:  { ar: 'مرفوض',        en: 'Rejected',  c: '#f87171' },
+        cancelled: { ar: 'ملغي',         en: 'Cancelled', c: '#f87171' }
+    };
+    async function dashLoadActivity() {
+        const box = document.getElementById('dashActivity'); if (!box) return;
+        const isAR = lang === 'AR';
+        const wantReviews = dashCan('appreviews'), wantCV = dashCan('cv'), wantPro = dashCan('pro');
+        const wantConsult = window._adminPermissions === 'all' || window._adminIsSuper === true || dashCan('mentorship');
+        if (!wantReviews && !wantCV && !wantPro && !wantConsult) { box.innerHTML = ''; return; }
+        box.innerHTML = `<div style="text-align:center;padding:22px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+
+        const safe = (cond, fn) => cond && typeof fn === 'function' ? fn().catch(e => { console.warn('dashboard activity:', e); return null; }) : Promise.resolve(null);
+        const [revs, cvs, pros, cons] = await Promise.all([
+            safe(wantReviews, window._loadAppReviews),
+            safe(wantCV, window._loadCVRequests),
+            safe(wantPro, window._loadUpgradeRequests),
+            safe(wantConsult, window._loadMentorshipRequests)
+        ]);
+        if (!document.getElementById('dashActivity')) return;
+
+        /* ── تقييمات الطلبة ── */
+        let reviewsCard = '';
+        if (wantReviews && Array.isArray(revs)) {
+            const total = revs.length, avg = total ? revs.reduce((a, x) => a + (x.rating || 0), 0) / total : 0;
+            const latest = revs.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
+            const rows = latest.length ? latest.map(x => {
+                const nm = x.authorName || (isAR ? 'طالب' : 'Student');
+                return `<div class="dash-act-row" onclick="navigate('adminreviews', document.getElementById('menuAdminReviews'))">
+                    <div class="dash-act-av">${escapeHtml((nm[0] || '?').toUpperCase())}</div>
+                    <div class="dash-act-main">
+                        <div class="dash-act-top"><span class="dash-act-name">${escapeHtml(nm)}</span>${dashStars(x.rating, 12)}</div>
+                        ${x.text ? `<div class="dash-act-sub">${escapeHtml(String(x.text).slice(0, 110))}${String(x.text).length > 110 ? '…' : ''}</div>` : ''}
+                    </div>
+                    <span class="dash-act-time">${dashAgo(x.createdAt, isAR)}</span>
+                </div>`;
+            }).join('') : `<div class="dash-act-empty">${isAR ? 'مفيش تقييمات لسه' : 'No reviews yet'}</div>`;
+            reviewsCard = `<div class="dash-act-card">
+                <div class="dash-act-head">
+                    <h3><i class="fa-solid fa-star" style="color:#f5b82e;"></i> ${isAR ? 'أحدث تقييمات الطلبة' : 'Latest Student Reviews'}</h3>
+                    ${total ? `<span class="dash-act-pill">${avg.toFixed(1)} ★ · ${total}</span>` : ''}
+                </div>
+                ${rows}
+                <div class="dash-act-more" onclick="navigate('adminreviews', document.getElementById('menuAdminReviews'))">${isAR ? 'عرض كل التقييمات' : 'View all reviews'} <i class="fa-solid fa-arrow-${isAR ? 'left' : 'right'}"></i></div>
+            </div>`;
+        }
+
+        /* ── آخر الطلبات (CV + استشارات + برو) ── */
+        let reqCard = '';
+        if (wantCV || wantPro || wantConsult) {
+            const feed = [];
+            if (Array.isArray(cvs)) cvs.forEach(r => feed.push({ type: 'cv', name: r.authorName || r.email || '', status: r.status || 'pending', ms: dashMs(r.updatedAt) || dashMs(r.createdAt) }));
+            if (Array.isArray(cons)) cons.forEach(r => feed.push({ type: 'consult', name: r.authorName || r.email || '', status: r.status || 'pending', ms: dashMs(r.createdAt), sub: r.topic || '' }));
+            if (Array.isArray(pros)) pros.forEach(r => feed.push({ type: 'pro', name: ((r.firstName || '') + ' ' + (r.lastName || '')).trim() || r.email || '', status: r.status || 'pending', ms: dashMs(r.requestedAt) }));
+            feed.sort((a, b) => b.ms - a.ms);
+            const pend = feed.filter(f => f.status === 'pending').length;
+            const T = {
+                cv:      { ar: 'طلب CV',       en: 'CV request',      ic: 'fa-file-invoice', page: 'cvbuilder',        menu: 'menuAdminCV' },
+                consult: { ar: 'حجز استشارة',  en: 'Consultation',    ic: 'fa-user-tie',     page: 'adminmentorship',  menu: 'menuAdminMentorship' },
+                pro:     { ar: 'طلب Pro',      en: 'Pro request',     ic: 'fa-crown',        page: 'adminpro',         menu: 'menuAdminPro' }
+            };
+            const rows = feed.length ? feed.slice(0, 8).map(f => {
+                const t = T[f.type], st = DASH_STATUS[f.status] || { ar: f.status, en: f.status, c: '#94a3b8' };
+                const nm = f.name || (isAR ? 'طالب' : 'Student');
+                return `<div class="dash-act-row" onclick="navigate('${t.page}', document.getElementById('${t.menu}'))">
+                    <div class="dash-act-ic"><i class="fa-solid ${t.ic}"></i></div>
+                    <div class="dash-act-main">
+                        <div class="dash-act-top"><span class="dash-act-name">${escapeHtml(nm)}</span><span class="dash-act-chip" style="color:${st.c};border-color:${st.c}55;background:${st.c}1a;">${isAR ? st.ar : st.en}</span></div>
+                        <div class="dash-act-sub">${isAR ? t.ar : t.en}${f.sub ? ' · ' + escapeHtml(String(f.sub).slice(0, 50)) : ''}</div>
+                    </div>
+                    <span class="dash-act-time">${dashAgo(f.ms, isAR)}</span>
+                </div>`;
+            }).join('') : `<div class="dash-act-empty">${isAR ? 'مفيش طلبات لسه' : 'No requests yet'}</div>`;
+            reqCard = `<div class="dash-act-card">
+                <div class="dash-act-head">
+                    <h3><i class="fa-solid fa-inbox" style="color:var(--green4);"></i> ${isAR ? 'آخر الطلبات' : 'Latest Requests'}</h3>
+                    ${pend ? `<span class="dash-act-pill" style="color:#f5b82e;border-color:#f5b82e55;background:#f5b82e1a;">${pend} ${isAR ? 'قيد الانتظار' : 'pending'}</span>` : ''}
+                </div>
+                ${rows}
+            </div>`;
+        }
+        box.innerHTML = `<div class="dash-act-grid">${reqCard}${reviewsCard}</div>`;
     }
 
     function sectionCard(page, icon, title, desc, hideMobile=false) {
@@ -11830,7 +11970,7 @@ window.openConsultationModal = function () { csTab('book'); };
             body.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">${isAR?'تعذّر التحميل — تأكد إنك شغّلت app-reviews.sql في Supabase.':'Could not load — make sure app-reviews.sql was run.'}</div>`;
         }
     }
-    function arStars(n, sz) { let s = ''; for (let i = 1; i <= 5; i++) s += `<span style="color:${i <= n ? '#f5b82e' : 'rgba(255,255,255,.2)'};font-size:${sz||15}px;">★</span>`; return `<span dir="ltr" style="letter-spacing:2px;white-space:nowrap;">${s}</span>`; }
+    function arStars(n, sz) { let s = ''; for (let i = 1; i <= 5; i++) s += `<span style="color:${i <= n ? '#f5b82e' : 'rgba(148,163,184,.6)'};font-size:${sz||15}px;">★</span>`; return `<span dir="ltr" style="letter-spacing:2px;white-space:nowrap;">${s}</span>`; }
     function arSetFilter(n) { _arFilter = n; arDraw(); }
     function arDraw() {
         const isAR = lang === 'AR', body = document.getElementById('arBody'); if (!body) return;
