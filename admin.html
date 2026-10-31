@@ -4973,6 +4973,22 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         const snap = await getDocs(collection(db, 'users'));
         return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
     };
+    window._getUserDoc = async (uid) => {
+        const snap = await getDoc(doc(db, 'users', uid));
+        return snap.exists() ? { uid: snap.id, ...snap.data() } : null;
+    };
+    /* لايكات وكومنتات خرائط الطلبة (portfolio_likes / portfolio_comments) */
+    window._loadPortfolioSocial = async () => {
+        const [ls, cs] = await Promise.all([
+            getDocs(collection(db, 'portfolio_likes')),
+            getDocs(query(collection(db, 'portfolio_comments'), orderBy('createdAt', 'asc')))
+        ]);
+        const likes = {}, comments = {};
+        ls.docs.forEach(d => { const x = d.data(); if (x.itemId) (likes[x.itemId] = likes[x.itemId] || []).push(x.userId); });
+        cs.docs.forEach(d => { const x = d.data(); if (x.itemId) (comments[x.itemId] = comments[x.itemId] || []).push({ id: d.id, uid: x.uid, authorName: x.authorName, text: x.text, createdAt: x.createdAt }); });
+        return { likes, comments };
+    };
+    window._deletePortfolioComment = async (id) => { await deleteDoc(doc(db, 'portfolio_comments', id)); };
 
     // Sums coin_transactions specifically tagged as referral rewards, grouped by userId.
     // More reliable than the `referralCoinsEarned` field alone, since that field was only
@@ -10107,6 +10123,13 @@ window.openConsultationModal = function () { csTab('book'); };
                 list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px;"><i class="fa-solid fa-map" style="display:block;font-size:24px;opacity:0.3;margin-bottom:8px;"></i>${isAR?'لا توجد خرائط منشورة بعد':'No published maps yet'}</div>`;
                 return;
             }
+            // اللايكات/الكومنتات + بيانات الطلبة (للصور والأسماء)
+            window._pfAdminSoc = null; window._pfAdminUsers = {};
+            try { window._pfAdminSoc = await window._loadPortfolioSocial(); } catch (e) { console.warn('portfolio social unavailable:', e && e.message); }
+            try {
+                const us = (window._adminUsersCache && window._adminUsersCache.length) ? window._adminUsersCache : await window._loadAllUsers();
+                window._adminUsersCache = us; us.forEach(u => { window._pfAdminUsers[u.uid] = u; });
+            } catch (e) {}
             list.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;">
                 ${items.map(it => {
                     const isImg = it.fileData && /^data:image\/|\.(?:jpe?g|png|webp|gif)(?:\?|$)/i.test(it.fileData);
@@ -10118,11 +10141,15 @@ window.openConsultationModal = function () { csTab('book'); };
                         ${thumb}
                         <div style="flex:1;min-width:0;">
                             <div style="font-size:13px;font-weight:700;color:var(--text);">${atlEsc(it.title||'—')}</div>
-                            <div style="font-size:11px;color:var(--gold3);font-weight:700;margin-top:2px;">${atlEsc(it.authorName||'')}</div>
+                            <div onclick="adminShowStudent('${atlJs(it.uid||'')}')" title="${isAR?'عرض بيانات الطالب':'View student'}" style="display:inline-flex;align-items:center;gap:7px;margin-top:4px;cursor:pointer;">
+                                ${adminAvatarHTML(it.uid, it.authorName, 24)}
+                                <span style="font-size:11.5px;color:var(--gold3);font-weight:700;text-decoration:underline dotted;">${atlEsc(it.authorName||'')}</span>
+                            </div>
                             ${it.desc ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${atlEsc(it.desc)}</div>` : ''}
                             ${timeStr ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;"><i class="fa-regular fa-clock"></i> ${timeStr}</div>` : ''}
                         </div>
                         <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
+                            ${window._pfAdminSoc ? `<button onclick="adminOpenMapSocial('${it.id}')" title="${isAR?'اللايكات والتعليقات':'Likes & comments'}" style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:rgba(255,107,129,0.08);border:1px solid rgba(255,107,129,0.3);border-radius:8px;color:#ff6b81;font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;"><span><i class="fa-solid fa-heart"></i> ${(window._pfAdminSoc.likes[it.id]||[]).length}</span><span><i class="fa-solid fa-comment"></i> ${(window._pfAdminSoc.comments[it.id]||[]).length}</span></button>` : ''}
                             ${isImg ? `<button onclick="openPortfolioLightbox('${it.id}')" style="display:flex;align-items:center;gap:4px;padding:7px 12px;background:rgba(var(--brand-rgb,30,122,52),0.1);border:1px solid rgba(var(--brand-rgb,30,122,52),0.3);border-radius:8px;color:var(--green4);font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;" title="${isAR?'عرض':'View'}"><i class="fa-solid fa-expand"></i></button>` : ''}
                             <button onclick="adminDeletePortfolioItem('${it.id}')" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:rgba(220,50,50,0.08);border:1px solid rgba(220,50,50,0.22);border-radius:8px;color:#ff6b6b;cursor:pointer;transition:0.2s;" onmouseover="this.style.background='rgba(220,50,50,0.22)'" onmouseout="this.style.background='rgba(220,50,50,0.08)'" title="${isAR?'حذف':'Delete'}">
                                 <i class="fa-solid fa-trash" style="font-size:13px;"></i>
@@ -10134,6 +10161,105 @@ window.openConsultationModal = function () { csTab('book'); };
         } catch(e) {
             list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">${isAR?'خطأ في التحميل':'Loading error'}</div>`;
         }
+    };
+
+    /* ─── أدمن: أفاتار الطالب + نافذة بياناته + لايكات/تعليقات الخريطة ─── */
+    function adminAvatarHTML(uid, name, size) {
+        const u = (window._pfAdminUsers || {})[uid] || {};
+        const nm = (name || ((u.firstName||'') + ' ' + (u.lastName||'')).trim() || '?').trim();
+        const img = u.profileImg ? atlUrl(u.profileImg) : '';
+        const base = `width:${size}px;height:${size}px;border-radius:50%;flex-shrink:0;`;
+        return img
+            ? `<img src="${img}" alt="" onerror="this.style.visibility='hidden'" style="${base}object-fit:cover;border:1px solid var(--border);">`
+            : `<span style="${base}display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--gold3),var(--gold2));color:#0a0a0e;font-weight:800;font-size:${Math.round(size*0.45)}px;">${atlEsc(nm.charAt(0).toUpperCase())}</span>`;
+    }
+    window.adminShowStudent = async function(uid) {
+        const isAR = lang === 'AR';
+        if (!uid) { showToast(isAR ? 'بيانات الطالب مش متاحة' : 'Student info unavailable', true); return; }
+        document.getElementById('adminStudentModal')?.remove();
+        const o = document.createElement('div');
+        o.id = 'adminStudentModal';
+        o.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;';
+        o.onclick = e => { if (e.target === o) o.remove(); };
+        o.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:18px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;padding:22px;" id="adminStudentBox"><div style="text-align:center;padding:30px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div></div>`;
+        document.body.appendChild(o);
+        const box = document.getElementById('adminStudentBox');
+        let u = (window._pfAdminUsers || {})[uid] || (window._adminUsersCache || []).find(x => x.uid === uid) || null;
+        try { if (!u) u = await window._getUserDoc(uid); } catch (e) {}
+        if (!u) { box.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);">${isAR ? 'الطالب ده مش موجود (ممكن يكون حسابه اتمسح)' : 'Student not found (account may be deleted)'}</div>`; return; }
+        const name = ((u.firstName||'') + ' ' + (u.lastName||'')).trim() || 'User';
+        const isPro = (u.plan || 'basic') === 'pro';
+        const fmt = t => t && t.toDate ? t.toDate().toLocaleDateString(isAR?'ar-EG':'en-US',{day:'numeric',month:'long',year:'numeric'}) : '';
+        const row = (ic, label, val) => (val || val === 0) ? `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;"><i class="fa-solid ${ic}" style="color:var(--muted);width:16px;text-align:center;font-size:13px;"></i><div style="min-width:0;"><div style="font-size:11px;color:var(--muted);font-weight:700;">${label}</div><div style="font-size:13px;margin-top:1px;word-break:break-word;">${atlEsc(String(val))}</div></div></div>` : '';
+        box.innerHTML = `
+            <div style="display:flex;justify-content:flex-end;"><button onclick="document.getElementById('adminStudentModal').remove()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;">✕</button></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:16px;">
+                ${adminAvatarHTML(uid, name, 76)}
+                <div style="font-size:17px;font-weight:800;">${atlEsc(name)}</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">
+                    <span style="background:${isPro?'linear-gradient(135deg,var(--gold3),var(--gold2))':'rgba(var(--brand-rgb,30,122,52),0.2)'};color:${isPro?'#000':'var(--green4)'};font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${isPro ? 'PRO' : 'Basic'}</span>
+                    ${u.suspended ? `<span style="background:rgba(220,50,50,0.18);color:#ff6b6b;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${isAR?'موقوف':'Suspended'}</span>` : ''}
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                ${row('fa-envelope', isAR?'البريد الإلكتروني':'Email', u.email)}
+                ${row('fa-phone', isAR?'الهاتف':'Phone', u.phone)}
+                ${row('fa-graduation-cap', isAR?'المستوى الأكاديمي':'Academic level', u.academicLevel)}
+                ${row('fa-building', isAR?'الجامعة / الجهة':'University / Company', u.company)}
+                ${row('fa-briefcase', isAR?'المسمى الوظيفي':'Job title', u.job)}
+                ${row('fa-coins', isAR?'رصيد العملات':'Coins', u.coins || 0)}
+                ${row('fa-calendar', isAR?'تاريخ الانضمام':'Joined', fmt(u.joinedAt))}
+                ${isPro && u.proExpiresAt ? row('fa-hourglass-half', isAR?'انتهاء اشتراك Pro':'Pro expires', fmt(u.proExpiresAt)) : ''}
+                ${u.bio ? row('fa-align-left', isAR?'النبذة':'Bio', u.bio) : ''}
+            </div>
+            ${typeof window.openAdminAlert === 'function' ? `<button onclick="document.getElementById('adminStudentModal').remove();openAdminAlert('${atlJs(uid)}','${atlJs(name)}')" style="width:100%;margin-top:14px;padding:11px;background:rgba(100,149,237,0.08);border:1px solid rgba(100,149,237,0.25);border-radius:10px;color:#6495ed;font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;"><i class="fa-solid fa-paper-plane"></i> ${isAR?'إرسال رسالة تنبيه':'Send alert message'}</button>` : ''}`;
+    };
+    window.adminOpenMapSocial = function(itemId) {
+        const isAR = lang === 'AR';
+        const soc = window._pfAdminSoc; if (!soc) return;
+        const it = _portfolioItemsCache.find(x => x.id === itemId); if (!it) return;
+        document.getElementById('adminMapSocial')?.remove();
+        const users = window._pfAdminUsers || {};
+        const nameOf = uid => { const u = users[uid]; return (u && ((u.firstName||'') + ' ' + (u.lastName||'')).trim()) || (isAR ? 'طالب' : 'Student'); };
+        const likers = soc.likes[itemId] || [];
+        const cms = soc.comments[itemId] || [];
+        const chip = (uid, name) => `<span onclick="adminShowStudent('${atlJs(uid||'')}')" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 5px;border:1px solid var(--border2);border-radius:99px;cursor:pointer;font-size:12px;font-weight:700;">${adminAvatarHTML(uid, name, 22)}${atlEsc(name)}</span>`;
+        const o = document.createElement('div');
+        o.id = 'adminMapSocial';
+        o.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;';
+        o.onclick = e => { if (e.target === o) o.remove(); };
+        o.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:18px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;">
+                <div style="font-size:15px;font-weight:800;">${atlEsc(it.title||'')}</div>
+                <button onclick="document.getElementById('adminMapSocial').remove()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;">✕</button>
+            </div>
+            <div style="font-size:13px;font-weight:800;margin-bottom:8px;color:#ff6b81;"><i class="fa-solid fa-heart"></i> ${isAR?'الإعجابات':'Likes'} (${likers.length})</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">${likers.length ? likers.map(u => chip(u, nameOf(u))).join('') : `<span style="font-size:12.5px;color:var(--muted);">${isAR?'مفيش إعجابات لسه':'No likes yet'}</span>`}</div>
+            <div style="font-size:13px;font-weight:800;margin-bottom:8px;"><i class="fa-solid fa-comments"></i> ${isAR?'التعليقات':'Comments'} (${cms.length})</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">${cms.length ? cms.map(c => {
+                const nm = c.authorName || nameOf(c.uid);
+                const dt = c.createdAt && c.createdAt.toDate ? c.createdAt.toDate().toLocaleString(isAR?'ar-EG':'en-US',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+                return `<div style="display:flex;gap:10px;">
+                    <div onclick="adminShowStudent('${atlJs(c.uid||'')}')" style="cursor:pointer;">${adminAvatarHTML(c.uid, nm, 32)}</div>
+                    <div style="flex:1;min-width:0;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;padding:8px 12px;">
+                        <div style="display:flex;align-items:center;gap:8px;"><b onclick="adminShowStudent('${atlJs(c.uid||'')}')" style="font-size:12.5px;cursor:pointer;">${atlEsc(nm)}</b><span style="font-size:10.5px;color:var(--muted);">${dt}</span>
+                            <button onclick="adminDeleteMapComment('${itemId}','${c.id}')" title="${isAR?'حذف التعليق':'Delete comment'}" style="margin-inline-start:auto;background:none;border:none;color:#e74c3c;cursor:pointer;font-size:12px;"><i class="fa-solid fa-trash"></i></button></div>
+                        <div style="font-size:13px;line-height:1.7;margin-top:3px;white-space:pre-wrap;word-break:break-word;">${atlEsc(c.text||'')}</div>
+                    </div></div>`;
+            }).join('') : `<span style="font-size:12.5px;color:var(--muted);">${isAR?'مفيش تعليقات لسه':'No comments yet'}</span>`}</div>
+        </div>`;
+        document.body.appendChild(o);
+    };
+    window.adminDeleteMapComment = async function(itemId, cid) {
+        const isAR = lang === 'AR';
+        if (!confirm(isAR ? 'حذف التعليق ده؟' : 'Delete this comment?')) return;
+        try {
+            await window._deletePortfolioComment(cid);
+            const soc = window._pfAdminSoc; if (soc) soc.comments[itemId] = (soc.comments[itemId] || []).filter(c => c.id !== cid);
+            showToast(isAR ? '🗑️ تم حذف التعليق' : '🗑️ Comment deleted');
+            adminOpenMapSocial(itemId);
+            adminLoadPortfolioItems();
+        } catch (e) { showToast(isAR ? 'ماقدرناش نحذف التعليق' : 'Could not delete the comment', true); }
     };
 
     window.adminDeletePortfolioItem = async function(itemId) {
