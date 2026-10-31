@@ -3519,9 +3519,6 @@
                     <button class="nav-item" id="menuAdminTips" onclick="navigate('admintips', this)" style="display:none;">
                         <i class="fa-solid fa-lightbulb"></i> <span id="menuAdminTipsTxt">نصيحة اليوم</span>
                     </button>
-                    <button class="nav-item" id="menuAdminReviews" onclick="navigate('adminreviews', this)" style="display:none;">
-                        <i class="fa-solid fa-star"></i> <span id="menuAdminReviewsTxt">تقييمات التطبيق</span>
-                    </button>
                 </div>
             </div>
 
@@ -3566,6 +3563,9 @@
                     <button class="nav-item" id="menuAdminPortfolio" onclick="navigate('adminportfolio', this)" style="display:none;">
                         <i class="fa-solid fa-map-location-dot"></i> <span id="menuAdminPortfolioTxt">خرائط الطلبة</span>
                     </button>
+                    <button class="nav-item" id="menuAdminMentorship" onclick="navigate('adminmentorship', this)" style="display:none;">
+                        <i class="fa-solid fa-user-tie"></i> <span id="menuAdminMentorshipTxt">حجوزات الاستشارات</span>
+                    </button>
                 </div>
             </div>
 
@@ -3594,8 +3594,8 @@
                     <button class="nav-item" id="menuAdminWheel" onclick="navigate('adminwheel', this)" style="display:none;">
                         <i class="fa-solid fa-dharmachakra"></i> <span id="menuAdminWheelTxt">عجلة الحظ والهدايا</span>
                     </button>
-                    <button class="nav-item" id="menuAdminMentorship" onclick="navigate('adminmentorship', this)" style="display:none;">
-                        <i class="fa-solid fa-user-tie"></i> <span id="menuAdminMentorshipTxt">حجوزات الاستشارات</span>
+                    <button class="nav-item" id="menuAdminReviews" onclick="navigate('adminreviews', this)" style="display:none;">
+                        <i class="fa-solid fa-star"></i> <span id="menuAdminReviewsTxt">تقييمات التطبيق</span>
                     </button>
                     <button class="nav-item" id="menuExpert" onclick="navigate('expert', this)">
                         <i class="fa-solid fa-ticket"></i> <span id="menuExpertTxt">الدعم الفني</span>
@@ -4626,10 +4626,11 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
     };
 
     /* ─── ADMIN BROADCAST NOTIFICATIONS ─── */
-    window._sendAdminNotif = async (title, body) => {
+    window._sendAdminNotif = async (title, body, target) => {
         await addDoc(collection(db, 'admin_notifications'), {
             title,
             body,
+            target: target || null,
             createdAt: serverTimestamp(),
             sentBy: window._adminProfile?.displayName || 'Admin'
         });
@@ -15314,6 +15315,7 @@ async function csAdmShowLink(id, btn) {
                 </div>
                 <input id="notifBroadcastTitle" type="text" placeholder="${isAR?'عنوان الإشعار...':'Notification title...'}" style="width:100%;padding:8px 10px;background:${inputBg};border:1px solid ${inputBorder};border-radius:8px;color:${inputColor};font-family:'Tajawal',sans-serif;font-size:13px;margin-bottom:6px;outline:none;">
                 <textarea id="notifBroadcastBody" placeholder="${isAR?'تفاصيل الإشعار...':'Notification details...'}" rows="2" style="width:100%;padding:8px 10px;background:${inputBg};border:1px solid ${inputBorder};border-radius:8px;color:${inputColor};font-family:'Tajawal',sans-serif;font-size:13px;outline:none;resize:none;"></textarea>
+                ${notifTargetSelectHtml(isAR, inputBg, inputColor, inputBorder)}
                 <button onclick="sendBroadcastNotif()" style="width:100%;margin-top:6px;padding:8px;background:linear-gradient(135deg,#d4a017,#b07d00);color:#0a0a0e;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;cursor:pointer;">
                     <i class="fa-solid fa-paper-plane"></i> ${isAR?'إرسال':'Send'}
                 </button>
@@ -15388,16 +15390,50 @@ async function csAdmShowLink(id, btn) {
         } catch(e) { showToast(e.message, true); }
     }
 
+    
+    /* ─── Notification targets: الزر اللي الإشعار بيخصه (الأدمن بيختار، والطالب بيتنقل له بالضغط) ─── */
+    const NOTIF_TARGETS = [
+        { key:'dashboard',      ar:'لوحة التحكم',        en:'Dashboard' },
+        { key:'dailychallenge', ar:'التحديات',            en:'Challenges' },
+        { key:'wheel',          ar:'عجلة الحظ',           en:'Lucky Wheel' },
+        { key:'playlists',      ar:'قوائم التشغيل',       en:'Playlists' },
+        { key:'library',        ar:'المكتبة الرقمية',     en:'Digital Library' },
+        { key:'insights',       ar:'رؤى GIS',             en:'GIS Insights' },
+        { key:'datasets',       ar:'البيانات المكانية',   en:'Spatial Datasets' },
+        { key:'tools',          ar:'أدوات البرامج',       en:'Software Tools' },
+        { key:'jobs',           ar:'الوظائف',             en:'Job Board' },
+        { key:'courses',        ar:'الكورسات',            en:'Courses' },
+        { key:'community',      ar:'مجتمع الطلاب',        en:'Community' },
+        { key:'cvbuilder',      ar:'عمل CV',              en:'Build CV' },
+        { key:'portfolio',      ar:'خرائط الطلبة',        en:'Student Maps' },
+        { key:'mentorship',     ar:'اسأل خبير GIS',       en:'Ask a GIS Expert' },
+        { key:'expert',         ar:'الدعم الفني',         en:'Technical Support' },
+        { key:'connect',        ar:'سوشيال ميديا',        en:'Social Media' },
+        { key:'account',        ar:'الإعدادات',           en:'Settings' }
+    ];
+    function notifTargetLabel(key, isAR) {
+        const t = NOTIF_TARGETS.find(x => x.key === key);
+        return t ? (isAR ? t.ar : t.en) : '';
+    }
+    function notifTargetSelectHtml(isAR, inputBg, inputColor, inputBorder) {
+        return '<select id="notifBroadcastTarget" style="width:100%;padding:8px 10px;background:' + inputBg + ';border:1px solid ' + inputBorder + ';border-radius:8px;color:' + inputColor + ';font-family:\'Tajawal\',sans-serif;font-size:13px;margin-top:6px;outline:none;">'
+            + '<option value="">' + (isAR ? 'بدون ربط بزر (إشعار عادي)' : 'No button link (plain notification)') + '</option>'
+            + NOTIF_TARGETS.map(t => '<option value="' + t.key + '">' + (isAR ? 'يخص زر: ' + t.ar : 'Links to: ' + t.en) + '</option>').join('')
+            + '</select>';
+    }
+
     async function sendBroadcastNotif() {
         const title = document.getElementById('notifBroadcastTitle')?.value?.trim();
         const body  = document.getElementById('notifBroadcastBody')?.value?.trim();
+        const target = document.getElementById('notifBroadcastTarget')?.value || null;
         const isAR = lang === 'AR';
         if (!title) { showToast(isAR?'أدخل عنوان الإشعار':'Enter notification title', true); return; }
         try {
-            await window._sendAdminNotif(title, body || '');
+            await window._sendAdminNotif(title, body || '', target);
             showToast(isAR?'✓ تم إرسال الإشعار لجميع الطلبة':'✓ Notification sent to all students');
             if (document.getElementById('notifBroadcastTitle')) document.getElementById('notifBroadcastTitle').value = '';
             if (document.getElementById('notifBroadcastBody')) document.getElementById('notifBroadcastBody').value = '';
+            if (document.getElementById('notifBroadcastTarget')) document.getElementById('notifBroadcastTarget').value = '';
         } catch(e) {
             showToast(isAR?'خطأ في الإرسال':'Send failed', true);
         }
