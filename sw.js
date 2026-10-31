@@ -1,9 +1,25 @@
 /* ATLASYA service worker — network-first, offline fallback to cache.
    غيّر رقم النسخة لما تعدّل الملفات عشان الكاش القديم يتمسح. */
+/* أيقونة الإشعار: لوجو المنصة (icon) + أيقونة الشريط الصغيرة (badge: لوجو أبيض على شفاف — أندرويد بيرسمها بلون واحد).
+   بنحقنهم هنا في showNotification نفسها، فيشتغلوا مع أي إشعار بيعرضه push-sw.js من غير ما نعدّل فيه. */
+(function () {
+  const proto = self.ServiceWorkerRegistration && self.ServiceWorkerRegistration.prototype;
+  if (!proto || proto.__atlIcons) return;
+  const orig = proto.showNotification;
+  const abs = p => new URL(p, self.registration.scope).href;
+  proto.showNotification = function (title, opts) {
+    opts = Object.assign({}, opts || {});
+    opts.icon = opts.icon || abs('icons/icon-192.png');
+    opts.badge = abs('icons/badge-96.png');
+    return orig.call(this, title, opts);
+  };
+  proto.__atlIcons = true;
+})();
+
 importScripts('push-sw.js'); // الإشعارات الخارجية (Web Push)
 
-const VERSION = 'atlasya-v6';
-const SHELL = ['./', './index.html', './admin.html', './manifest.webmanifest', './manifest-admin.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+const VERSION = 'atlasya-v7';
+const SHELL = ['./', './index.html', './admin.html', './manifest.webmanifest', './manifest-admin.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/badge-96.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => Promise.allSettled(SHELL.map(u => c.add(u)))));
