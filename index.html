@@ -5050,9 +5050,9 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             if (!currentUid) throw new Error('غير مسجل الدخول');
             const authorName = ((window._userData?.firstName || '') + ' ' + (window._userData?.lastName || '')).trim() || 'User';
             const r = Math.max(1, Math.min(5, Math.round(Number(rating) || 0)));
-            await setDoc(doc(db, 'app_reviews', currentUid), { uid: currentUid, authorName, rating: r, text: String(text || '').trim().slice(0, 500), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+            await addDoc(collection(db, 'app_reviews'), { uid: currentUid, authorName, rating: r, text: String(text || '').trim().slice(0, 500), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         };
-        window._deleteAppReview = async (id) => { await deleteDoc(doc(db, 'app_reviews', id || currentUid)); };
+        window._deleteAppReview = async (id) => { await deleteDoc(doc(db, 'app_reviews', id)); };
 
         /* ─── DIGITAL LIBRARY (ATLASYA) — student-facing ─── */
         window._loadLibraryBooks = async () => {
@@ -8352,8 +8352,6 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 <p>${isAR
                     ? 'منصتك الشاملة لتعلّم نظم المعلومات الجغرافية والجغرافيا<br>اختر ما تريد استكشافه وابدأ رحلتك 🚀'
                     : 'Your comprehensive hub for learning GIS and Geography<br>Pick what you want to explore and start your journey 🚀'}</p>
-                ${typeof _pushWelcomeHtml === 'function' ? _pushWelcomeHtml() : ''}
-                ${typeof atlUpdateBtnHtml === 'function' ? atlUpdateBtnHtml() : ''}
                 ${window._isAdmin ? '' : `
                 <div onclick="goSettings('wallet')" style="position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:7px 14px;background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:99px;cursor:pointer;">
                     <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--gold3),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:11px;color:#0a0a0e;flex-shrink:0;"><i class="fa-solid fa-coins"></i></div>
@@ -14216,24 +14214,21 @@ window.openConsultationModal = function () { csTab('book'); };
             box.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);"><div class="spinner" style="margin:0 auto;"></div></div>`;
             try { window._aiList = await window._loadAppReviews(); }
             catch (e) { console.warn('reviews:', e); box.innerHTML = `<div style="font-size:12.5px;color:var(--muted);text-align:center;">${ar ? 'تعذّر تحميل التقييمات (تأكد من تشغيل app-reviews.sql).' : 'Could not load reviews.'}</div>`; window._aiList = null; }
-            const mine = (window._aiList || []).find(x => x.uid === window._currentUid);
-            window._aiStars = mine ? mine.rating : 0; window._aiMine = mine || null;
             atlReviewForm(); atlReviewList();
         };
         window.atlStarsHtml = function (n, size) { let s = ''; for (let i = 1; i <= 5; i++) s += `<span style="color:${i <= n ? '#f5b82e' : 'rgba(255,255,255,.2)'};font-size:${size || 16}px;">★</span>`; return `<span dir="ltr" style="letter-spacing:2px;white-space:nowrap;">${s}</span>`; };
         window.atlReviewForm = function () {
             const rate = document.getElementById('aiRate'); if (!rate) return;
             const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
-            const mine = window._aiMine, n = window._aiStars || 0;
-            const keep = document.getElementById('aiTxt') ? document.getElementById('aiTxt').value : (mine ? mine.text : '');
+            const n = window._aiStars || 0;
+            const keep = document.getElementById('aiTxt') ? document.getElementById('aiTxt').value : '';
             let st = ''; for (let i = 1; i <= 5; i++) st += `<button type="button" onclick="atlSetStars(${i})" aria-label="${i}" style="background:none;border:none;cursor:pointer;font-size:34px;line-height:1;padding:2px 3px;color:${i <= n ? '#f5b82e' : 'rgba(255,255,255,.22)'};transition:transform .12s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform=''">★</button>`;
-            rate.innerHTML = `<div style="font-size:15px;font-weight:800;margin-bottom:4px;">${mine ? (ar ? 'تقييمك للتطبيق' : 'Your rating') : (ar ? 'قيّم التطبيق' : 'Rate the app')}</div>
+            rate.innerHTML = `<div style="font-size:15px;font-weight:800;margin-bottom:4px;">${ar ? 'قيّم التطبيق' : 'Rate the app'}</div>
                 <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${ar ? 'رأيك بيظهر لكل الطلبة وللإدارة' : 'Your review is shown to all students and the admin'}</div>
                 <div dir="ltr" style="text-align:center;margin-bottom:10px;">${st}</div>
                 <textarea id="aiTxt" maxlength="500" rows="3" placeholder="${ar ? 'اكتب تعليقك (اختياري)...' : 'Write a comment (optional)...'}" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-family:inherit;font-size:13.5px;resize:vertical;">${atlEsc(keep || '')}</textarea>
                 <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-                    <button type="button" id="aiPub" onclick="atlPublishReview(this)" style="flex:1;min-width:120px;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 16px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:800;color:#0a0a0e;background:linear-gradient(135deg,var(--gold3,#e6b84a),var(--gold2,#c99a2e));"><i class="fa-solid fa-paper-plane"></i> ${mine ? (ar ? 'تحديث التقييم' : 'Update') : (ar ? 'نشر' : 'Publish')}</button>
-                    ${mine ? `<button type="button" onclick="atlDeleteMyReview(this)" style="padding:11px 16px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:#fca5a5;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);">${ar ? 'حذف تقييمي' : 'Delete'}</button>` : ''}
+                    <button type="button" id="aiPub" onclick="atlPublishReview(this)" style="flex:1;min-width:120px;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 16px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:800;color:#0a0a0e;background:linear-gradient(135deg,var(--gold3,#e6b84a),var(--gold2,#c99a2e));"><i class="fa-solid fa-paper-plane"></i> ${ar ? 'نشر' : 'Publish'}</button>
                 </div>`;
         };
         window.atlSetStars = function (n) { window._aiStars = n; atlReviewForm(); };
@@ -14242,14 +14237,14 @@ window.openConsultationModal = function () { csTab('book'); };
             if (!window._aiStars) { showToast(ar ? 'اختار عدد النجوم الأول ⭐' : 'Pick a star rating first ⭐', true); return; }
             const txt = (document.getElementById('aiTxt') || {}).value || '';
             btn.disabled = true;
-            try { await window._saveAppReview(window._aiStars, txt); showToast(ar ? '✅ تم نشر تقييمك، شكرًا ليك!' : '✅ Review published, thank you!'); await window.atlReviewsInit(); }
+            try { await window._saveAppReview(window._aiStars, txt); window._aiStars = 0; showToast(ar ? '✅ تم نشر تقييمك، شكرًا ليك!' : '✅ Review published, thank you!'); const t = document.getElementById('aiTxt'); if (t) t.value = ''; await window.atlReviewsInit(); }
             catch (e) { console.warn(e); btn.disabled = false; showToast(ar ? 'تعذّر النشر، حاول تاني' : 'Could not publish', true); }
         };
-        window.atlDeleteMyReview = async function (btn) {
+        window.atlDeleteMyReview = async function (btn, id) {
             const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
             if (!confirm(ar ? 'تحذف تقييمك؟' : 'Delete your review?')) return;
             btn.disabled = true;
-            try { await window._deleteAppReview(window._currentUid); window._aiStars = 0; await window.atlReviewsInit(); showToast(ar ? 'تم الحذف' : 'Deleted'); }
+            try { await window._deleteAppReview(id); await window.atlReviewsInit(); showToast(ar ? 'تم الحذف' : 'Deleted'); }
             catch (e) { btn.disabled = false; showToast(ar ? 'تعذّر الحذف' : 'Could not delete', true); }
         };
         window.atlReviewList = function () {
@@ -14260,15 +14255,70 @@ window.openConsultationModal = function () { csTab('book'); };
             const items = L.length ? L.map(x => {
                 const dt = x.createdAt ? new Date(x.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-GB') : '';
                 const nm = atlEsc(x.authorName || 'User');
-                return `<div style="padding:12px 0;border-top:1px solid var(--border);"><div style="display:flex;align-items:center;gap:10px;"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold3,#e6b84a),var(--gold2,#c99a2e));color:#0a0a0e;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${atlEsc((x.authorName || 'U').trim()[0] || 'U')}</div><div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:700;">${nm}${x.uid === window._currentUid ? ` <span style="font-size:11px;color:var(--gold3,#e6b84a);">(${ar ? 'أنت' : 'you'})</span>` : ''}</div><div style="display:flex;gap:8px;align-items:center;">${atlStarsHtml(x.rating, 13)}<span style="font-size:11px;color:var(--muted);">${dt}</span></div></div></div>${x.text ? `<div style="font-size:13px;line-height:1.8;margin-top:8px;white-space:pre-wrap;word-break:break-word;">${atlEsc(x.text)}</div>` : ''}</div>`;
+                return `<div style="padding:12px 0;border-top:1px solid var(--border);"><div style="display:flex;align-items:center;gap:10px;"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold3,#e6b84a),var(--gold2,#c99a2e));color:#0a0a0e;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${atlEsc((x.authorName || 'U').trim()[0] || 'U')}</div><div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:700;">${nm}${x.uid === window._currentUid ? ` <span style="font-size:11px;color:var(--gold3,#e6b84a);">(${ar ? 'أنت' : 'you'})</span>` : ''}</div><div style="display:flex;gap:8px;align-items:center;">${atlStarsHtml(x.rating, 13)}<span style="font-size:11px;color:var(--muted);">${dt}</span></div></div>${x.uid === window._currentUid ? `<button type="button" onclick="atlDeleteMyReview(this,'${atlJs(x.id)}')" title="${ar ? 'حذف' : 'Delete'}" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#fca5a5;border-radius:9px;padding:6px 10px;cursor:pointer;font-family:inherit;"><i class="fa-solid fa-trash"></i></button>` : ''}</div>${x.text ? `<div style="font-size:13px;line-height:1.8;margin-top:8px;white-space:pre-wrap;word-break:break-word;">${atlEsc(x.text)}</div>` : ''}</div>`;
             }).join('') : `<div style="text-align:center;color:var(--muted);font-size:13px;padding:10px;">${ar ? 'لسه مفيش تقييمات — كن أول من يقيّم!' : 'No reviews yet — be the first!'}</div>`;
             box.innerHTML = `<div style="font-size:15px;font-weight:800;margin-bottom:12px;">${ar ? 'تقييمات الطلبة' : 'Student reviews'}</div>${head}${items}`;
+        };
+
+
+        /* ═══ بوابات الإشعارات/التثبيت ═══
+           • فاتح من متصفح ← نافذة "ثبّت التطبيق" (تقدر تختار لاحقًا، وبترجع تظهر في كل مرة يفتح فيها).
+           • فاتح من التطبيق المنزّل ← نافذة "فعّل الإشعارات" إجبارية، مفيش خروج منها إلا بعد التفعيل. */
+        window._atlInstallShown = false;
+        window.atlGateCheck = function () {
+            try {
+                if (window._isAdmin === true || !window._currentUid) return;
+                const app = document.getElementById('mainApp'); if (app && app.style.display === 'none') return;
+                if (document.getElementById('atlForceUpd')) return;               // نافذة التحديث الإجباري الأول
+                const ar = _pushAR();
+                const mk = (id, ic, title, text, btnLabel, onclick, later) => {
+                    const o = document.createElement('div'); o.id = id; o.dir = ar ? 'rtl' : 'ltr';
+                    o.setAttribute('role', 'alertdialog'); o.setAttribute('aria-modal', 'true');
+                    o.style.cssText = 'position:fixed;inset:0;z-index:2147482000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,10,16,.86);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:inherit;';
+                    o.innerHTML = `<div style="width:100%;max-width:400px;text-align:center;background:var(--card,#0e1f2b);color:var(--text,#e9f0ed);border:1px solid var(--border2,rgba(255,255,255,.18));border-radius:22px;padding:28px 22px;box-shadow:0 24px 70px rgba(0,0,0,.6);">
+                        <div style="width:78px;height:78px;margin:0 auto 14px;border-radius:22px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--green4,#34d399);"><i class="fa-solid ${ic}"></i></div>
+                        <div id="${id}T" style="font-size:20px;font-weight:800;margin-bottom:8px;">${title}</div>
+                        <div id="${id}X" style="font-size:13.5px;line-height:1.9;opacity:.85;margin-bottom:20px;">${text}</div>
+                        <button id="${id}B" type="button" onclick="${onclick}" style="width:100%;padding:13px 18px;border:none;border-radius:13px;cursor:pointer;font-family:inherit;font-size:15px;font-weight:800;color:#04120a;background:linear-gradient(135deg,var(--green4,#34d399),var(--cs-cyan,#22d3ee));">${btnLabel}</button>
+                        ${later ? `<button type="button" onclick="document.getElementById('${id}').remove()" style="width:100%;margin-top:10px;padding:11px;border:1px solid var(--border2,rgba(255,255,255,.2));border-radius:13px;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--muted,#9fb3ad);background:transparent;">${later}</button>` : ''}
+                    </div>`;
+                    document.body.appendChild(o); return o;
+                };
+                /* ١) التطبيق منزّل ← الإشعارات إجبارية */
+                if (_pushStandalone()) {
+                    const inst = document.getElementById('atlInstallGate'); if (inst) inst.remove();
+                    const mode = _appBarMode();
+                    const gate = document.getElementById('atlNotifGate');
+                    if (mode !== 'notify' && mode !== 'denied') { if (gate) { gate.remove(); document.body.style.overflow = ''; } return; }
+                    const denied = mode === 'denied';
+                    const ios = _pushIOS(), android = /android/i.test(navigator.userAgent);
+                    const dText = (ios ? (ar ? 'الإعدادات ← الإشعارات ← ATLASYA ← السماح بالإشعارات.' : 'Settings → Notifications → ATLASYA → Allow.')
+                        : android ? (ar ? 'اضغط مطولًا على أيقونة التطبيق ← معلومات التطبيق ← الإشعارات ← سماح.' : 'Long-press the app icon → App info → Notifications → Allow.')
+                        : (ar ? 'اضغط على أيقونة القفل 🔒 جنب شريط العنوان ← الإشعارات ← سماح.' : 'Click the lock 🔒 by the address bar → Notifications → Allow.'))
+                        + (ar ? ' وبعدها ارجع للتطبيق وهيتفعّل تلقائيًا.' : ' Then come back to the app and it turns on automatically.');
+                    const title = denied ? (ar ? 'الإشعارات محظورة' : 'Notifications are blocked') : (ar ? 'فعّل الإشعارات' : 'Enable notifications');
+                    const text = denied ? dText : (ar ? 'لازم تفعّل الإشعارات عشان توصلك تنبيهات المنصة وإعلانات الإدارة. التفعيل بيتم بضغطة واحدة.' : 'Please enable notifications to receive platform alerts and announcements. It takes one tap.');
+                    const btn = denied ? (ar ? 'جرّب التفعيل تاني' : 'Try again') : (ar ? 'تفعيل الإشعارات' : 'Enable notifications');
+                    if (gate) { document.getElementById('atlNotifGateT').textContent = title; document.getElementById('atlNotifGateX').textContent = text; document.getElementById('atlNotifGateB').textContent = btn; return; }
+                    mk('atlNotifGate', denied ? 'fa-bell-slash' : 'fa-bell', title, text, btn, "_pushAsk()", null);
+                    document.body.style.overflow = 'hidden';
+                    if (!window._atlGateKeys) { window._atlGateKeys = true; document.addEventListener('keydown', (e) => { if (document.getElementById('atlNotifGate') && (e.key === 'Escape' || e.key === 'Tab')) { e.preventDefault(); e.stopPropagation(); } }, true); }
+                    return;
+                }
+                /* ٢) فاتح من متصفح ← اقتراح تثبيت التطبيق (بيرجع يظهر كل مرة) */
+                if (window._atlInstallShown || document.getElementById('atlInstallGate')) return;
+                window._atlInstallShown = true;
+                mk('atlInstallGate', 'fa-download', ar ? 'ثبّت التطبيق' : 'Install the app',
+                    ar ? 'ثبّت ATLASYA على جهازك: أسرع، بملء الشاشة، وتوصلك الإشعارات حتى والتطبيق مقفول.' : 'Install ATLASYA on your device: faster, full-screen, with notifications even when closed.',
+                    ar ? 'تثبيت التطبيق' : 'Install', "document.getElementById('atlInstallGate').remove();_appBarInstall()", ar ? 'لاحقًا' : 'Later');
+            } catch (e) { console.warn('gate:', e); }
         };
 
         try { const _u = new URL(location.href); if (_u.searchParams.has('_u')) { _u.searchParams.delete('_u'); history.replaceState(null, '', _u.toString()); } } catch (e) {}
 
         function _appBarRefresh() {
             try { if (window.atlAppInfoNotif) window.atlAppInfoNotif(); } catch (e) {}
+            try { if (window.atlGateCheck) window.atlGateCheck(); } catch (e) {}
             try {
                 const el = document.getElementById('wbPush'); if (!el) return;
                 const h = _pushWelcomeHtml();
@@ -14283,6 +14333,7 @@ window.openConsultationModal = function () { csTab('book'); };
                 if (_pushKeyOK() && _pushSupported() && Notification.permission === 'granted') { try { await _pushSubscribeAndSave(); } catch (e) { console.warn('push save:', e); } }
                 setTimeout(_appBarRefresh, 1500);
                 try { window.atlForceUpdateOnce(); } catch (e) {}
+                try { window.atlGateCheck(); } catch (e) {}
             } catch (e) { console.warn('push init:', e); }
         };
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && window._currentUid) window._pushInit(); });
