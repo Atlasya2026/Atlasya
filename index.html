@@ -14284,7 +14284,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.1.2';
+        window.ATL_APP_VERSION = '2026.10.31.1';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
@@ -14331,6 +14331,90 @@ window.openConsultationModal = function () { csTab('book'); };
                 try { b.focus(); } catch (e) {}
             } catch (e) { console.warn('force update:', e); }
         };
+
+        /* ═══ فحص التحديث عند فتح التطبيق — مفيش تحديث تلقائي ولا ريفرش ═══
+           أول ما تغيّر رقم الإصدار (ATL_APP_VERSION + version.json): الطالب بيجيله إشعار عند فتح التطبيق،
+           وزر "تحديث" في الإعدادات بينوّر، ونقطة تنبيه على الإعدادات. التحديث بيتم بالضغط على الزر بس (مع شريط التحميل). ═══ */
+        (function () {
+            if (!document.getElementById('atlUpdCss')) {
+                const st = document.createElement('style'); st.id = 'atlUpdCss';
+                st.textContent = '@keyframes atlUpdIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}'
+                    + '@keyframes atlGlow{0%,100%{box-shadow:0 0 0 0 rgba(245,184,46,.65)}50%{box-shadow:0 0 0 9px rgba(245,184,46,0)}}'
+                    + '@keyframes atlDot{0%,100%{transform:scale(1)}50%{transform:scale(1.35)}}'
+                    + 'body.atl-upd-pending #aiUpd button:not([disabled]){animation:atlGlow 1.5s ease-in-out infinite}'
+                    + '.atl-upd-host{position:relative}'
+                    + '.atl-upd-dot{position:absolute;top:6px;inset-inline-end:6px;width:10px;height:10px;border-radius:50%;background:#f5b82e;box-shadow:0 0 0 2px var(--sidebar,#161920),0 0 10px #f5b82e;animation:atlDot 1.4s ease-in-out infinite;pointer-events:none}';
+                document.head.appendChild(st);
+            }
+            const HOSTS = ['menuAccount', 'hamburgerBtn', 'hamburgerBtnMob'];
+            window.atlMarkUpdate = function (on) {
+                document.body.classList.toggle('atl-upd-pending', !!on);
+                HOSTS.forEach(id => {
+                    const h = document.getElementById(id); if (!h) return;
+                    const d = h.querySelector('.atl-upd-dot');
+                    if (on && !d) { h.classList.add('atl-upd-host'); const s = document.createElement('span'); s.className = 'atl-upd-dot'; h.appendChild(s); }
+                    else if (!on && d) d.remove();
+                });
+                try { if (document.getElementById('aiUpd') && window.atlAppInfoUpd) window.atlAppInfoUpd(); } catch (e) {}
+            };
+            /* نافذة التحديث الإجبارية: بتفضل ظاهرة ومفيهاش إغلاق ولا "لاحقًا" — الطريق الوحيد هو الضغط على "تحديث" */
+            window.atlShowUpdatePrompt = function () {
+                if (document.getElementById('atlUpdPrompt')) return;
+                const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+                const o = document.createElement('div');
+                o.id = 'atlUpdPrompt'; o.dir = ar ? 'rtl' : 'ltr';
+                o.setAttribute('role', 'alertdialog'); o.setAttribute('aria-modal', 'true');
+                o.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,10,16,.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);';
+                o.innerHTML = `<div style="width:100%;max-width:400px;text-align:center;background:var(--card,#0e1f2b);color:var(--text,#e9f0ed);border:1px solid rgba(245,184,46,.55);border-radius:22px;padding:26px 22px;box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 0 5px rgba(245,184,46,.1);animation:atlUpdIn .35s ease both;">
+                    <div style="width:74px;height:74px;margin:0 auto 14px;border-radius:22px;background:rgba(245,184,46,.15);display:flex;align-items:center;justify-content:center;color:#f5b82e;font-size:32px;"><i class="fa-solid fa-cloud-arrow-down"></i></div>
+                    <div style="font-size:20px;font-weight:800;margin-bottom:8px;">${ar ? 'يوجد تحديث جديد للتطبيق' : 'A new update is available'}</div>
+                    <div style="font-size:13.5px;line-height:1.9;opacity:.85;margin-bottom:20px;">${ar ? 'لازم تحدّث التطبيق عشان تكمّل استخدامه. التحديث بياخد ثواني.' : 'You need to update the app to keep using it. It only takes a few seconds.'}</div>
+                    <button id="atlUpdGo" type="button" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 18px;border:none;border-radius:13px;cursor:pointer;font-family:inherit;font-size:15px;font-weight:800;color:#0a0a0e;background:linear-gradient(135deg,#f5b82e,#e6a017);"><i class="fa-solid fa-arrows-rotate"></i> ${ar ? 'تحديث الآن' : 'Update now'}</button>
+                </div>`;
+                document.body.appendChild(o);
+                document.body.style.overflow = 'hidden';
+                const go = document.getElementById('atlUpdGo');
+                if (!window._atlUpdKeyBlock) {
+                    window._atlUpdKeyBlock = true;
+                    document.addEventListener('keydown', e => {
+                        if (!document.getElementById('atlUpdPrompt')) return;
+                        if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); const g = document.getElementById('atlUpdGo'); if (g) g.focus(); }
+                    }, true);
+                    /* لو حد شال النافذة من الـ DOM (أو الـ Back) وفيه تحديث لسه مستني، نرجّعها */
+                    new MutationObserver(() => {
+                        if (document.body.classList.contains('atl-upd-pending') && !window._atlUpdating && !document.getElementById('atlUpdPrompt') && !document.getElementById('atlUpdProg')) window.atlShowUpdatePrompt();
+                    }).observe(document.body, { childList: true });
+                }
+                go.onclick = () => {
+                    o.style.display = 'none';
+                    window.atlUpdateApp(null);
+                    /* لو التحديث فشل ومحصلش إعادة تشغيل، نرجّع النافذة تاني */
+                    setTimeout(() => {
+                        const pr = document.getElementById('atlUpdProg'); if (pr) pr.remove();
+                        const pp = document.getElementById('atlUpdPrompt'); if (pp) pp.style.display = 'flex';
+                    }, 30000);
+                };
+                try { go.focus(); } catch (e) {}
+            };
+            /* بيتنادى من _pushInit: بعد تسجيل الدخول وكل ما يرجع للتطبيق */
+            window.atlForceUpdateOnce = async function () {
+                try {
+                    if (window._isAdmin === true) return;
+                    const now = Date.now();
+                    if (window._atlLastVerCheck && now - window._atlLastVerCheck < 60000) return;
+                    window._atlLastVerCheck = now;
+                    const r = await window.atlCheckVersion();
+                    const pending = !!(r && r.ok && r.has);
+                    window.atlMarkUpdate(pending);
+                    if (!pending) { const pp = document.getElementById('atlUpdPrompt'); if (pp) { pp.remove(); document.body.style.overflow = ''; } return; }
+                    window.atlShowUpdatePrompt();      // إجباري: بيفضل ظاهر لحد ما الطالب يحدّث
+                } catch (e) { console.warn('update check:', e); }
+            };
+            /* فحص دوري هادي (كل 10 دقايق) والتطبيق مفتوح — بيحدّث النقطة والزر بس، من غير ما يقاطع الطالب */
+            setInterval(() => {
+                if (document.visibilityState === 'visible' && window._currentUid && window._isAdmin !== true) { window._atlLastVerCheck = 0; window.atlForceUpdateOnce(); }
+            }, 600000);
+        })();
 
         /* صفوف معلومات التطبيق (شكل إعدادات أندرويد) */
         window.atlAiRow = function (title, sub, subColor, btnHtml) {
