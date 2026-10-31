@@ -4269,15 +4269,6 @@ body.rtl .sm-link{animation-name:smSlideR}
                         <button class="nav-item" id="menuInsight" onclick="navigate('insights', this)">
                             <i class="fa-solid fa-lightbulb"></i> <span id="menuInsightTxt">رؤى GIS</span>
                         </button>
-                    </div>
-                </div>
-
-                <div class="nav-section collapsible" style="margin-top:8px;">
-                    <button class="nav-group-toggle" onclick="toggleNavGroup(this)">
-                        <span class="nav-group-toggle-label"><i class="fa-solid fa-toolbox"></i> <span id="navLbl3">الأدوات</span></span>
-                        <i class="fa-solid fa-chevron-down nav-group-chevron"></i>
-                    </button>
-                    <div class="nav-group-items">
                         <button class="nav-item" id="menuData" onclick="navigate('datasets', this)">
                             <i class="fa-solid fa-database"></i> <span id="menuDataTxt">البيانات المكانية</span>
                         </button>
@@ -4287,6 +4278,16 @@ body.rtl .sm-link{animation-name:smSlideR}
                         <button class="nav-item" id="menuJob" onclick="navigate('jobs', this)">
                             <i class="fa-solid fa-briefcase"></i> <span id="menuJobTxt">لوحة الوظائف</span>
                         </button>
+                    </div>
+                </div>
+
+                <div class="nav-section collapsible" style="margin-top:8px;">
+                    <button class="nav-group-toggle" onclick="toggleNavGroup(this)">
+                        <span class="nav-group-toggle-label"><i class="fa-solid fa-toolbox"></i> <span id="navLbl3">الأدوات</span></span>
+                        <i class="fa-solid fa-chevron-down nav-group-chevron"></i>
+                    </button>
+                    <div class="nav-group-items">
+                        <div class="nav-soon" style="padding:12px 16px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);cursor:default;"><i class="fa-solid fa-hourglass-half" style="color:var(--gold3);"></i> <span id="navSoonTxt">قريباً</span></div>
                     </div>
                 </div>
 
@@ -7572,7 +7573,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         const T = {
             AR: {
                 navLbl1: 'الرئيسية', navLbl2: 'المحتوى',
-                navLbl3: 'الأدوات', navLbl4: 'التعلم', navLbl5: 'أخرى',
+                navLbl3: 'الأدوات', navLbl4: 'التعلم', navLbl5: 'أخرى', navSoonTxt: 'قريباً',
                 menuDashTxt: 'الرئيسية',
                 menuPlayTxt: 'قوائم التشغيل',
                 menuLibTxt: 'المكتبة الرقمية',
@@ -7604,7 +7605,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             },
             EN: {
                 navLbl1: 'Overview', navLbl2: 'Content',
-                navLbl3: 'Tools', navLbl4: 'Learning', navLbl5: 'Other',
+                navLbl3: 'Tools', navLbl4: 'Learning', navLbl5: 'Other', navSoonTxt: 'Coming soon',
                 menuDashTxt: 'Home',
                 menuPlayTxt: 'Playlists',
                 menuLibTxt: 'Digital Library',
@@ -14290,17 +14291,17 @@ window.openConsultationModal = function () { csTab('book'); };
             catch (e) { console.warn('reviews:', e); box.innerHTML = `<div style="font-size:12.5px;color:var(--muted);text-align:center;">${ar ? 'تعذّر تحميل التقييمات (تأكد من تشغيل app-reviews.sql).' : 'Could not load reviews.'}</div>`; window._aiList = null; }
             atlReviewForm(); atlReviewList();
         };
-        window.atlStarsHtml = function (n, size) { let s = ''; for (let i = 1; i <= 5; i++) s += `<span style="color:${i <= n ? '#f5b82e' : 'rgba(255,255,255,.2)'};font-size:${size || 16}px;">★</span>`; return `<span dir="ltr" style="letter-spacing:2px;white-space:nowrap;">${s}</span>`; };
+        window.atlStarsHtml = function (n, size) { let s = ''; for (let i = 1; i <= 5; i++) s += `<span style="color:${i <= n ? '#f5b82e' : 'rgba(148,163,184,.6)'};font-size:${size || 16}px;">★</span>`; return `<span dir="ltr" style="letter-spacing:2px;white-space:nowrap;">${s}</span>`; };
         window.atlReviewForm = function () {
             const rate = document.getElementById('aiRate'); if (!rate) return;
             const ar = (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
             const n = window._aiStars || 0;
             const keep = document.getElementById('aiTxt') ? document.getElementById('aiTxt').value : '';
-            let st = ''; for (let i = 1; i <= 5; i++) st += `<button type="button" onclick="atlSetStars(${i})" aria-label="${i}" style="background:none;border:none;cursor:pointer;font-size:34px;line-height:1;padding:2px 3px;color:${i <= n ? '#f5b82e' : 'rgba(255,255,255,.22)'};transition:transform .12s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform=''">★</button>`;
+            let st = ''; for (let i = 1; i <= 5; i++) st += `<button type="button" onclick="atlSetStars(${i})" aria-label="${i}" style="background:none;border:none;cursor:pointer;font-size:34px;line-height:1;padding:2px 3px;color:${i <= n ? '#f5b82e' : 'rgba(148,163,184,.6)'};transition:transform .12s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform=''">★</button>`;
             rate.innerHTML = `<div style="font-size:15px;font-weight:800;margin-bottom:4px;">${ar ? 'قيّم التطبيق' : 'Rate the app'}</div>
                 <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${ar ? 'رأيك بيظهر لكل الطلبة وللإدارة' : 'Your review is shown to all students and the admin'}</div>
                 <div dir="ltr" style="text-align:center;margin-bottom:10px;">${st}</div>
-                <textarea id="aiTxt" maxlength="500" rows="3" placeholder="${ar ? 'اكتب تعليقك (اختياري)...' : 'Write a comment (optional)...'}" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-family:inherit;font-size:13.5px;resize:vertical;">${atlEsc(keep || '')}</textarea>
+                <textarea id="aiTxt" maxlength="500" rows="3" placeholder="${ar ? 'اكتب تعليقك (اختياري)...' : 'Write a comment (optional)...'}" style="width:100%;box-sizing:border-box;background:rgba(128,128,128,.10);border:1px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-family:inherit;font-size:13.5px;resize:vertical;">${atlEsc(keep || '')}</textarea>
                 <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
                     <button type="button" id="aiPub" onclick="atlPublishReview(this)" style="flex:1;min-width:120px;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 16px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:800;color:#0a0a0e;background:linear-gradient(135deg,var(--gold3,#e6b84a),var(--gold2,#c99a2e));"><i class="fa-solid fa-paper-plane"></i> ${ar ? 'نشر' : 'Publish'}</button>
                 </div>`;
