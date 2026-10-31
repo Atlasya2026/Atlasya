@@ -10389,17 +10389,10 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             const open = _insTips.slice(0, unlocked).map((t, i) => ({ t, n: i + 1 })).reverse();   // الأحدث الأول
             const myLikes = open.filter(x => insIsLiked(x.t.id)).length;
 
-            const cats = []; const seen = new Set();
-            open.slice().reverse().forEach(x => { const k = tiCatKey(x.t); if (!seen.has(k)) { seen.add(k); cats.push({ k, label: isAR ? (x.t.categoryAR || k) : k }); } });
-            if (_tiFilter !== 'all' && _tiFilter !== 'liked' && !seen.has(_tiFilter)) _tiFilter = 'all';
-            const shown = open.filter(x => _tiFilter === 'all' ? true : (_tiFilter === 'liked' ? insIsLiked(x.t.id) : tiCatKey(x.t) === _tiFilter));
-
-            const chips = `<button class="ti-chip ${_tiFilter === 'all' ? 'on' : ''}" onclick="tiSetFilter('all')">${isAR ? 'الكل' : 'All'}</button>
-                <button class="ti-chip ${_tiFilter === 'liked' ? 'on' : ''}" onclick="tiSetFilter('liked')"><i class="fa-solid fa-heart" style="color:#ff6b81;"></i> ${isAR ? 'المفضلة' : 'Favourites'}</button>`
-                + cats.map(c => `<button class="ti-chip ${_tiFilter === c.k ? 'on' : ''}" onclick="tiSetFilter('${atlJs(c.k)}')">${atlEsc(c.label)}</button>`).join('');
+            _tiFilter = 'all';   // الفلاتر اتشالت من الصفحة — بنعرض كل النصايح المتاحة
+            const shown = open;
 
             let cards = shown.map((x, i) => tiCardHTML(x.t, x.n, isAR, i === 0 && _tiFilter === 'all')).join('');
-            if (!shown.length) cards = `<div class="ti-empty"><i class="fa-regular fa-heart" style="font-size:30px;display:block;margin-bottom:10px;"></i>${isAR ? 'لسه ما حطّيتش أي نصيحة في المفضلة' : 'No favourite tips yet'}</div>`;
 
             // الباكس الجاي (مقفول) + عدّاد
             let tail = '';
@@ -10424,7 +10417,6 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 <span class="ti-stat"><i class="fa-solid fa-lightbulb"></i> <b>${unlocked}/${total}</b> ${isAR ? 'نصيحة متاحة' : 'tips unlocked'}</span>
                 <span class="ti-stat"><i class="fa-solid fa-heart" style="color:#ff6b81;"></i> <b>${myLikes}</b> ${isAR ? 'في المفضلة' : 'favourites'}</span>
             </div>
-            <div class="ti-chips">${chips}</div>
             <div class="ti-grid">${cards}${tail}</div>`;
 
             // زرار "اقرأ المزيد" بيظهر بس للنصايح الطويلة
