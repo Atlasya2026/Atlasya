@@ -3616,6 +3616,9 @@
                     <button class="nav-item" id="menuAdminReviews" onclick="navigate('adminreviews', this)" style="display:none;">
                         <i class="fa-solid fa-star"></i> <span id="menuAdminReviewsTxt">تقييمات التطبيق</span>
                     </button>
+                    <button class="nav-item" id="menuAdminLocks" onclick="navigate('adminlocks', this)" style="display:none;">
+                        <i class="fa-solid fa-user-lock"></i> <span id="menuAdminLocksTxt">الحسابات المقفولة</span>
+                    </button>
                     <button class="nav-item" id="menuExpert" onclick="navigate('expert', this)">
                         <i class="fa-solid fa-ticket"></i> <span id="menuExpertTxt">الدعم الفني</span>
                     </button>
@@ -5624,6 +5627,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             menuAdminToolsTxt: 'أدوات البرامج',
             menuAdminTipsTxt: 'نصيحة اليوم',
             menuAdminReviewsTxt: 'تقييمات التطبيق',
+            menuAdminLocksTxt: 'الحسابات المقفولة',
             menuAdminMentorshipTxt: 'حجوزات الاستشارات',
             menuAdminDailyChallengesTxt: 'التحديات',
             menuAdminProTxt: 'طلبات البرو',
@@ -5667,6 +5671,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             menuAdminToolsTxt: 'Software Tools',
             menuAdminTipsTxt: 'Daily Tip',
             menuAdminReviewsTxt: 'App Reviews',
+            menuAdminLocksTxt: 'Locked Accounts',
             menuAdminMentorshipTxt: 'Consultation Bookings',
             menuAdminDailyChallengesTxt: 'Challenges',
             menuAdminProTxt: 'Pro Requests',
@@ -5938,7 +5943,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
         admincourses: 'menuAdminCourses', adminlibrary: 'menuAdminLibrary',
         adminplaylists: 'menuAdminPlaylists', admindatasets: 'menuAdminDatasets',
-        admintools: 'menuAdminTools', admintips: 'menuAdminTips', adminreviews: 'menuAdminReviews',
+        admintools: 'menuAdminTools', admintips: 'menuAdminTips', adminreviews: 'menuAdminReviews', adminlocks: 'menuAdminLocks',
         admindailychallenges: 'menuAdminDailyChallenges'
     };
 
@@ -6006,6 +6011,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             admintools: lang==='AR'?'إدارة أدوات البرامج':'Manage Software Tools',
             admintips: lang==='AR'?'إدارة نصيحة اليوم':'Manage Daily Tips',
             adminreviews: lang==='AR'?'تقييمات التطبيق':'App Reviews',
+            adminlocks: lang==='AR'?'الحسابات المقفولة':'Locked Accounts',
             admindailychallenges: lang==='AR'?'إدارة التحدي اليومي والأسبوعي':'Manage Daily & Weekly Challenge',
             adminmentorship: lang==='AR'?'حجوزات الاستشارات':'Consultation Bookings',
             portfolio:     lang==='AR'?'خرائط الطلبة':'Student Maps',
@@ -6052,6 +6058,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         else if (page === 'admintools') renderAdminTools(area);
         else if (page === 'admintips') renderAdminTips(area);
         else if (page === 'adminreviews') renderAdminReviews(area);
+        else if (page === 'adminlocks') renderAdminLocks(area);
         else if (page === 'admindailychallenges') renderAdminDailyChallenges(area);
         else if (page === 'adminmentorship') renderAdminMentorship(area);
         else if (page === 'portfolio') renderPortfolio(area);
@@ -11944,6 +11951,63 @@ window.openConsultationModal = function () { csTab('book'); };
 
     /* ─── أدمن: تقييمات التطبيق من الطلبة ─── */
     let _arList = [], _arFilter = 0;
+    /* ─── أدمن: الحسابات المقفولة (قفل تسجيل الدخول — login-lock.sql) ─── */
+    let _alTimer = null, _alRows = [], _alAt = 0;
+    function renderAdminLocks(area) {
+        area = area || document.getElementById('contentArea');
+        const isAR = lang === 'AR';
+        area.innerHTML = `
+        <div class="page-header">
+            <h2>${isAR?'الحسابات المقفولة':'Locked Accounts'}</h2>
+            <p>${isAR?'أي حساب يدخل باسورد غلط ٣ مرات بيتقفل ٥ دقايق تلقائيًا على كل الأجهزة، وبيتفتح لوحده بعدها. تقدر تفتحه فورًا من هنا.':'An account is locked for 5 minutes after 3 wrong passwords, on all devices, and opens by itself afterwards. You can unlock it instantly here.'}</p>
+        </div>
+        <div id="alBody"><div style="text-align:center;padding:40px;color:var(--muted);"><div class="spinner" style="margin:0 auto;"></div></div></div>`;
+        clearInterval(_alTimer);
+        loadAdminLocks();
+        _alTimer = setInterval(() => { if (!document.getElementById('alBody')) { clearInterval(_alTimer); return; } alTick(); }, 1000);
+    }
+    async function loadAdminLocks() {
+        const isAR = lang === 'AR', body = document.getElementById('alBody'); if (!body) return;
+        try {
+            const rows = await window._consultRpc('login_lock_list', {});
+            _alRows = (rows || []).map(r => ({ email: r.email, fails: r.fails, left: r.left_seconds, count: r.locked_count, last: r.last_fail })); _alAt = Date.now();
+            alDraw();
+        } catch (e) {
+            console.warn(e);
+            if (document.getElementById('alBody')) body.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">${isAR?'تعذّر التحميل — تأكد إنك شغّلت login-lock.sql في Supabase، وإنك أدمن.':'Could not load — make sure login-lock.sql was run and you are an admin.'}</div>`;
+        }
+    }
+    function alLeft(r) { return Math.max(0, r.left - Math.floor((Date.now() - _alAt) / 1000)); }
+    function alFmt(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+    function alTick() {
+        let reload = false;
+        document.querySelectorAll('[data-al-i]').forEach(el => { const r = _alRows[+el.dataset.alI]; if (!r) return; const s = alLeft(r); el.textContent = alFmt(s); if (s <= 0 && r.left > 0) reload = true; });
+        if (reload) loadAdminLocks();
+        else if (Date.now() - _alAt > 15000) loadAdminLocks();
+    }
+    function alDraw() {
+        const isAR = lang === 'AR', body = document.getElementById('alBody'); if (!body) return;
+        const locked = _alRows.filter(r => alLeft(r) > 0), warn = _alRows.filter(r => alLeft(r) <= 0);
+        const card = (r, i) => {
+            const isL = alLeft(r) > 0;
+            return `<div style="background:var(--card);border:1px solid ${isL ? 'rgba(239,68,68,.45)' : 'var(--border)'};border-radius:14px;padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <div style="width:40px;height:40px;border-radius:50%;background:${isL ? 'rgba(239,68,68,.15)' : 'rgba(245,184,46,.15)'};color:${isL ? '#ef4444' : '#f5b82e'};display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid ${isL ? 'fa-lock' : 'fa-triangle-exclamation'}"></i></div>
+                <div style="flex:1;min-width:180px;"><div dir="ltr" style="font-size:14px;font-weight:700;word-break:break-all;text-align:${isAR?'right':'left'};">${atlEsc(r.email)}</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:3px;">${isL ? (isAR ? 'مقفول — يتفتح بعد ' : 'Locked — opens in ') + `<b dir="ltr" data-al-i="${i}" style="color:#ef4444;font-variant-numeric:tabular-nums;">${alFmt(alLeft(r))}</b>` : (isAR ? `${r.fails} محاولة غلط` : `${r.fails} wrong attempt(s)`)} · ${isAR ? 'اتقفل' : 'locked'} ${r.count} ${isAR ? 'مرة' : 'time(s)'}</div></div>
+                <button onclick="adminUnlockAccount('${atlJs(r.email)}')" style="padding:9px 16px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:800;color:#04120a;background:linear-gradient(135deg,var(--green4,#34d399),var(--cs-cyan,#22d3ee));"><i class="fa-solid fa-lock-open"></i> ${isAR?'فتح الآن':'Unlock now'}</button>
+            </div>`;
+        };
+        const idx = r => _alRows.indexOf(r);
+        body.innerHTML = `<div style="font-size:14px;font-weight:800;margin-bottom:10px;"><i class="fa-solid fa-lock" style="color:#ef4444;"></i> ${isAR?'مقفولة حاليًا':'Locked now'} (${locked.length})</div>`
+            + (locked.length ? locked.map(r => card(r, idx(r))).join('') : `<div style="text-align:center;padding:22px;color:var(--muted);font-size:13px;background:var(--card);border:1px dashed var(--border);border-radius:14px;margin-bottom:16px;">${isAR?'مفيش حسابات مقفولة دلوقتي':'No locked accounts right now'}</div>`)
+            + (warn.length ? `<div style="font-size:14px;font-weight:800;margin:18px 0 10px;"><i class="fa-solid fa-triangle-exclamation" style="color:#f5b82e;"></i> ${isAR?'عليها محاولات غلط':'Recent wrong attempts'} (${warn.length})</div>` + warn.map(r => card(r, idx(r))).join('') : '');
+    }
+    window.adminUnlockAccount = async function (email) {
+        const isAR = lang === 'AR';
+        try { await window._consultRpc('login_lock_unlock', { p_email: email }); showToast(isAR ? '✓ تم فتح الحساب' : '✓ Account unlocked'); await loadAdminLocks(); }
+        catch (e) { console.warn(e); showToast(isAR ? 'تعذّر الفتح' : 'Could not unlock', true); }
+    };
+
     function renderAdminReviews(area) {
         area = area || document.getElementById('contentArea');
         const isAR = lang === 'AR';
@@ -15116,7 +15180,7 @@ async function csAdmShowLink(id, btn) {
 
     // Which DOM elements each permission key controls the visibility of
     const ADMIN_PERMISSION_ELEMENT_IDS = {
-        members:    ['menuAdminMembers', 'menuAdminReferrals'],
+        members:    ['menuAdminMembers', 'menuAdminReferrals', 'menuAdminLocks'],
         pro:        ['menuAdminPro'],
         cv:         ['menuAdminCV'],
         portfolio:  ['menuAdminPortfolio'],
@@ -15145,6 +15209,7 @@ async function csAdmShowLink(id, btn) {
         admintools: 'softwaretools',
         admintips: 'dailytips',
         adminreviews: 'appreviews',
+        adminlocks: 'members',
         jobs: 'jobs', expert: 'support',
         community: 'community',
         admindailychallenges: 'dailychallenges',
@@ -15208,7 +15273,7 @@ async function csAdmShowLink(id, btn) {
         const menuExpertBtn = document.getElementById('menuExpert');
         if (menuExpertBtn) menuExpertBtn.style.display = '';
 
-        ['menuAdminMembers','menuAdminReferrals','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminReviews','menuAdminMentorship'].forEach(id => {
+        ['menuAdminMembers','menuAdminReferrals','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminReviews','menuAdminLocks','menuAdminMentorship'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = '';
         });
