@@ -7244,6 +7244,9 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 if (window._currentPage === 'account' && typeof renderAccount === 'function') renderAccount();
             } catch (e) { /* هيحاول تاني في التحميل الجاي */ }
         };
+        /* مكافأة تثبيت التطبيق + تفعيل الإشعارات: ٥٠ عملة مرة واحدة (app-reward.sql) */
+        window._appRewardStatus = async () => { try { return await _rpc('app_reward_status'); } catch (e) { return null; } };
+        window._claimAppReward = async () => { const r = await _rpc('claim_app_reward'); try { await _refreshMe(); } catch (e) {} return r; };
         window._claimFreeTrial = async () => {
             if (!currentUid) throw new Error('Not logged in');
             try { await _rpc('claim_free_trial'); }
@@ -14364,7 +14367,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.2.3';
+        window.ATL_APP_VERSION = '2026.11.1.2';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
@@ -14596,6 +14599,44 @@ window.openConsultationModal = function () { csTab('book'); };
         /* ═══ بوابات الإشعارات/التثبيت ═══
            • فاتح من متصفح ← نافذة "ثبّت التطبيق" (تقدر تختار لاحقًا، وبترجع تظهر في كل مرة يفتح فيها).
            • فاتح من التطبيق المنزّل ← نافذة "فعّل الإشعارات" إجبارية، مفيش خروج منها إلا بعد التفعيل. */
+        /* مكافأة ٥٠ عملة: نزّل التطبيق + فعّل الإشعارات ← نافذة "احصل" */
+        window.atlRewardCheck = async function () {
+            try {
+                const uid = window._currentUid; if (!uid || window._isAdmin === true || window._atlRewardBusy) return;
+                try { if (localStorage.getItem('atl_app_reward_' + uid) === '1') return; } catch (e) {}
+                if (!_pushStandalone() || _appBarMode() !== 'again' || document.getElementById('atlRewardModal') || document.getElementById('atlForceUpd')) return;
+                window._atlRewardBusy = true;
+                const st = await window._appRewardStatus();
+                if (!st) return;
+                if (st.claimed) { try { localStorage.setItem('atl_app_reward_' + uid, '1'); } catch (e) {} return; }
+                const o = document.createElement('div'); o.id = 'atlRewardModal'; o.dir = 'rtl';
+                o.style.cssText = 'position:fixed;inset:0;z-index:2147482500;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,10,16,.86);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:inherit;';
+                o.innerHTML = `<div style="width:100%;max-width:400px;text-align:center;background:#fff;color:#14303f;border-radius:22px;padding:28px 22px;box-shadow:0 24px 70px rgba(0,0,0,.55);">
+                    <div style="font-size:64px;line-height:1;margin-bottom:6px;">🎁</div>
+                    <div style="font-size:22px;font-weight:900;margin-bottom:8px;">مبروك!</div>
+                    <div style="font-size:14px;line-height:1.9;color:#4b6575;margin-bottom:6px;">حصلت على</div>
+                    <div style="font-size:44px;font-weight:900;color:#b8860b;line-height:1.1;">50 <span style="font-size:20px;">عملة 🪙</span></div>
+                    <div style="font-size:14px;line-height:1.9;color:#4b6575;margin:8px 0 18px;">عشان نزّلت التطبيق وفعّلت الإشعارات 👏</div>
+                    <button id="atlRewardBtn" type="button" style="width:100%;padding:14px 18px;border:none;border-radius:13px;cursor:pointer;font-family:inherit;font-size:16px;font-weight:900;color:#0a0a0e;background:linear-gradient(135deg,#f0c040,#d4a017);">احصل على العملات</button></div>`;
+                document.body.appendChild(o);
+                const b = document.getElementById('atlRewardBtn');
+                b.onclick = async () => {
+                    b.disabled = true; b.textContent = '...';
+                    const done = () => { try { localStorage.setItem('atl_app_reward_' + uid, '1'); } catch (e) {} o.remove(); };
+                    try {
+                        const r = await window._claimAppReward();
+                        showToast('🎉 تم إضافة ' + ((r && r.coins) || 50) + ' عملة لرصيدك');
+                        done();
+                        try { if (window._currentPage === 'account' && typeof renderAccount === 'function') renderAccount(); } catch (e) {}
+                    } catch (e) {
+                        if (e && e.code === 'already') { done(); showToast('أخدت المكافأة قبل كده'); }
+                        else if (e && e.code === 'no-push') { b.disabled = false; b.textContent = 'احصل على العملات'; showToast('فعّل الإشعارات الأول عشان تاخد المكافأة', true); }
+                        else { b.disabled = false; b.textContent = 'احصل على العملات'; showToast('تعذّر استلام المكافأة، حاول تاني', true); }
+                    }
+                };
+            } catch (e) { console.warn('reward:', e); } finally { window._atlRewardBusy = false; }
+        };
+
         window._atlInstallShown = false;
         window.atlGateCheck = function () {
             try {
@@ -14621,7 +14662,7 @@ window.openConsultationModal = function () { csTab('book'); };
                     const inst = document.getElementById('atlInstallGate'); if (inst) inst.remove();
                     const mode = _appBarMode();
                     const gate = document.getElementById('atlNotifGate');
-                    if (mode !== 'notify' && mode !== 'denied') { if (gate) { gate.remove(); document.body.style.overflow = ''; } return; }
+                    if (mode !== 'notify' && mode !== 'denied') { if (gate) { gate.remove(); document.body.style.overflow = ''; } try { window.atlRewardCheck(); } catch (e) {} return; }
                     const denied = mode === 'denied';
                     const ios = _pushIOS(), android = /android/i.test(navigator.userAgent);
                     const dText = (ios ? (ar ? 'الإعدادات ← الإشعارات ← ATLASYA ← السماح بالإشعارات.' : 'Settings → Notifications → ATLASYA → Allow.')
@@ -14629,7 +14670,7 @@ window.openConsultationModal = function () { csTab('book'); };
                         : (ar ? 'اضغط على أيقونة القفل 🔒 جنب شريط العنوان ← الإشعارات ← سماح.' : 'Click the lock 🔒 by the address bar → Notifications → Allow.'))
                         + (ar ? ' وبعدها ارجع للتطبيق وهيتفعّل تلقائيًا.' : ' Then come back to the app and it turns on automatically.');
                     const title = denied ? (ar ? 'الإشعارات محظورة' : 'Notifications are blocked') : (ar ? 'فعّل الإشعارات' : 'Enable notifications');
-                    const text = denied ? dText : (ar ? 'لازم تفعّل الإشعارات عشان توصلك تنبيهات المنصة وإعلانات الإدارة. التفعيل بيتم بضغطة واحدة.' : 'Please enable notifications to receive platform alerts and announcements. It takes one tap.');
+                    const text = denied ? dText : (ar ? 'لازم تفعّل الإشعارات عشان توصلك تنبيهات المنصة وإعلانات الإدارة. التفعيل بيتم بضغطة واحدة. 🎁 وهتاخد 50 عملة هدية!' : 'Please enable notifications to receive platform alerts and announcements. One tap. 🎁 Plus 50 free coins!');
                     const btn = denied ? (ar ? 'جرّب التفعيل تاني' : 'Try again') : (ar ? 'تفعيل الإشعارات' : 'Enable notifications');
                     if (gate) { document.getElementById('atlNotifGateT').textContent = title; document.getElementById('atlNotifGateX').textContent = text; document.getElementById('atlNotifGateB').textContent = btn; return; }
                     mk('atlNotifGate', denied ? 'fa-bell-slash' : 'fa-bell', title, text, btn, "_pushAsk()", null);
@@ -14641,7 +14682,7 @@ window.openConsultationModal = function () { csTab('book'); };
                 if (window._atlInstallShown || document.getElementById('atlInstallGate')) return;
                 window._atlInstallShown = true;
                 mk('atlInstallGate', 'fa-download', ar ? 'ثبّت التطبيق' : 'Install the app',
-                    ar ? 'ثبّت ATLASYA على جهازك: أسرع، بملء الشاشة، وتوصلك الإشعارات حتى والتطبيق مقفول.' : 'Install ATLASYA on your device: faster, full-screen, with notifications even when closed.',
+                    ar ? 'ثبّت ATLASYA على جهازك: أسرع، بملء الشاشة، وتوصلك الإشعارات حتى والتطبيق مقفول.<br><b style="color:#b8860b;">🎁 وهتاخد 50 عملة هدية لما تثبّته وتفعّل الإشعارات!</b>' : 'Install ATLASYA on your device: faster, full-screen, with notifications even when closed.<br><b style="color:#b8860b;">🎁 Get 50 coins free when you install it and enable notifications!</b>',
                     ar ? 'تثبيت التطبيق' : 'Install', "document.getElementById('atlInstallGate').remove();_appBarInstall()", ar ? 'لاحقًا' : 'Later');
             } catch (e) { console.warn('gate:', e); }
         };
