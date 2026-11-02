@@ -4856,7 +4856,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         window._doLogin = async (email, pass) => {
             /* قفل حقيقي على السيرفر (login-lock.sql): نفس القفل على كل الأجهزة. لو الدوال مش متضافة نرجع للقفل المحلي */
             let _srv = true, _st = null;
-            try { _st = await rpc(db, 'login_lock_status', { p_email: email }); } catch (e) { _srv = false; }
+            try { _st = await rpc(db, 'login_lock_status', { p_email: email }); } catch (e) { _srv = false; console.warn('[login-lock] السيرفر مش متاح — شغّل login-lock.sql في Supabase:', e && (e.message || e.code)); }
             if (_srv && _st && _st.locked) { const le = new Error('locked'); le.code = 'atl/locked'; le.left = _st.left; throw le; }
             if (!_srv && window.atlLockRemaining && window.atlLockRemaining(email) > 0) { const le = new Error('locked'); le.code = 'atl/locked'; le.left = Math.ceil(window.atlLockRemaining(email) / 1000); throw le; }
             let cred;
