@@ -4211,6 +4211,12 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                             </div>
                             <div class="pass-strength-bar"><div class="pass-strength-fill" id="passStrengthFill"></div></div>
                             <div class="pass-strength-label" id="passStrengthLabel"></div>
+                            <div id="passRules" style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;font-size:12.5px;font-weight:600;">
+                                <div class="pr-item" data-rule="len"><span class="pr-ic">○</span> ٨ أحرف على الأقل</div>
+                                <div class="pr-item" data-rule="upper"><span class="pr-ic">○</span> حرف كابيتال (A-Z)</div>
+                                <div class="pr-item" data-rule="num"><span class="pr-ic">○</span> رقم واحد على الأقل (0-9)</div>
+                                <div class="pr-item" data-rule="sym"><span class="pr-ic">○</span> رمز مثل @ # $ %</div>
+                            </div>
                         </div>
                         <div class="field">
                             <label for="signUpConfirmPassword">تأكيد كلمة المرور</label>
@@ -8017,15 +8023,49 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         _shakeStyle.textContent = '@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }';
         document.head.appendChild(_shakeStyle);
 
+        /* ═══ قفل تسجيل الدخول: ٣ محاولات غلط ← إيقاف الحساب ٥ دقائق مع عدّاد ═══ */
+        const ATL_LOCK_MAX = 3, ATL_LOCK_MS = 5 * 60 * 1000, ATL_TEAM_MAIL = 'atlasyateam26@gmail.com';
+        function _atlLockKey(email) { return 'atl_lock_' + String(email || '').trim().toLowerCase(); }
+        function _atlLockGet(email) { try { return JSON.parse(localStorage.getItem(_atlLockKey(email)) || '{}') || {}; } catch (e) { return {}; } }
+        function _atlLockSet(email, o) { try { localStorage.setItem(_atlLockKey(email), JSON.stringify(o)); } catch (e) {} }
+        function atlLockRemaining(email) { const s = _atlLockGet(email); return s.until && s.until > Date.now() ? s.until - Date.now() : 0; }
+        function atlShowLockModal(email) {
+            let o = document.getElementById('atlLockModal');
+            if (o) return;
+            o = document.createElement('div'); o.id = 'atlLockModal'; o.dir = 'rtl';
+            o.setAttribute('role', 'alertdialog'); o.setAttribute('aria-modal', 'true');
+            o.style.cssText = 'position:fixed;inset:0;z-index:2147483200;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,10,16,.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:inherit;';
+            o.innerHTML = `<div style="width:100%;max-width:420px;text-align:center;background:#fff;color:#14303f;border-radius:22px;padding:28px 22px;box-shadow:0 24px 70px rgba(0,0,0,.55);">
+                <div style="width:74px;height:74px;margin:0 auto 12px;border-radius:50%;background:#fdecec;color:#e74c3c;display:flex;align-items:center;justify-content:center;font-size:32px;"><i class="fa-solid fa-lock"></i></div>
+                <div style="font-size:20px;font-weight:800;margin-bottom:6px;">تم إيقاف حسابك مؤقتًا</div>
+                <div style="font-size:13.5px;line-height:1.9;color:#4b6575;">دخلت كلمة مرور غلط ${ATL_LOCK_MAX} مرات، فتم إيقاف الحساب لمدة <b>5 دقائق</b>. بعدها هتقدر تسجل دخول عادي.</div>
+                <div id="atlLockTime" dir="ltr" style="font-size:44px;font-weight:900;letter-spacing:2px;margin:14px 0;color:#e74c3c;font-variant-numeric:tabular-nums;">05:00</div>
+                <div style="font-size:13px;line-height:1.9;background:#f3f8fb;border:1px solid #dbe7ee;border-radius:14px;padding:12px 14px;color:#27475a;">لو مستعجل وعايز حسابك يتفتح فورًا، ابعت <b>اسمك ورقم تليفونك والإيميل بتاعك</b> على إيميل المنصة:
+                    <div style="margin-top:8px;"><a href="mailto:${ATL_TEAM_MAIL}?subject=${encodeURIComponent('فتح الحساب')}&body=${encodeURIComponent('الاسم: \nرقم التليفون: \nالإيميل: ' + (email || '') + '\n')}" dir="ltr" style="display:inline-block;font-weight:800;color:#0b7a8a;word-break:break-all;">${ATL_TEAM_MAIL}</a></div>
+                    <button type="button" onclick="try{navigator.clipboard.writeText('${ATL_TEAM_MAIL}');showToast('تم نسخ الإيميل')}catch(e){}" style="margin-top:8px;padding:7px 14px;border-radius:10px;border:1px solid #cfdde6;background:#fff;color:#27475a;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;"><i class="fa-solid fa-copy"></i> نسخ الإيميل</button>
+                </div></div>`;
+            document.body.appendChild(o);
+            const tick = () => {
+                const left = atlLockRemaining(email);
+                const el = document.getElementById('atlLockTime');
+                if (left <= 0) { clearInterval(window._atlLockTimer); const m = document.getElementById('atlLockModal'); if (m) m.remove(); _atlLockSet(email, {}); showToast('تقدر تسجّل دخول دلوقتي ✓'); return; }
+                const s = Math.ceil(left / 1000);
+                if (el) el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+            };
+            clearInterval(window._atlLockTimer); tick(); window._atlLockTimer = setInterval(tick, 1000);
+        }
+
         async function doLogin() {
             const email = document.getElementById('loginEmail').value.trim();
             const pass  = document.getElementById('loginPassword').value;
             if (!email || !pass) { showToast('أدخل البريد وكلمة المرور', true); return; }
+            if (atlLockRemaining(email) > 0) { atlShowLockModal(email); return; }
             const btn = document.getElementById('loginBtn');
             btn.innerHTML = '<div class="spinner"></div>';
             btn.disabled = true;
             try {
                 const result = await window._doLogin(email, pass);
+                _atlLockSet(email, {});
                 if (result === 'redirecting-to-admin') return; // الصفحة بتتغيّر، مفيش داعي نكمل إعداد واجهة الطالب
                 // Handle Remember Me
                 const remember = document.getElementById('rememberMe')?.checked;
@@ -8042,7 +8082,13 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     showToast('تم تسجيل الدخول');
                 }
             } catch(e) {
-                showToast(/user-not-found|invalid/i.test(e.message) ? 'بيانات غير صحيحة' : (/firebase|auth\//i.test(e.message || '') ? 'حصل خطأ، حاول مرة أخرى' : e.message), true);
+                const _em = String((e && e.message) || '') + ' ' + String((e && e.code) || '');
+                const _bad = /user-not-found|invalid-credential|invalid_credentials|invalid login|wrong-password|incorrect/i.test(_em) && !/network|fetch|timeout|too-many/i.test(_em);
+                if (_bad) {
+                    const st = _atlLockGet(email); const fails = (st.fails || 0) + 1;
+                    if (fails >= ATL_LOCK_MAX) { _atlLockSet(email, { fails: 0, until: Date.now() + ATL_LOCK_MS }); atlShowLockModal(email); }
+                    else { _atlLockSet(email, { fails }); showToast(`بيانات غير صحيحة — باقي ${ATL_LOCK_MAX - fails} ${ATL_LOCK_MAX - fails === 1 ? 'محاولة' : 'محاولات'} قبل إيقاف الحساب مؤقتًا`, true); }
+                } else showToast(/firebase|auth\//i.test(e.message || '') ? 'حصل خطأ، حاول مرة أخرى' : e.message, true);
             } finally {
                 btn.innerHTML = `<span id="loginBtnText">تسجيل الدخول</span>`;
                 btn.disabled = false;
@@ -8139,7 +8185,14 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 return;
             }
             if (pass !== confirm) { showToast('كلمتا المرور غير متطابقتين', true); return; }
-            if (pass.length < 6) { showToast('كلمة المرور قصيرة جداً', true); return; }
+            { const R = atlPassRules(pass);
+              if (!(R.len && R.upper && R.num && R.sym)) {
+                showToast('كلمة المرور لازم تحقق كل الشروط: ٨ أحرف + حرف كابيتال + رقم + رمز (@ # $ %)', true);
+                const box = document.getElementById('passRules');
+                if (box) { box.style.animation = 'shake .4s'; setTimeout(() => box.style.animation = '', 500); }
+                const pe = document.getElementById('signUpPassword'); if (pe) pe.focus();
+                return;
+              } }
 
             const btn = document.getElementById('signUpBtn');
             btn.innerHTML = '<div class="spinner"></div>';
@@ -18826,24 +18879,31 @@ async function csAdmShowLink(id, btn) {
         }
 
         /* ─── PASSWORD STRENGTH ─── */
+        /* شروط كلمة المرور: ٨ أحرف + كابيتال + رقم + رمز — كل شرط بينوّر أخضر لما يتحقق */
+        function atlPassRules(pass) {
+            pass = pass || '';
+            return { len: pass.length >= 8, upper: /[A-Z]/.test(pass), num: /[0-9]/.test(pass), sym: /[^A-Za-z0-9\s]/.test(pass) };
+        }
         function checkPassStrength() {
             const pass = document.getElementById('signUpPassword').value;
             const fill = document.getElementById('passStrengthFill');
             const label = document.getElementById('passStrengthLabel');
-            if (!pass) { fill.style.width='0%'; label.textContent=''; return; }
-            let score = 0;
-            if (pass.length >= 8) score++;
-            if (/[A-Z]/.test(pass)) score++;
-            if (/[0-9]/.test(pass)) score++;
-            if (/[^A-Za-z0-9]/.test(pass)) score++;
+            const R = atlPassRules(pass);
+            document.querySelectorAll('#passRules .pr-item').forEach(el => {
+                const ok = R[el.dataset.rule];
+                el.style.color = ok ? '#1e9e4a' : '#8a97a3';
+                const ic = el.querySelector('.pr-ic'); if (ic) { ic.textContent = ok ? '✓' : '○'; ic.style.fontWeight = '900'; }
+            });
+            if (!pass) { fill.style.width='0%'; label.textContent=''; checkPassMatch(); return; }
+            const score = Object.values(R).filter(Boolean).length;
             const levels = [
-                { pct:'20%', color:'#e74c3c', lbl: lang==='AR'?'ضعيف جداً':'Very Weak' },
-                { pct:'40%', color:'#e67e22', lbl: lang==='AR'?'ضعيف':'Weak' },
-                { pct:'65%', color:'#f0c040', lbl: lang==='AR'?'متوسط':'Medium' },
-                { pct:'85%', color:'#27a346', lbl: lang==='AR'?'قوي':'Strong' },
-                { pct:'100%',color:'#1abc9c', lbl: lang==='AR'?'قوي جداً':'Very Strong' },
+                { pct:'20%', color:'#e74c3c', lbl:'ضعيف جداً' },
+                { pct:'35%', color:'#e74c3c', lbl:'ضعيف جداً' },
+                { pct:'55%', color:'#e67e22', lbl:'ضعيف' },
+                { pct:'80%', color:'#f0c040', lbl:'متوسط — ناقصك شرط' },
+                { pct:'100%',color:'#1abc9c', lbl:'قوي جداً ✓' },
             ];
-            const lvl = levels[Math.min(score, levels.length-1)];
+            const lvl = levels[score];
             fill.style.width = lvl.pct;
             fill.style.background = lvl.color;
             label.textContent = lvl.lbl;
