@@ -4854,7 +4854,20 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
 
         // expose to global
         window._doLogin = async (email, pass) => {
-            const cred = await signInWithEmailAndPassword(auth, email, pass);
+            /* قفل حقيقي على السيرفر (login-lock.sql): نفس القفل على كل الأجهزة. لو الدوال مش متضافة نرجع للقفل المحلي */
+            let _srv = true, _st = null;
+            try { _st = await rpc(db, 'login_lock_status', { p_email: email }); } catch (e) { _srv = false; }
+            if (_srv && _st && _st.locked) { const le = new Error('locked'); le.code = 'atl/locked'; le.left = _st.left; throw le; }
+            if (!_srv && window.atlLockRemaining && window.atlLockRemaining(email) > 0) { const le = new Error('locked'); le.code = 'atl/locked'; le.left = Math.ceil(window.atlLockRemaining(email) / 1000); throw le; }
+            let cred;
+            try { cred = await signInWithEmailAndPassword(auth, email, pass); }
+            catch (e) {
+                if (_srv && /invalid-credential|wrong-password|user-not-found/i.test(String((e && e.code) || '') + ' ' + String((e && e.message) || ''))) {
+                    try { e.atlLock = await rpc(db, 'login_lock_fail', { p_email: email }); } catch (e2) {}
+                }
+                throw e;
+            }
+            try { await rpc(db, 'login_lock_clear', {}); } catch (e) {}
             // نفس مجموعة حسابات Firebase Auth مستخدمة في admin.html، فلو الحساب
             // ده عضو فريق (admins/{uid} موجود)، نوجّهه للوحة الأدمن تلقائيًا —
             // السيشن بتفضل شغالة هناك (نفس default app) فمش هيحتاج يسجل تاني.
@@ -8052,14 +8065,22 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 const s = Math.ceil(left / 1000);
                 if (el) el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
             };
-            clearInterval(window._atlLockTimer); tick(); window._atlLockTimer = setInterval(tick, 1000);
+            let _n = 0;
+            const sync = async () => {
+                try {
+                    const st = await window._consultRpc('login_lock_status', { p_email: email });
+                    if (st && !st.locked) { _atlLockSet(email, {}); const m = document.getElementById('atlLockModal'); if (m) { clearInterval(window._atlLockTimer); m.remove(); showToast('تم فتح حسابك ✓ تقدر تسجّل دخول دلوقتي'); } }
+                    else if (st && st.locked) _atlLockSet(email, { until: Date.now() + st.left * 1000 });
+                } catch (e) {}
+            };
+            clearInterval(window._atlLockTimer); tick(); sync();
+            window._atlLockTimer = setInterval(() => { tick(); if (++_n % 4 === 0) sync(); }, 1000);
         }
 
         async function doLogin() {
             const email = document.getElementById('loginEmail').value.trim();
             const pass  = document.getElementById('loginPassword').value;
             if (!email || !pass) { showToast('أدخل البريد وكلمة المرور', true); return; }
-            if (atlLockRemaining(email) > 0) { atlShowLockModal(email); return; }
             const btn = document.getElementById('loginBtn');
             btn.innerHTML = '<div class="spinner"></div>';
             btn.disabled = true;
@@ -8082,6 +8103,12 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     showToast('تم تسجيل الدخول');
                 }
             } catch(e) {
+                if (e && e.code === 'atl/locked') { _atlLockSet(email, { until: Date.now() + (e.left || 300) * 1000 }); atlShowLockModal(email); return; }
+                if (e && e.atlLock) {
+                    if (e.atlLock.locked) { _atlLockSet(email, { until: Date.now() + (e.atlLock.left || 300) * 1000 }); atlShowLockModal(email); }
+                    else { const rem = ATL_LOCK_MAX - (e.atlLock.fails || 1); showToast(`بيانات غير صحيحة — باقي ${rem} ${rem === 1 ? 'محاولة' : 'محاولات'} قبل إيقاف الحساب مؤقتًا`, true); }
+                    return;
+                }
                 const _em = String((e && e.message) || '') + ' ' + String((e && e.code) || '');
                 const _bad = /user-not-found|invalid-credential|invalid_credentials|invalid login|wrong-password|incorrect/i.test(_em) && !/network|fetch|timeout|too-many/i.test(_em);
                 if (_bad) {
