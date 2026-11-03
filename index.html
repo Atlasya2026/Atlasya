@@ -10260,7 +10260,46 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             const delta = ((targetMod - (currentRot % 360)) + 360) % 360;
             const newRot = currentRot + spins * 360 + delta;
             discEl.style.transform = `rotate(${newRot}deg)`;
+            try { wheelTickSound(discEl, seg); } catch (e) {}
             return newRot;
+        }
+
+        /* صوت لفّ العجلة: "تكّة" كل ما المؤشر يعدّي على شريحة، وبتبطّأ مع بطء العجلة (WebAudio — من غير ملفات صوت) */
+        let _wheelAC = null;
+        window.wheelSoundPrime = function () {
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+                if (!_wheelAC) _wheelAC = new AC();
+                if (_wheelAC.state === 'suspended') _wheelAC.resume();
+            } catch (e) {}
+        };
+        function wheelClick(vol) {
+            const ac = _wheelAC; if (!ac || ac.state !== 'running') return;
+            const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+            o.type = 'triangle'; o.frequency.setValueAtTime(1500, t); o.frequency.exponentialRampToValueAtTime(380, t + 0.045);
+            g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+            o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.07);
+        }
+        function wheelTickSound(discEl, seg) {
+            wheelSoundPrime();
+            const angleOf = () => {
+                const m = getComputedStyle(discEl).transform;
+                if (!m || m === 'none') return 0;
+                const v = m.match(/matrix\(([^)]+)\)/); if (!v) return 0;
+                const a = v[1].split(',').map(Number);
+                return Math.atan2(a[1], a[0]) * 180 / Math.PI;
+            };
+            let prev = angleOf(), acc = 0, last = Math.floor(acc / seg);
+            const t0 = performance.now(); let lastTick = 0;
+            (function loop() {
+                const now = performance.now();
+                if (now - t0 > 4300 || !document.body.contains(discEl)) return;
+                const cur = angleOf(); let d = cur - prev; if (d < -180) d += 360; if (d > 180) d -= 360;
+                if (d > 0) acc += d; prev = cur;
+                const idx = Math.floor(acc / seg);
+                if (idx !== last) { if (now - lastTick > 28) { wheelClick(0.22); lastTick = now; } last = idx; }
+                requestAnimationFrame(loop);
+            })();
         }
 
         window.wheelSpinBasic = async function(usingExtra) {
@@ -10270,6 +10309,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             if (!usingExtra && (!_wheelState || !_wheelState.canSpinDaily)) return;
             if (usingExtra && (!_wheelState || !(_wheelState.extraSpins > 0))) return;
             _wheelSpinning = true;
+            if (window.wheelSoundPrime) wheelSoundPrime();
             if (hub) hub.classList.add('disabled');
             let result;
             try {
@@ -10369,6 +10409,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             const isAR = lang === 'AR';
             const hub = document.getElementById('whGiftHub');
             _wheelSpinning = true;
+            if (window.wheelSoundPrime) wheelSoundPrime();
             if (hub) hub.classList.add('disabled');
             let result;
             try { result = await window._spinGiftWheel(); }
@@ -14381,7 +14422,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.3.6';
+        window.ATL_APP_VERSION = '2026.11.3.7';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
