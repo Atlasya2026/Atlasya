@@ -4328,6 +4328,12 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                     <button class="nav-item" id="menuWheel" onclick="navigate('wheel', this)" style="color:var(--gold4);">
                         <i class="fa-solid fa-dharmachakra" style="color:var(--gold3);"></i> <span id="menuWheelTxt">عجلة الحظ</span>
                     </button>
+                    <button class="nav-item" id="menuLeaderboard" onclick="navigate('leaderboard', this)" style="color:var(--gold4);">
+                        <i class="fa-solid fa-ranking-star" style="color:var(--gold3);"></i> <span id="menuLeaderboardTxt">لوحة المتصدرين</span>
+                    </button>
+                    <button class="nav-item" id="menuProfile" onclick="navigate('profile', this)">
+                        <i class="fa-solid fa-id-badge"></i> <span id="menuProfileTxt">ملفي الشخصي</span>
+                    </button>
                 </div>
 
                 <div class="nav-section collapsible" style="margin-top:8px;">
@@ -5170,6 +5176,11 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         window._incrementBookDownloads = async (id, item) => {
             try { await updateDoc(doc(db, 'library_books', id), { downloads: increment(1) }); } catch(e) {}
             window._notifyAdminsBot('resource_download', { studentName: window._botStudentName(), kind: 'book', title: window._botItemName(item, id) });
+        };
+        window._saveProfileExtras = async (x) => {
+            if (!currentUid) throw new Error('Not logged in');
+            await updateDoc(doc(db, 'users', currentUid), { bio: x.bio || '', academicLevel: x.academicLevel || '', job: x.job || '' });
+            try { if (window._userData) Object.assign(window._userData, { bio: x.bio || '', academicLevel: x.academicLevel || '', job: x.job || '' }); } catch (e) {}
         };
         window._toggleFavoriteBook = async (bookId, isFav) => {
             if (!currentUid) throw new Error('Not logged in');
@@ -7688,6 +7699,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuAdminMentorshipTxt: 'حجوزات الاستشارات',
                 menuDailyChallengeTxt: 'التحديات',
                 menuWheelTxt: 'عجلة الحظ',
+                menuLeaderboardTxt: 'لوحة المتصدرين',
+                menuProfileTxt: 'ملفي الشخصي',
                 txtTopbarLogout: 'خروج',
                 txtTopbarLogoutDesk: 'خروج',
                 sideUserRole: 'عضو',
@@ -7720,6 +7733,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuAdminMentorshipTxt: 'Consultation Bookings',
                 menuDailyChallengeTxt: 'Challenges',
                 menuWheelTxt: 'Fortune Wheel',
+                menuLeaderboardTxt: 'Leaderboard',
+                menuProfileTxt: 'My Profile',
                 txtTopbarLogout: 'Logout',
                 txtTopbarLogoutDesk: 'Logout',
                 sideUserRole: 'Member',
@@ -8347,7 +8362,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             account: 'menuAccount', achievements: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
             adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro',
             adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
-            dailychallenge: 'menuDailyChallenge', wheel: 'menuWheel'
+            dailychallenge: 'menuDailyChallenge', wheel: 'menuWheel', leaderboard: 'menuLeaderboard', profile: 'menuProfile'
         };
 
         /* Reflects the current page in the URL as #/page-name so every page has
@@ -8411,8 +8426,10 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 dailychallenge: lang==='AR'?'التحديات':'Challenges',
                 wheel: lang==='AR'?'عجلة الحظ':'Fortune Wheel',
                 achievements: lang==='AR'?'إنجازاتي':'My Achievements',
+                leaderboard: lang==='AR'?'لوحة المتصدرين':'Leaderboard',
+                profile: lang==='AR'?'ملفي الشخصي':'My Profile',
             };
-            document.getElementById('breadcrumbTitle').textContent = titles[page] || page;
+            document.getElementById('breadcrumbTitle').textContent = titles[page] || titles[String(page).split('/')[0]] || page;
             const area = document.getElementById('contentArea');
             area.innerHTML = '';
 
@@ -8457,6 +8474,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             else if (page === 'dailychallenge') renderDailyChallenge(area);
             else if (page === 'wheel') renderWheel(area);
             else if (page === 'achievements' && window.renderAchievements) window.renderAchievements(area);
+            else if (page === 'leaderboard' && window.renderLeaderboard) window.renderLeaderboard(area);
+            else if ((page === 'profile' || page.indexOf('profile/') === 0) && window.renderProfilePage) window.renderProfilePage(area, page);
             else renderSoon(area, page, titles[page]);
 
 
@@ -14367,7 +14386,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.3.3';
+        window.ATL_APP_VERSION = '2026.11.3.4';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
@@ -20419,5 +20438,296 @@ async function csAdmShowLink(id, btn) {
 })();
 </script>
 
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   ATLASYA — الملف الشخصي + لوحة المتصدرين (profile-leaderboard.sql)
+   النقاط = العملات المكتسبة. كل الحساب على السيرفر، والواجهة بتعرض بس.
+   ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  const isAR = () => (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
+  const T = (a, e) => (isAR() ? a : e);
+  const esc = (s) => (window.atlEsc ? window.atlEsc(s) : String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
+  const url = (u) => (window.atlUrl ? window.atlUrl(u) : '');
+  const rpc = (n, a) => (window._consultRpc ? window._consultRpc(n, a || {}) : Promise.reject(new Error('unavailable')));
+  const num = (n) => Number(n || 0).toLocaleString(isAR() ? 'ar-EG' : 'en-US');
+  const toast = (m, bad) => { try { showToast(m, !!bad); } catch (e) { /* ignore */ } };
+  const gone = (id) => !document.getElementById(id);
+
+  /* ───────── CSS ───────── */
+  const css = document.createElement('style');
+  css.textContent = `
+  .lbp-wrap{max-width:980px;margin:0 auto}
+  .lbp-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px}
+  .lbp-tabs{display:flex;gap:6px;background:rgba(128,128,128,.12);border-radius:14px;padding:4px;margin:14px 0}
+  .lbp-tab{flex:1;border:none;background:transparent;color:var(--muted);font:inherit;font-size:13.5px;font-weight:800;padding:10px 8px;border-radius:11px;cursor:pointer;transition:.2s}
+  .lbp-tab.on{background:linear-gradient(135deg,var(--gold3),#d4a017);color:#0a0a0e;box-shadow:0 4px 14px rgba(212,160,23,.35)}
+  .lbp-hero{background:linear-gradient(135deg,rgba(212,160,23,.16),rgba(39,163,70,.08));border:1px solid var(--border);border-radius:20px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .lbp-hero h2{margin:0;font-size:22px;font-weight:900}.lbp-hero p{margin:4px 0 0;color:var(--muted);font-size:13px}
+  .lbp-pill{background:rgba(128,128,128,.16);border-radius:99px;padding:6px 14px;font-size:12.5px;font-weight:800;white-space:nowrap}
+  .lbp-podium{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin:18px 0 8px;direction:ltr}
+  .lbp-pod{flex:1;max-width:210px;text-align:center;cursor:pointer;animation:lbpUp .5s ease both}
+  .lbp-pod .lbp-bar{border-radius:14px 14px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:8px;font-size:26px;font-weight:900;color:#0a0a0e}
+  .lbp-pod.p1 .lbp-bar{height:120px;background:linear-gradient(180deg,#ffd35a,#d4a017)}
+  .lbp-pod.p2 .lbp-bar{height:88px;background:linear-gradient(180deg,#e3e8ee,#9aa7b5)}
+  .lbp-pod.p3 .lbp-bar{height:66px;background:linear-gradient(180deg,#f0b27a,#b9733a)}
+  .lbp-pod .lbp-nm{font-size:13.5px;font-weight:800;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px;direction:auto}
+  .lbp-pod .lbp-pt{font-size:12.5px;color:var(--gold3);font-weight:800}
+  .lbp-pod.p1 .lbp-av{box-shadow:0 0 0 3px #ffd35a,0 8px 26px rgba(255,211,90,.45)}
+  .lbp-crown{font-size:24px;line-height:1;margin-bottom:2px}
+  @keyframes lbpUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .lbp-av{border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--gold3),#c99a2e);color:#0a0a0e;font-weight:900;flex-shrink:0}
+  .lbp-row{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:14px;border:1px solid transparent;cursor:pointer;transition:.15s}
+  .lbp-row:hover{background:rgba(128,128,128,.1)}
+  .lbp-row.me{background:rgba(212,160,23,.12);border-color:rgba(212,160,23,.5)}
+  .lbp-rk{width:34px;text-align:center;font-weight:900;font-size:15px;color:var(--muted);flex-shrink:0}
+  .lbp-info{flex:1;min-width:0}
+  .lbp-info b{display:block;font-size:14px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lbp-info span{font-size:11.5px;color:var(--muted)}
+  .lbp-lv{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;background:rgba(39,163,70,.16);color:var(--green4);white-space:nowrap}
+  .lbp-pts{font-weight:900;font-size:15px;color:var(--gold3);min-width:54px;text-align:end}
+  .lbp-meb{position:sticky;bottom:10px;z-index:5;margin-top:14px;background:var(--card);border:1.5px solid var(--gold3);border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;box-shadow:0 10px 30px rgba(0,0,0,.28)}
+  .lbp-meb .big{font-size:24px;font-weight:900;color:var(--gold3);line-height:1}
+  .lbp-search{width:100%;box-sizing:border-box;background:rgba(128,128,128,.1);border:1px solid var(--border);border-radius:12px;padding:11px 14px;color:var(--text);font:inherit;font-size:13.5px;margin-bottom:10px}
+  .lbp-btn{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:11px;padding:9px 14px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+  .lbp-btn.gold{background:linear-gradient(135deg,var(--gold3),#d4a017);color:#0a0a0e;border:none}
+  .lbp-btn.wa{background:#25d366;color:#fff;border:none}.lbp-btn.fb{background:#1877f2;color:#fff;border:none}.lbp-btn.li{background:#0a66c2;color:#fff;border:none}
+  .lbp-empty{text-align:center;color:var(--muted);padding:34px 12px;font-size:13.5px}
+  .lbp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+  .lbp-stat{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;text-align:center}
+  .lbp-stat i{font-size:18px;color:var(--gold3)}.lbp-stat .v{font-size:24px;font-weight:900;margin-top:4px}.lbp-stat .l{font-size:12px;color:var(--muted)}
+  .lbp-prof{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .lbp-prof h2{margin:0;font-size:23px;font-weight:900}
+  .lbp-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;background:rgba(128,128,128,.14);border-radius:99px;padding:5px 11px}
+  .lbp-prog{height:10px;border-radius:99px;background:rgba(128,128,128,.2);overflow:hidden;margin:8px 0 4px}
+  .lbp-prog i{display:block;height:100%;background:linear-gradient(90deg,var(--green4),var(--gold3));border-radius:99px;transition:width .6s}
+  .lbp-sec{font-size:16px;font-weight:900;margin:22px 0 10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .lbp-ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+  .lbp-ach>div{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--gold3);border-radius:14px;padding:11px}
+  .lbp-ach .ic{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:21px;background:linear-gradient(135deg,#ff8a1f,var(--gold3));flex-shrink:0}
+  .lbp-list>div{display:flex;align-items:center;gap:10px;padding:10px 4px;border-top:1px solid var(--border);font-size:13px}
+  .lbp-modal{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:14px}
+  .lbp-box{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:20px;width:100%;max-width:460px;max-height:92vh;overflow:auto;padding:20px}
+  .lbp-box label{display:block;font-size:12px;font-weight:800;color:var(--muted);margin:12px 0 5px}
+  .lbp-box input,.lbp-box textarea,.lbp-box select{width:100%;box-sizing:border-box;background:rgba(128,128,128,.1);border:1px solid var(--border);border-radius:11px;padding:10px 12px;color:var(--text);font:inherit;font-size:13.5px}
+  @media(max-width:560px){.lbp-pod .lbp-nm{font-size:12px}.lbp-lv{display:none}.lbp-hero h2{font-size:19px}}
+  `;
+  document.head.appendChild(css);
+
+  /* ───────── helpers ───────── */
+  let CFG = null;
+  async function config(force) { if (!CFG || force) CFG = await rpc('lb_config'); return CFG; }
+  function levelOf(points) {
+    const L = ((CFG && CFG.levels) || []).slice().sort((a, b) => a.min - b.min);
+    if (!L.length) return { name: '', i: 0, pct: 100, left: 0, next: null };
+    let i = 0; for (let k = 0; k < L.length; k++) if (points >= L[k].min) i = k;
+    const cur = L[i], nx = L[i + 1] || null;
+    const name = isAR() ? (cur.ar || cur.en) : (cur.en || cur.ar);
+    const nxName = nx ? (isAR() ? (nx.ar || nx.en) : (nx.en || nx.ar)) : null;
+    return { name, i, pct: nx ? Math.max(0, Math.min(100, Math.round((points - cur.min) / (nx.min - cur.min) * 100))) : 100, left: nx ? nx.min - points : 0, next: nxName };
+  }
+  function avatar(u, name, size) {
+    const st = `width:${size}px;height:${size}px;font-size:${Math.round(size * .4)}px;`;
+    const src = u ? url(u) : '';
+    if (src) return `<img class="lbp-av lbp-av-img" src="${src}" alt="" style="${st}" onerror="this.outerHTML='<span class=&quot;lbp-av&quot; style=&quot;${st}&quot;>${esc((name || '?').trim()[0] || '?')}</span>'">`;
+    return `<span class="lbp-av" style="${st}">${esc((name || '?').trim()[0] || '?')}</span>`;
+  }
+  const profLink = (r) => (r.username ? 'profile/' + r.username : (r.user_id === window._currentUid ? 'profile' : ''));
+  window.atlOpenProfile = (p) => { if (p) navigate(p, document.getElementById('menuProfile') || undefined); };
+  const errTxt = (e) => ({ 'not-found': T('الملف ده مش موجود', 'Profile not found'), 'bad-username': T('اسم المستخدم: ٣–٢٠ حرف إنجليزي صغير/أرقام/_ فقط', 'Username: 3–20 lowercase letters, digits or _'), 'username-taken': T('اسم المستخدم ده مأخوذ، جرّب غيره', 'That username is taken'), 'reserved-username': T('اسم المستخدم ده محجوز', 'That username is reserved') }[(e && e.code) || ''] || null);
+
+  /* ═══════════════ لوحة المتصدرين ═══════════════ */
+  const S = { period: 'weekly', rows: [], total: 0, me: null, q: '', loading: false, more: false };
+  const PAGE = 30;
+
+  window.renderLeaderboard = async function (area) {
+    area = area || document.getElementById('contentArea');
+    S.q = ''; S.rows = [];
+    area.innerHTML = `<div class="lbp-wrap" id="lbRoot">
+      <div class="lbp-hero"><div><h2>🏆 ${T('لوحة المتصدرين', 'Leaderboard')}</h2><p>${T('نافس زمايلك واكسب نقاط من التحديات والإنجازات — كل نقطة بتتحسب من نشاطك الحقيقي.', 'Compete with your peers — every point comes from your real activity.')}</p></div><div class="lbp-pill" id="lbCount">…</div></div>
+      <div class="lbp-tabs">${[['daily', T('اليوم', 'Daily')], ['weekly', T('الأسبوع', 'Weekly')], ['all', T('الكل', 'All-Time')]].map(([k, l]) => `<button class="lbp-tab" data-p="${k}">${l}</button>`).join('')}</div>
+      <div id="lbPodium"></div>
+      <input class="lbp-search" id="lbSearch" placeholder="${T('ابحث بالاسم أو اسم المستخدم…', 'Search by name or username…')}" autocomplete="off">
+      <div class="lbp-card" id="lbList" style="padding:8px"></div>
+      <div id="lbMore" style="text-align:center;margin-top:10px"></div>
+      <div id="lbMe"></div></div>`;
+    area.querySelectorAll('.lbp-tab').forEach(b => b.onclick = () => { S.period = b.dataset.p; load(true); });
+    let t = null; document.getElementById('lbSearch').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.q = e.target.value.trim(); load(true); }, 350); };
+    try { await config(); } catch (e) { /* ignore */ }
+    load(true);
+    const timer = setInterval(() => { if (gone('lbRoot')) { clearInterval(timer); return; } if (document.visibilityState === 'visible' && !S.q && S.rows.length <= PAGE) load(true, true); }, 60000);
+  };
+
+  async function load(reset, quiet) {
+    if (S.loading) return; S.loading = true;
+    const list = document.getElementById('lbList');
+    if (!list) { S.loading = false; return; }
+    document.querySelectorAll('.lbp-tab').forEach(b => b.classList.toggle('on', b.dataset.p === S.period));
+    if (reset && !quiet) list.innerHTML = `<div class="lbp-empty"><div class="spinner" style="margin:0 auto"></div></div>`;
+    try {
+      const off = reset ? 0 : S.rows.length;
+      const r = await rpc('lb_board', { p_period: S.period, p_limit: PAGE, p_offset: off, p_search: S.q || null });
+      if (gone('lbRoot')) { S.loading = false; return; }
+      S.rows = reset ? (r.rows || []) : S.rows.concat(r.rows || []);
+      S.total = r.total || 0; S.me = r.me || null;
+      draw();
+    } catch (e) {
+      console.warn('[leaderboard]', e);
+      if (list) list.innerHTML = `<div class="lbp-empty">${T('تعذّر تحميل الترتيب — اتأكد إن profile-leaderboard.sql اتشغّل.', 'Could not load the leaderboard.')}</div>`;
+    }
+    S.loading = false;
+  }
+
+  function rowHtml(r) {
+    const me = r.user_id === window._currentUid, lv = levelOf(r.points), link = profLink(r);
+    return `<div class="lbp-row${me ? ' me' : ''}" ${link ? `onclick="atlOpenProfile('${esc(link)}')"` : ''}>
+      <div class="lbp-rk">${r.rank <= 3 ? ['🥇', '🥈', '🥉'][r.rank - 1] : num(r.rank)}</div>${avatar(r.avatar, r.name, 40)}
+      <div class="lbp-info"><b>${esc(r.name || 'User')}${me ? ` <span style="color:var(--gold3)">(${T('أنت', 'you')})</span>` : ''}</b><span>${r.username ? '@' + esc(r.username) + ' · ' : ''}🏅 ${num(r.ach)}</span></div>
+      <span class="lbp-lv">${esc(lv.name)}</span><div class="lbp-pts">${num(r.points)}</div></div>`;
+  }
+
+  function draw() {
+    const cnt = document.getElementById('lbCount'); if (cnt) cnt.textContent = '👥 ' + (CFG ? num(CFG.participants) : num(S.total)) + ' ' + T('مشارك', 'participants');
+    const showPodium = !S.q && S.rows.length >= 1;
+    const pod = document.getElementById('lbPodium');
+    if (pod) {
+      if (!showPodium) pod.innerHTML = '';
+      else {
+        const by = (k) => S.rows.find(r => r.rank === k);
+        const col = (r, cls, medal) => r ? `<div class="lbp-pod ${cls}" ${profLink(r) ? `onclick="atlOpenProfile('${esc(profLink(r))}')"` : ''}>
+          ${cls === 'p1' ? '<div class="lbp-crown">👑</div>' : ''}${avatar(r.avatar, r.name, cls === 'p1' ? 76 : 60)}
+          <div class="lbp-nm">${esc(r.name || 'User')}</div><div class="lbp-pt">${num(r.points)} ${T('نقطة', 'pts')}</div><div style="font-size:11px;color:var(--muted)">${esc(levelOf(r.points).name)}</div>
+          <div class="lbp-bar">${medal}</div></div>` : `<div class="lbp-pod ${cls}" style="visibility:hidden"><div class="lbp-bar"></div></div>`;
+        pod.innerHTML = `<div class="lbp-podium">${col(by(2), 'p2', '2')}${col(by(1), 'p1', '1')}${col(by(3), 'p3', '3')}</div>`;
+      }
+    }
+    const list = document.getElementById('lbList');
+    const rest = showPodium ? S.rows.filter(r => r.rank > 3) : S.rows;
+    list.innerHTML = rest.length ? rest.map(rowHtml).join('')
+      : (S.rows.length && showPodium ? '' : `<div class="lbp-empty">${S.q ? T('مفيش نتائج للبحث', 'No results') : S.period === 'all' ? T('لسه مفيش نقاط', 'No points yet') : T('لسه مفيش نشاط في الفترة دي — كن أول واحد! 💪', 'No activity yet in this period — be the first! 💪')}</div>`);
+    const more = document.getElementById('lbMore');
+    if (more) more.innerHTML = S.rows.length < S.total && !S.q ? `<button class="lbp-btn" onclick="atlLbMore(this)">${T('عرض المزيد', 'Show more')}</button>`
+      : (S.q && S.rows.length >= PAGE ? `<button class="lbp-btn" onclick="atlLbMore(this)">${T('عرض المزيد', 'Show more')}</button>` : '');
+    const meEl = document.getElementById('lbMe');
+    if (meEl) {
+      const m = S.me;
+      meEl.innerHTML = m ? `<div class="lbp-meb"><div><div style="font-size:11px;color:var(--muted)">${T('ترتيبك', 'Your rank')}</div><div class="big">#${num(m.rank)}</div></div>
+          <div><div style="font-size:11px;color:var(--muted)">${T('نقاطك', 'Your points')}</div><div class="big" style="font-size:20px">${num(m.points)}</div></div>
+          <div style="flex:1;min-width:160px;font-size:12.5px;line-height:1.7">${m.rank > 1 ? `${T('الفرق بينك وبين اللي قدامك:', 'Gap to the user ahead:')} <b style="color:var(--gold3)">${num(m.gap)}</b> ${T('نقطة', 'pts')}<br>${T('محتاج', 'You need')} <b>${num((m.gap || 0) + 1)}</b> ${T('نقطة للمركز', 'points to reach #')}${num(m.next_rank)}` : `🔥 ${T('أنت في الصدارة!', 'You are leading!')}`}</div></div>`
+        : `<div class="lbp-meb"><div style="font-size:13px">${T('لسه مش في الترتيب — حل تحدي واكسب نقاط عشان تظهر هنا 🚀', 'Not ranked yet — complete a challenge to appear here 🚀')}</div></div>`;
+    }
+  }
+  window.atlLbMore = async (b) => { b.disabled = true; await load(false); };
+
+  /* ═══════════════ الملف الشخصي ═══════════════ */
+  window.renderProfilePage = async function (area, page) {
+    area = area || document.getElementById('contentArea');
+    const uname = String(page || 'profile').split('/')[1] || null;
+    area.innerHTML = `<div class="lbp-wrap" id="pfRoot"><div class="lbp-empty"><div class="spinner" style="margin:0 auto"></div></div></div>`;
+    try { await config(); } catch (e) { /* ignore */ }
+    let p;
+    try { p = await rpc('get_profile', { p_username: uname }); }
+    catch (e) {
+      console.warn('[profile]', e);
+      const root = document.getElementById('pfRoot'); if (!root) return;
+      root.innerHTML = `<div class="lbp-card lbp-empty">${errTxt(e) || T('تعذّر تحميل الملف — اتأكد إن profile-leaderboard.sql اتشغّل.', 'Could not load the profile.')}<br><br><button class="lbp-btn" onclick="navigate('leaderboard')">${T('لوحة المتصدرين', 'Leaderboard')}</button></div>`;
+      return;
+    }
+    if (gone('pfRoot')) return;
+    paintProfile(p);
+    if (p.is_me && !p.username) setTimeout(() => openEdit(p, true), 400);
+  };
+
+  function shareUrl(u) { return location.origin + location.pathname + '#/profile/' + u; }
+
+  function paintProfile(p) {
+    const root = document.getElementById('pfRoot'); if (!root) return;
+    window._pfData = p;
+    if (p.private) {
+      root.innerHTML = `<div class="lbp-card" style="text-align:center;padding:34px 18px">${avatar(p.avatar, p.name, 84)}<h2 style="margin:12px 0 4px">${esc(p.name)}</h2><div style="color:var(--muted);margin-bottom:12px">${p.username ? '@' + esc(p.username) : ''}</div><div class="lbp-chip">🔒 ${T('هذا الملف خاص', 'This profile is private')}</div></div>`;
+      return;
+    }
+    const lv = levelOf(p.points), me = p.is_me, link = p.username ? shareUrl(p.username) : '';
+    const dt = (d) => d ? new Date(d).toLocaleDateString(isAR() ? 'ar-EG' : 'en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+    const chips = [
+      p.university && `🎓 ${esc(p.university)}`, p.major && `📚 ${esc(p.major)}`, p.academic_level && `🎯 ${esc(p.academic_level)}`,
+      (p.job || p.company) && `💼 ${esc([p.job, p.company].filter(Boolean).join(' — '))}`, p.joined_at && `📅 ${T('انضم', 'Joined')} ${dt(p.joined_at)}`
+    ].filter(Boolean).map(c => `<span class="lbp-chip">${c}</span>`).join('');
+    const share = link ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="lbp-btn wa" onclick="atlShareProfile('wa')"><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>
+        <button class="lbp-btn fb" onclick="atlShareProfile('fb')"><i class="fa-brands fa-facebook-f"></i> Facebook</button>
+        <button class="lbp-btn li" onclick="atlShareProfile('li')"><i class="fa-brands fa-linkedin-in"></i> LinkedIn</button>
+        <button class="lbp-btn" onclick="atlShareProfile('copy')"><i class="fa-solid fa-link"></i> ${T('نسخ الرابط', 'Copy link')}</button></div>` : '';
+    const ach = (p.achievements || []);
+    root.innerHTML = `
+      <div class="lbp-card"><div class="lbp-prof">${avatar(p.avatar, p.name, 96)}
+        <div style="flex:1;min-width:200px"><h2>${esc(p.name || 'User')}</h2>
+          <div style="color:var(--muted);font-size:13.5px;margin:2px 0 8px">${p.username ? '@' + esc(p.username) : (me ? `<a href="javascript:void(0)" onclick="atlEditProfile()" style="color:var(--gold3);font-weight:800">${T('اختر اسم مستخدم لتفعيل رابطك العام', 'Choose a username to get your public link')}</a>` : '')}</div>
+          <span class="lbp-lv" style="font-size:12.5px;padding:4px 12px">⭐ ${esc(lv.name)}</span>
+          ${p.bio ? `<p style="margin:10px 0 0;line-height:1.8;font-size:13.5px;white-space:pre-wrap;word-break:break-word">${esc(p.bio)}</p>` : (me ? `<p style="margin:10px 0 0;color:var(--muted);font-size:13px">${T('أضف نبذة تعريفية عنك…', 'Add an About Me…')}</p>` : '')}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${chips}</div>
+          ${me ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="lbp-btn gold" onclick="atlEditProfile()"><i class="fa-solid fa-pen"></i> ${T('تعديل الملف', 'Edit profile')}</button><button class="lbp-btn" onclick="goSettings('hub')"><i class="fa-solid fa-camera"></i> ${T('تغيير الصورة', 'Change photo')}</button>${p.is_public ? '' : `<span class="lbp-chip">🔒 ${T('ملفك خاص', 'Private')}</span>`}</div>` : ''}
+          ${share}</div></div></div>
+      <div class="lbp-grid">
+        ${stat('fa-star', num(p.points), T('إجمالي النقاط', 'Total points'))}${stat('fa-layer-group', esc(lv.name), T('المستوى', 'Level'))}
+        ${stat('fa-ranking-star', p.rank ? '#' + num(p.rank) : '—', T('ترتيبك', 'Rank'))}${stat('fa-calendar-check', num(p.challenges_done), T('تحديات مكتملة', 'Challenges'))}
+        ${stat('fa-map-location-dot', num(p.projects_count), T('مشاريع منشورة', 'Projects'))}${stat('fa-trophy', num(ach.length), T('إنجازات', 'Achievements'))}</div>
+      <div class="lbp-card"><div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800"><span>${esc(lv.name)}</span><span>${lv.next ? esc(lv.next) : T('أعلى مستوى 🎉', 'Max level 🎉')}</span></div>
+        <div class="lbp-prog"><i style="width:${lv.pct}%"></i></div>
+        <div style="font-size:12px;color:var(--muted)">${lv.next ? `${T('باقي', 'Only')} <b style="color:var(--gold3)">${num(lv.left)}</b> ${T('نقطة للمستوى التالي', 'points to the next level')}` : T('وصلت لأعلى مستوى', 'You reached the top level')}</div></div>
+      <div class="lbp-sec"><span>🏆 ${T('الإنجازات', 'Achievements')}</span>${me ? `<button class="lbp-btn" onclick="goSettings('achievements')">${T('إنجازاتي', 'My Achievements')} ←</button>` : ''}</div>
+      ${ach.length ? `<div class="lbp-ach">${ach.map(a => `<div><div class="ic">${esc(a.icon || '🏅')}</div><div style="min-width:0"><b style="font-size:13.5px">${esc(isAR() ? (a.title_ar || a.title_en) : (a.title_en || a.title_ar))}</b><div style="font-size:11.5px;color:var(--muted)">${dt(a.earned_at)}</div></div></div>`).join('')}</div>` : `<div class="lbp-card lbp-empty">${T('لا توجد إنجازات بعد', 'No achievements yet')}</div>`}
+      <div class="lbp-sec"><span>📅 ${T('التحديات', 'Challenges')}</span><span style="font-size:12px;color:var(--muted);font-weight:700">${T('صح', 'Correct')}: ${num(p.challenges_correct)} / ${num(p.challenges_done)}</span></div>
+      <div class="lbp-card lbp-list" style="padding:6px 14px">${(p.challenges || []).length ? p.challenges.map(c => `<div><span>${c.correct ? '✅' : '❌'}</span><span style="flex:1">${esc(c.type === 'weekly' ? T('تحدي أسبوعي', 'Weekly challenge') : T('تحدي يومي', 'Daily challenge'))} ${c.scheduled_date ? '· ' + esc(c.scheduled_date) : ''}</span><span style="color:var(--gold3);font-weight:800">${c.coins_awarded ? '+' + num(c.coins_awarded) : ''}</span><span style="color:var(--muted);font-size:11.5px">${dt(c.answered_at)}</span></div>`).join('') : `<div class="lbp-empty">${T('لا توجد تحديات بعد', 'No challenges yet')}</div>`}</div>
+      <div class="lbp-sec"><span>🗺️ ${T('المشاريع المنشورة', 'Published projects')}</span>${me ? `<button class="lbp-btn" onclick="navigate('portfolio',document.getElementById('menuPortfolio'))">${T('خرائط الطلبة', 'Student Maps')} ←</button>` : ''}</div>
+      ${(p.projects || []).length ? `<div class="lbp-ach">${p.projects.map(x => `<div style="border-color:var(--border);flex-direction:column;align-items:stretch">${x.image ? `<img src="${url(x.image)}" alt="" style="width:100%;height:110px;object-fit:cover;border-radius:10px" onerror="this.style.display='none'">` : ''}<b style="font-size:13px">${esc(x.title || '—')}</b><span style="font-size:11.5px;color:var(--muted)">${dt(x.created_at)}</span></div>`).join('')}</div>` : `<div class="lbp-card lbp-empty">${T('لا توجد مشاريع منشورة', 'No projects yet')}</div>`}`;
+  }
+  const stat = (ic, v, l) => `<div class="lbp-stat"><i class="fa-solid ${ic}"></i><div class="v">${v}</div><div class="l">${l}</div></div>`;
+
+  window.atlShareProfile = async function (kind) {
+    const p = window._pfData; if (!p || !p.username) return;
+    const u = shareUrl(p.username), msg = T('شوف ملفي الشخصي على ATLASYA 🌍', 'Check out my ATLASYA profile 🌍');
+    if (kind === 'copy') { try { await navigator.clipboard.writeText(u); toast(T('تم نسخ الرابط ✓', 'Link copied ✓')); } catch (e) { prompt(T('انسخ الرابط:', 'Copy link:'), u); } return; }
+    const go = { wa: 'https://wa.me/?text=' + encodeURIComponent(msg + ' ' + u), fb: 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(u), li: 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(u) }[kind];
+    if (go) window.open(go, '_blank', 'noopener');
+  };
+
+  window.atlEditProfile = () => { if (window._pfData && window._pfData.is_me) openEdit(window._pfData, false); };
+  function openEdit(p, first) {
+    document.getElementById('pfEdit')?.remove();
+    const lv = ['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Graduate'], lvAR = ['المستوى 1', 'المستوى 2', 'المستوى 3', 'المستوى 4', 'خريج'];
+    const sug = (p.username || ((window._userData && window._userData.email) || '').split('@')[0] || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
+    const o = document.createElement('div'); o.id = 'pfEdit'; o.className = 'lbp-modal'; o.dir = isAR() ? 'rtl' : 'ltr';
+    o.innerHTML = `<div class="lbp-box"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0;font-size:18px">${first ? T('جهّز ملفك الشخصي', 'Set up your profile') : T('تعديل الملف الشخصي', 'Edit profile')}</h3><button type="button" class="lbp-btn" onclick="document.getElementById('pfEdit').remove()">✕</button></div>
+      <label>${T('اسم المستخدم (إنجليزي)', 'Username')}</label><input id="pfeUser" dir="ltr" maxlength="20" placeholder="ahmed_gis" value="${esc(p.username || sug)}">
+      <div style="font-size:11.5px;color:var(--muted);margin-top:4px">${T('٣–٢٠ حرف: a-z وأرقام و _ — هيكون رابطك:', '3–20 chars: a-z, digits, _ — your link:')} <span dir="ltr">#/profile/<b id="pfeHint">${esc(p.username || sug)}</b></span></div>
+      <label>${T('نبذة تعريفية', 'About me')}</label><textarea id="pfeBio" rows="3" maxlength="300">${esc(p.bio || '')}</textarea>
+      <label>${T('الجامعة', 'University')}</label><input id="pfeUni" maxlength="120" value="${esc(p.university || '')}">
+      <label>${T('التخصص', 'Major')}</label><input id="pfeMajor" maxlength="120" value="${esc(p.major || '')}">
+      <label>${T('المستوى الدراسي', 'Academic level')}</label><select id="pfeLvl"><option value="">—</option>${lv.map((v, i) => `<option value="${v}" ${p.academic_level === v ? 'selected' : ''}>${isAR() ? lvAR[i] : v}</option>`).join('')}</select>
+      <label>${T('الوظيفة', 'Job')}</label><input id="pfeJob" maxlength="120" value="${esc(p.job || '')}">
+      <label style="display:flex;align-items:center;gap:10px;margin-top:16px;cursor:pointer;color:var(--text);font-size:13.5px"><input type="checkbox" id="pfePub" ${p.is_public ? 'checked' : ''} style="width:20px;height:20px"> ${T('إظهار ملفي للعامة (يقدر أي طالب يفتح رابطي)', 'Make my profile public')}</label>
+      <div id="pfeErr" style="color:#ef4444;font-size:12.5px;min-height:18px;margin-top:8px"></div>
+      <button type="button" id="pfeSave" class="lbp-btn gold" style="width:100%;justify-content:center;margin-top:6px">${T('حفظ', 'Save')}</button></div>`;
+    document.body.appendChild(o);
+    o.addEventListener('click', (e) => { if (e.target === o && !first) o.remove(); });
+    const inp = document.getElementById('pfeUser');
+    inp.oninput = () => { inp.value = inp.value.toLowerCase().replace(/[^a-z0-9_]/g, ''); document.getElementById('pfeHint').textContent = inp.value; };
+    document.getElementById('pfeSave').onclick = async function () {
+      const b = this, err = document.getElementById('pfeErr'); err.textContent = '';
+      const uname = inp.value.trim();
+      if (!/^[a-z0-9_]{3,20}$/.test(uname)) { err.textContent = errTxt({ code: 'bad-username' }); return; }
+      b.disabled = true; b.textContent = '…';
+      try {
+        await rpc('set_my_profile', { p_username: uname, p_university: document.getElementById('pfeUni').value, p_major: document.getElementById('pfeMajor').value, p_public: document.getElementById('pfePub').checked });
+        try { if (window._saveProfileExtras) await window._saveProfileExtras({ bio: document.getElementById('pfeBio').value.trim().slice(0, 300), academicLevel: document.getElementById('pfeLvl').value, job: document.getElementById('pfeJob').value.trim() }); } catch (e2) { console.warn('extras:', e2); }
+        o.remove(); toast(T('✓ تم حفظ ملفك', '✓ Profile saved'));
+        if ((window._currentPage || '').indexOf('profile') === 0) { navigate('profile', document.getElementById('menuProfile') || undefined, false, true); }
+      } catch (e) { console.warn(e); err.textContent = errTxt(e) || T('تعذّر الحفظ، حاول تاني', 'Could not save'); b.disabled = false; b.textContent = T('حفظ', 'Save'); }
+    };
+  }
+})();
+
+</script>
 </body>
     </html>
