@@ -23,7 +23,7 @@ importScripts('push-sw.js'); // الإشعارات الخارجية (Web Push)
 
 const ATL_SHELL_CACHE = 'atlasya-shell';   // ثابت — متغيّرش الاسم ده عشان النسخة المثبّتة متتمسحش بالغلط
 const ATL_SHELL = ['./', './index.html', './admin.html', './manifest.webmanifest', './manifest-admin.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/badge-96.png'];
-const atlIsAdminPath = p => /admin/i.test(p);
+const atlIsAdminPath = p => /admin|explore/i.test(p);   // الأدمن وصفحة الزائر (explore) = شبكة أولًا دايمًا (مش مثبّتة)، فالزوّار ياخدوا آخر نسخة
 
 self.addEventListener('install', e => {
   /* نجهّز الأساسيات لأول مرة بس — اللي موجود بالفعل (النسخة المثبّتة) منلمسوش */
@@ -83,7 +83,7 @@ self.addEventListener('fetch', e => {
       })
       .catch(() => caches.match(req).then(r => r ||
         (req.mode === 'navigate'
-          ? caches.match(url.pathname.endsWith('admin.html') ? './admin.html' : './index.html').then(f => f || Response.error())
+          ? caches.match(url.pathname.endsWith('admin.html') ? './admin.html' : url.pathname.endsWith('explore.html') ? './explore.html' : './index.html').then(f => f || Response.error())
           : Response.error())))
   );
 });
