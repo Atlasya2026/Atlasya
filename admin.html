@@ -3619,6 +3619,9 @@
                     <button class="nav-item" id="menuAdminLocks" onclick="navigate('adminlocks', this)" style="display:none;">
                         <i class="fa-solid fa-user-lock"></i> <span id="menuAdminLocksTxt">الحسابات المقفولة</span>
                     </button>
+                    <button class="nav-item" id="menuAdminLeaderboard" onclick="navigate('adminleaderboard', this)" style="display:none;">
+                        <i class="fa-solid fa-ranking-star"></i> <span id="menuAdminLeaderboardTxt">لوحة المتصدرين</span>
+                    </button>
                     <button class="nav-item" id="menuExpert" onclick="navigate('expert', this)">
                         <i class="fa-solid fa-ticket"></i> <span id="menuExpertTxt">الدعم الفني</span>
                     </button>
@@ -5628,6 +5631,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             menuAdminTipsTxt: 'نصيحة اليوم',
             menuAdminReviewsTxt: 'تقييمات التطبيق',
             menuAdminLocksTxt: 'الحسابات المقفولة',
+            menuAdminLeaderboardTxt: 'لوحة المتصدرين',
             menuAdminMentorshipTxt: 'حجوزات الاستشارات',
             menuAdminDailyChallengesTxt: 'التحديات',
             menuAdminProTxt: 'طلبات البرو',
@@ -5672,6 +5676,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             menuAdminTipsTxt: 'Daily Tip',
             menuAdminReviewsTxt: 'App Reviews',
             menuAdminLocksTxt: 'Locked Accounts',
+            menuAdminLeaderboardTxt: 'Leaderboard',
             menuAdminMentorshipTxt: 'Consultation Bookings',
             menuAdminDailyChallengesTxt: 'Challenges',
             menuAdminProTxt: 'Pro Requests',
@@ -5943,7 +5948,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
         admincourses: 'menuAdminCourses', adminlibrary: 'menuAdminLibrary',
         adminplaylists: 'menuAdminPlaylists', admindatasets: 'menuAdminDatasets',
-        admintools: 'menuAdminTools', admintips: 'menuAdminTips', adminreviews: 'menuAdminReviews', adminlocks: 'menuAdminLocks',
+        admintools: 'menuAdminTools', admintips: 'menuAdminTips', adminreviews: 'menuAdminReviews', adminlocks: 'menuAdminLocks', adminleaderboard: 'menuAdminLeaderboard',
         admindailychallenges: 'menuAdminDailyChallenges'
     };
 
@@ -6012,6 +6017,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             admintips: lang==='AR'?'إدارة نصيحة اليوم':'Manage Daily Tips',
             adminreviews: lang==='AR'?'تقييمات التطبيق':'App Reviews',
             adminlocks: lang==='AR'?'الحسابات المقفولة':'Locked Accounts',
+            adminleaderboard: lang==='AR'?'لوحة المتصدرين':'Leaderboard',
             admindailychallenges: lang==='AR'?'إدارة التحدي اليومي والأسبوعي':'Manage Daily & Weekly Challenge',
             adminmentorship: lang==='AR'?'حجوزات الاستشارات':'Consultation Bookings',
             portfolio:     lang==='AR'?'خرائط الطلبة':'Student Maps',
@@ -6059,6 +6065,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         else if (page === 'admintips') renderAdminTips(area);
         else if (page === 'adminreviews') renderAdminReviews(area);
         else if (page === 'adminlocks') renderAdminLocks(area);
+        else if (page === 'adminleaderboard') renderAdminLeaderboard(area);
         else if (page === 'admindailychallenges') renderAdminDailyChallenges(area);
         else if (page === 'adminmentorship') renderAdminMentorship(area);
         else if (page === 'portfolio') renderPortfolio(area);
@@ -11953,6 +11960,83 @@ window.openConsultationModal = function () { csTab('book'); };
     let _arList = [], _arFilter = 0;
     /* ─── أدمن: الحسابات المقفولة (قفل تسجيل الدخول — login-lock.sql) ─── */
     let _alTimer = null, _alRows = [], _alAt = 0;
+    /* ═══ لوحة المتصدرين — إدارة (profile-leaderboard.sql) ═══ */
+    let _lbaData = null;
+    function renderAdminLeaderboard(area) {
+        area = area || document.getElementById('contentArea');
+        const isAR = lang === 'AR';
+        area.innerHTML = `
+        <div class="page-header">
+            <h2>${isAR?'لوحة المتصدرين':'Leaderboard'}</h2>
+            <p>${isAR?'المستويات، تصحيح النقاط، الاستبعاد من المنافسة، والعمليات المشبوهة. النقاط = العملات المكتسبة (قيمها من إعدادات العملات الحالية).':'Levels, point corrections, exclusions and suspicious activity. Points = earned coins.'}</p>
+        </div>
+        <div id="lbaBody"><div style="text-align:center;padding:40px;color:var(--muted);"><div class="spinner" style="margin:0 auto;"></div></div></div>`;
+        loadAdminLeaderboard();
+    }
+    async function loadAdminLeaderboard() {
+        const isAR = lang === 'AR', body = document.getElementById('lbaBody'); if (!body) return;
+        try { _lbaData = await window._consultRpc('lb_admin_overview', {}); lbaDraw(); }
+        catch (e) { console.warn(e); if (document.getElementById('lbaBody')) body.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">${isAR?'تعذّر التحميل — تأكد إنك شغّلت profile-leaderboard.sql في Supabase، وإنك أدمن.':'Could not load — make sure profile-leaderboard.sql was run and you are an admin.'}</div>`; }
+    }
+    function lbaDraw() {
+        const isAR = lang === 'AR', body = document.getElementById('lbaBody'); if (!body || !_lbaData) return;
+        const d = _lbaData, box = 'background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px;';
+        const inp = 'background:rgba(148,163,184,.12);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text);font-family:inherit;font-size:13px;';
+        const btn = 'padding:9px 16px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:800;color:#04120a;background:linear-gradient(135deg,var(--green4,#34d399),var(--cs-cyan,#22d3ee));';
+        const dt = x => x ? new Date(x).toLocaleString(isAR ? 'ar-EG' : 'en-GB') : '';
+        const lv = (d.levels || []).map((l, i) => `<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;" data-lba-lv>
+            <input style="${inp}width:70px;" type="number" min="0" data-k="min" value="${+l.min || 0}" title="${isAR?'أقل نقاط':'Min points'}">
+            <input style="${inp}flex:1;min-width:110px;" data-k="ar" value="${atlEsc(l.ar || '')}" placeholder="الاسم عربي">
+            <input style="${inp}flex:1;min-width:110px;" dir="ltr" data-k="en" value="${atlEsc(l.en || '')}" placeholder="English name">
+            <button onclick="this.closest('[data-lba-lv]').remove()" style="${inp}cursor:pointer;color:#ef4444;"><i class="fa-solid fa-trash"></i></button></div>`).join('');
+        const sus = (d.suspicious || []).map(s => `<div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:12.5px;flex-wrap:wrap;"><span style="color:${s.kind === 'duplicate' ? '#ef4444' : '#f5b82e'};font-weight:800;">${s.kind === 'duplicate' ? (isAR?'تكرار':'Duplicate') : (isAR?'عمليات كتير':'Burst')}</span><span dir="ltr" style="flex:1;word-break:break-all;">${atlEsc(s.email || '')}</span><span>${s.n}× · ${s.amount}</span><span style="color:var(--muted)">${dt(s.at)}</span></div>`).join('');
+        const exc = (d.excluded || []).map(x => `<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:12.5px;flex-wrap:wrap;"><span dir="ltr" style="flex:1;word-break:break-all;">${atlEsc(x.email || x.name || '')}</span><span style="color:var(--muted);flex:1;">${atlEsc(x.reason || '')}</span><button onclick="lbaExclude('${atlJs(x.email || '')}',false)" style="${inp}cursor:pointer;">${isAR?'إرجاع':'Restore'}</button></div>`).join('');
+        const adj = (d.adjustments || []).map(a => `<div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:12.5px;flex-wrap:wrap;"><b style="color:${a.points >= 0 ? '#34d399' : '#ef4444'};min-width:48px;" dir="ltr">${a.points > 0 ? '+' : ''}${a.points}</b><span dir="ltr" style="flex:1;word-break:break-all;">${atlEsc(a.email || '')}</span><span style="flex:1;color:var(--muted);">${atlEsc(a.reason || '')}</span><span style="color:var(--muted)">${dt(a.created_at)}</span></div>`).join('');
+        const empty = `<div style="color:var(--muted);font-size:12.5px;padding:8px 0;">${isAR?'لا يوجد':'None'}</div>`;
+        body.innerHTML = `
+        <div style="${box}"><div style="font-weight:800;margin-bottom:4px;"><i class="fa-solid fa-layer-group"></i> ${isAR?'المستويات':'Levels'}</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${isAR?'أقل نقاط للمستوى + اسمه. لازم أول مستوى يبدأ من 0.':'Minimum points + name. The first level must start at 0.'}</div>
+            <div id="lbaLevels">${lv}</div>
+            <div style="display:flex;gap:8px;margin-top:6px;"><button onclick="lbaAddLevel()" style="${inp}cursor:pointer;">+ ${isAR?'مستوى':'Level'}</button><button onclick="lbaSaveLevels()" style="${btn}">${isAR?'حفظ المستويات':'Save levels'}</button></div></div>
+        <div style="${box}"><div style="font-weight:800;margin-bottom:10px;"><i class="fa-solid fa-sliders"></i> ${isAR?'تصحيح النقاط':'Adjust points'}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;"><input id="lbaAdjKey" dir="ltr" style="${inp}flex:1;min-width:170px;" placeholder="${isAR?'إيميل الطالب أو username':'Email or username'}"><input id="lbaAdjPts" type="number" style="${inp}width:100px;" placeholder="±"><input id="lbaAdjWhy" style="${inp}flex:2;min-width:170px;" placeholder="${isAR?'السبب (إجباري)':'Reason (required)'}"><button onclick="lbaAdjust()" style="${btn}">${isAR?'تنفيذ':'Apply'}</button></div>
+            <div style="font-weight:700;font-size:12.5px;margin:14px 0 2px;">${isAR?'آخر التعديلات':'Recent adjustments'}</div>${adj || empty}</div>
+        <div style="${box}"><div style="font-weight:800;margin-bottom:10px;"><i class="fa-solid fa-user-slash"></i> ${isAR?'الاستبعاد من المنافسة':'Exclude from competition'}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;"><input id="lbaExKey" dir="ltr" style="${inp}flex:1;min-width:170px;" placeholder="${isAR?'إيميل الطالب أو username':'Email or username'}"><input id="lbaExWhy" style="${inp}flex:2;min-width:170px;" placeholder="${isAR?'السبب':'Reason'}"><button onclick="lbaExclude(document.getElementById('lbaExKey').value,true)" style="${btn}">${isAR?'استبعاد':'Exclude'}</button></div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">${isAR?'الحساب والإنجازات بيفضلوا زي ما هما — بس بيختفي من الترتيب.':'Account and achievements are untouched — only hidden from rankings.'}</div>
+            <div style="margin-top:8px;">${exc || empty}</div></div>
+        <div style="${box}"><div style="font-weight:800;margin-bottom:4px;"><i class="fa-solid fa-magnifying-glass-chart"></i> ${isAR?'عمليات مشبوهة (آخر ٣٠ يوم)':'Suspicious activity (30 days)'}</div>${sus || empty}</div>`;
+    }
+    window.lbaAddLevel = function () {
+        const w = document.getElementById('lbaLevels'); if (!w) return;
+        const last = w.querySelector('[data-lba-lv]:last-child [data-k="min"]');
+        const tmp = document.createElement('div'); tmp.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;" data-lba-lv><input type="number" min="0" data-k="min" value="${(last ? +last.value : 0) + 1000}" style="width:70px;background:rgba(148,163,184,.12);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text);"><input data-k="ar" placeholder="الاسم عربي" style="flex:1;min-width:110px;background:rgba(148,163,184,.12);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text);"><input data-k="en" dir="ltr" placeholder="English name" style="flex:1;min-width:110px;background:rgba(148,163,184,.12);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text);"><button onclick="this.closest('[data-lba-lv]').remove()" style="background:rgba(148,163,184,.12);border:1px solid var(--border);border-radius:10px;padding:9px 11px;cursor:pointer;color:#ef4444;"><i class="fa-solid fa-trash"></i></button></div>`;
+        w.appendChild(tmp.firstChild);
+    };
+    window.lbaSaveLevels = async function () {
+        const isAR = lang === 'AR';
+        const L = [...document.querySelectorAll('#lbaLevels [data-lba-lv]')].map(r => ({ min: Math.max(0, parseInt(r.querySelector('[data-k=min]').value, 10) || 0), ar: r.querySelector('[data-k=ar]').value.trim(), en: r.querySelector('[data-k=en]').value.trim() }));
+        if (L.length < 2 || L.some(l => !l.ar && !l.en)) { showToast(isAR ? 'لازم مستويين على الأقل وكل مستوى له اسم' : 'At least 2 named levels', true); return; }
+        L.sort((a, b) => a.min - b.min);
+        if (L[0].min !== 0) { showToast(isAR ? 'أول مستوى لازم يبدأ من 0' : 'First level must start at 0', true); return; }
+        if (new Set(L.map(l => l.min)).size !== L.length) { showToast(isAR ? 'في مستويين بنفس النقاط' : 'Duplicate thresholds', true); return; }
+        try { await window._consultRpc('lb_admin_set_levels', { p_levels: L }); showToast(isAR ? '✓ تم حفظ المستويات' : '✓ Levels saved'); loadAdminLeaderboard(); }
+        catch (e) { console.warn(e); showToast(isAR ? 'تعذّر الحفظ' : 'Could not save', true); }
+    };
+    window.lbaAdjust = async function () {
+        const isAR = lang === 'AR', k = document.getElementById('lbaAdjKey').value.trim(), p = parseInt(document.getElementById('lbaAdjPts').value, 10), w = document.getElementById('lbaAdjWhy').value.trim();
+        if (!k || !p || w.length < 3) { showToast(isAR ? 'اكتب الطالب والنقاط والسبب (٣ حروف على الأقل)' : 'Enter user, points and a reason (3+ chars)', true); return; }
+        try { await window._consultRpc('lb_admin_adjust', { p_key: k, p_points: p, p_reason: w }); showToast(isAR ? '✓ تم التعديل' : '✓ Adjusted'); loadAdminLeaderboard(); }
+        catch (e) { console.warn(e); showToast(e && e.code === 'not-found' ? (isAR ? 'الطالب مش موجود' : 'User not found') : (isAR ? 'تعذّر التنفيذ' : 'Failed'), true); }
+    };
+    window.lbaExclude = async function (key, on) {
+        const isAR = lang === 'AR'; key = (key || '').trim();
+        if (!key) { showToast(isAR ? 'اكتب إيميل الطالب' : 'Enter a user', true); return; }
+        const why = on ? (document.getElementById('lbaExWhy') || {}).value || '' : '';
+        try { await window._consultRpc('lb_admin_exclude', { p_key: key, p_reason: why, p_on: !!on }); showToast(isAR ? '✓ تم' : '✓ Done'); loadAdminLeaderboard(); }
+        catch (e) { console.warn(e); showToast(e && e.code === 'not-found' ? (isAR ? 'الطالب مش موجود' : 'User not found') : (isAR ? 'تعذّر التنفيذ' : 'Failed'), true); }
+    };
+
     function renderAdminLocks(area) {
         area = area || document.getElementById('contentArea');
         const isAR = lang === 'AR';
@@ -15180,7 +15264,7 @@ async function csAdmShowLink(id, btn) {
 
     // Which DOM elements each permission key controls the visibility of
     const ADMIN_PERMISSION_ELEMENT_IDS = {
-        members:    ['menuAdminMembers', 'menuAdminReferrals', 'menuAdminLocks'],
+        members:    ['menuAdminMembers', 'menuAdminReferrals', 'menuAdminLocks', 'menuAdminLeaderboard'],
         pro:        ['menuAdminPro'],
         cv:         ['menuAdminCV'],
         portfolio:  ['menuAdminPortfolio'],
@@ -15210,6 +15294,7 @@ async function csAdmShowLink(id, btn) {
         admintips: 'dailytips',
         adminreviews: 'appreviews',
         adminlocks: 'members',
+        adminleaderboard: 'members',
         jobs: 'jobs', expert: 'support',
         community: 'community',
         admindailychallenges: 'dailychallenges',
@@ -15273,7 +15358,7 @@ async function csAdmShowLink(id, btn) {
         const menuExpertBtn = document.getElementById('menuExpert');
         if (menuExpertBtn) menuExpertBtn.style.display = '';
 
-        ['menuAdminMembers','menuAdminReferrals','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminReviews','menuAdminLocks','menuAdminMentorship'].forEach(id => {
+        ['menuAdminMembers','menuAdminReferrals','menuAdminPro','menuAdminCV','menuAdminPortfolio','menuAdminCourses','menuAdminLibrary','menuAdminPlaylists','menuAdminDatasets','menuAdminTools','menuAdminTips','menuAdminReviews','menuAdminLocks','menuAdminLeaderboard','menuAdminMentorship'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = '';
         });
