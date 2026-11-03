@@ -14489,7 +14489,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.3.11';
+        window.ATL_APP_VERSION = '2026.11.3.12';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
@@ -20920,6 +20920,11 @@ async function csAdmShowLink(id, btn) {
   .uc-swap { margin: 0 auto; width: 40px; height: 40px; }
   .uc-swap i { transform: rotate(90deg); }
 }
+.uc-resbox { position: relative; margin-top: 16px; }
+.uc-resbox .uc-result { margin-top: 0; padding-top: 34px; }
+.uc-ricons { position: absolute; top: 8px; inset-inline-end: 8px; display: flex; gap: 6px; z-index: 1; }
+.uc-ic { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--border2); background: rgba(127,127,127,.12); color: var(--g4); font-size: 14px; cursor: pointer; transition: all .15s; }
+.uc-ic:hover { background: rgba(var(--brand-rgb,30,122,52), .25); transform: translateY(-1px); }
 @media (prefers-reduced-motion: reduce) { .uc-card, .uc-cat, .uc-swap { animation: none; transition: none; } }
 </style>
 <script id="atl-unit-converter-js">
@@ -21229,14 +21234,6 @@ async function csAdmShowLink(id, btn) {
     $('ucCats').innerHTML = h;
   }
 
-  function typeSelect() {
-    var all = ORDER.concat(['survey']);
-    return '<select id="ucType" class="uc-in">' + all.map(function (id) {
-      var n = id === 'survey' ? T('أدوات المساحة', 'Surveying Units') : catName(id);
-      return '<option value="' + id + '"' + (S.cat === id ? ' selected' : '') + '>' + n + '</option>';
-    }).join('') + '</select>';
-  }
-
   function drawBody() {
     var h = '';
     if (S.cat === 'survey') {
@@ -21256,16 +21253,15 @@ async function csAdmShowLink(id, btn) {
   function genericPanel() {
     var id = curCatId(), sel = selOf(id), cat = CATS[id];
     return '<div class="uc-card">' +
-      '<div class="uc-top"><div class="uc-field uc-grow"><label>' + T('نوع التحويل', 'Conversion type') + '</label>' + typeSelect() + '</div>' +
-      '<div class="uc-field"><label>' + T('المنازل العشرية', 'Decimals') + '</label><select id="ucDec" class="uc-in">' + decOpts() + '</select></div></div>' +
+      '<div class="uc-top"><div class="uc-field"><label>' + T('المنازل العشرية', 'Decimals') + '</label><select id="ucDec" class="uc-in">' + decOpts() + '</select></div></div>' +
       '<div class="uc-field"><label>' + T('القيمة المراد تحويلها', 'Value to convert') + '</label>' +
       '<input id="ucVal" class="uc-in uc-big" type="text" inputmode="decimal" dir="ltr" autocomplete="off" spellcheck="false" placeholder="0" value="' + atlEscSafe(S.val) + '"></div>' +
       '<div class="uc-row"><div class="uc-field"><label>' + T('من', 'From') + '</label><select id="ucFrom" class="uc-in">' + opts(cat.units, sel.from) + '</select></div>' +
       '<button type="button" class="uc-swap" data-act="swap" title="' + T('تبديل الوحدتين', 'Swap units') + '" aria-label="' + T('تبديل الوحدتين', 'Swap units') + '"><i class="fa-solid fa-right-left"></i></button>' +
       '<div class="uc-field"><label>' + T('إلى', 'To') + '</label><select id="ucTo" class="uc-in">' + opts(cat.units, sel.to) + '</select></div></div>' +
-      '<div class="uc-result" id="ucRes"></div>' +
-      '<div class="uc-actions"><button type="button" class="uc-btn uc-btn-main" data-act="copy"><i class="fa-regular fa-copy"></i> ' + T('نسخ النتيجة', 'Copy result') + '</button>' +
-      '<button type="button" class="uc-btn" data-act="clear"><i class="fa-solid fa-eraser"></i> ' + T('مسح والبدء من جديد', 'Clear & restart') + '</button></div>' +
+      '<div class="uc-resbox"><div class="uc-result" id="ucRes"></div>' +
+      '<div class="uc-ricons"><button type="button" class="uc-ic" data-act="copy" title="' + T('نسخ النتيجة', 'Copy result') + '" aria-label="' + T('نسخ النتيجة', 'Copy result') + '"><i class="fa-regular fa-copy"></i></button>' +
+      '<button type="button" class="uc-ic" data-act="clear" title="' + T('مسح والبدء من جديد', 'Clear & restart') + '" aria-label="' + T('مسح والبدء من جديد', 'Clear & restart') + '"><i class="fa-solid fa-eraser"></i></button></div></div>' +
       '<div id="ucInfo"></div></div>';
   }
 
@@ -21284,9 +21280,9 @@ async function csAdmShowLink(id, btn) {
       '<div class="uc-row"><div class="uc-field"><label>' + (m2r ? T('وحدة المسافة على الخريطة', 'Map distance unit') : T('وحدة المسافة الحقيقية', 'Ground distance unit')) + '</label><select id="ucScaleIn" class="uc-in">' + opts(MAP_LEN, sc.inU) + '</select></div>' +
       '<button type="button" class="uc-swap" data-act="swap" title="' + T('تبديل الوحدتين', 'Swap units') + '"><i class="fa-solid fa-right-left"></i></button>' +
       '<div class="uc-field"><label>' + (m2r ? T('وحدة المسافة الحقيقية المطلوبة', 'Required ground unit') : T('وحدة المسافة على الخريطة المطلوبة', 'Required map unit')) + '</label><select id="ucScaleOut" class="uc-in">' + opts(MAP_LEN, sc.outU) + '</select></div></div>' +
-      '<div class="uc-result" id="ucRes"></div>' +
-      '<div class="uc-actions"><button type="button" class="uc-btn uc-btn-main" data-act="copy"><i class="fa-regular fa-copy"></i> ' + T('نسخ النتيجة', 'Copy result') + '</button>' +
-      '<button type="button" class="uc-btn" data-act="clear"><i class="fa-solid fa-eraser"></i> ' + T('مسح والبدء من جديد', 'Clear & restart') + '</button></div>' +
+      '<div class="uc-resbox"><div class="uc-result" id="ucRes"></div>' +
+      '<div class="uc-ricons"><button type="button" class="uc-ic" data-act="copy" title="' + T('نسخ النتيجة', 'Copy result') + '" aria-label="' + T('نسخ النتيجة', 'Copy result') + '"><i class="fa-regular fa-copy"></i></button>' +
+      '<button type="button" class="uc-ic" data-act="clear" title="' + T('مسح والبدء من جديد', 'Clear & restart') + '" aria-label="' + T('مسح والبدء من جديد', 'Clear & restart') + '"><i class="fa-solid fa-eraser"></i></button></div></div>' +
       '<div id="ucInfo"></div></div>';
   }
 
@@ -21300,9 +21296,9 @@ async function csAdmShowLink(id, btn) {
       '<div class="uc-field"><label>' + T('المنازل العشرية', 'Decimals') + '</label><select id="ucDec" class="uc-in">' + decOpts() + '</select></div></div>' +
       '<div class="uc-field"><label>' + (sl.t === 'ratio' ? T('قيمة n', 'Value of n') : T('القيمة', 'Value')) + '</label>' +
       '<input id="ucSlopeV" class="uc-in uc-big" type="text" inputmode="decimal" dir="ltr" autocomplete="off" placeholder="' + ph + '" value="' + atlEscSafe(sl.v) + '"></div>' +
-      '<div class="uc-result uc-result3" id="ucRes"></div>' +
-      '<div class="uc-actions"><button type="button" class="uc-btn uc-btn-main" data-act="copy"><i class="fa-regular fa-copy"></i> ' + T('نسخ النتيجة', 'Copy result') + '</button>' +
-      '<button type="button" class="uc-btn" data-act="clear"><i class="fa-solid fa-eraser"></i> ' + T('مسح والبدء من جديد', 'Clear & restart') + '</button></div>' +
+      '<div class="uc-resbox"><div class="uc-result uc-result3" id="ucRes"></div>' +
+      '<div class="uc-ricons"><button type="button" class="uc-ic" data-act="copy" title="' + T('نسخ النتيجة', 'Copy result') + '" aria-label="' + T('نسخ النتيجة', 'Copy result') + '"><i class="fa-regular fa-copy"></i></button>' +
+      '<button type="button" class="uc-ic" data-act="clear" title="' + T('مسح والبدء من جديد', 'Clear & restart') + '" aria-label="' + T('مسح والبدء من جديد', 'Clear & restart') + '"><i class="fa-solid fa-eraser"></i></button></div></div>' +
       '<div id="ucInfo"></div></div>';
   }
 
