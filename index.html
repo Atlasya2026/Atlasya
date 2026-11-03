@@ -4331,9 +4331,6 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                     <button class="nav-item" id="menuLeaderboard" onclick="navigate('leaderboard', this)" style="color:var(--gold4);">
                         <i class="fa-solid fa-ranking-star" style="color:var(--gold3);"></i> <span id="menuLeaderboardTxt">لوحة المتصدرين</span>
                     </button>
-                    <button class="nav-item" id="menuProfile" onclick="navigate('profile', this)">
-                        <i class="fa-solid fa-id-badge"></i> <span id="menuProfileTxt">ملفي الشخصي</span>
-                    </button>
                 </div>
 
                 <div class="nav-section collapsible" style="margin-top:8px;">
@@ -7700,7 +7697,6 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuDailyChallengeTxt: 'التحديات',
                 menuWheelTxt: 'عجلة الحظ',
                 menuLeaderboardTxt: 'لوحة المتصدرين',
-                menuProfileTxt: 'ملفي الشخصي',
                 txtTopbarLogout: 'خروج',
                 txtTopbarLogoutDesk: 'خروج',
                 sideUserRole: 'عضو',
@@ -7734,7 +7730,6 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuDailyChallengeTxt: 'Challenges',
                 menuWheelTxt: 'Fortune Wheel',
                 menuLeaderboardTxt: 'Leaderboard',
-                menuProfileTxt: 'My Profile',
                 txtTopbarLogout: 'Logout',
                 txtTopbarLogoutDesk: 'Logout',
                 sideUserRole: 'Member',
@@ -8362,7 +8357,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             account: 'menuAccount', achievements: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
             adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro',
             adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
-            dailychallenge: 'menuDailyChallenge', wheel: 'menuWheel', leaderboard: 'menuLeaderboard', profile: 'menuProfile'
+            dailychallenge: 'menuDailyChallenge', wheel: 'menuWheel', leaderboard: 'menuLeaderboard', profile: 'menuAccount'
         };
 
         /* Reflects the current page in the URL as #/page-name so every page has
@@ -14386,7 +14381,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.4.4';
+        window.ATL_APP_VERSION = '2026.11.3.6';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
@@ -16562,7 +16557,7 @@ async function csAdmShowLink(id, btn) {
                         <div class="settings-hub-icon"><i class="fa-solid fa-id-card"></i></div>
                         <div class="settings-hub-text">
                             <div class="settings-hub-title">${isAR?'بياناتي الشخصية':'Personal Information'}</div>
-                            <div class="settings-hub-desc">${isAR?'الاسم، الصورة، البيانات الأكاديمية':'Name, photo, and academic details'}</div>
+                            <div class="settings-hub-desc">${isAR?'الاسم، الصورة، البيانات الأكاديمية، ملفي الشخصي':'Name, photo, academic details, my profile'}</div>
                         </div>
                         <i class="fa-solid fa-${isAR?'angle-left':'angle-right'} settings-hub-arrow"></i>
                     </div>
@@ -16649,6 +16644,14 @@ async function csAdmShowLink(id, btn) {
                     <p>${isAR?'إدارة بياناتك ومعلومات الحساب':'Manage your personal info and account settings'}</p>
                 </div>
                 ${backBtn}
+                <div class="settings-hub-item" onclick="navigate('profile', document.getElementById('menuAccount'))" style="margin-bottom:16px;background:var(--card);border:1px solid var(--gold3);border-radius:16px;">
+                    <div class="settings-hub-icon"><i class="fa-solid fa-id-badge"></i></div>
+                    <div class="settings-hub-text">
+                        <div class="settings-hub-title">${isAR?'ملفي الشخصي':'My Profile'}</div>
+                        <div class="settings-hub-desc">${isAR?'نقاطك ومستواك وإنجازاتك ورابطك العام للمشاركة':'Your points, level, achievements and public link'}</div>
+                    </div>
+                    <i class="fa-solid fa-${isAR?'angle-left':'angle-right'} settings-hub-arrow"></i>
+                </div>
                 <div class="account-grid">
                     <div class="profile-card">
                         <div class="avatar-xl" id="avatarXl" ${avatarStyle} onclick="document.getElementById('imageInput').click()">
@@ -20533,7 +20536,7 @@ async function csAdmShowLink(id, btn) {
     return `<span class="lbp-av" style="${st}">${esc((name || '?').trim()[0] || '?')}</span>`;
   }
   const profLink = (r) => (r.username ? 'profile/' + r.username : (r.user_id === window._currentUid ? 'profile' : ''));
-  window.atlOpenProfile = (p) => { if (p) navigate(p, document.getElementById('menuProfile') || undefined); };
+  window.atlOpenProfile = (p) => { if (p) navigate(p, document.getElementById('menuAccount') || undefined); };
   const errTxt = (e) => ({ 'not-found': T('الملف ده مش موجود', 'Profile not found'), 'bad-username': T('اسم المستخدم: ٣–٢٠ حرف إنجليزي صغير/أرقام/_ فقط', 'Username: 3–20 lowercase letters, digits or _'), 'username-taken': T('اسم المستخدم ده مأخوذ، جرّب غيره', 'That username is taken'), 'reserved-username': T('اسم المستخدم ده محجوز', 'That username is reserved') }[(e && e.code) || ''] || null);
 
   /* ═══════════════ لوحة المتصدرين ═══════════════ */
@@ -20666,7 +20669,7 @@ async function csAdmShowLink(id, btn) {
           <span class="lbp-lv" style="font-size:12.5px;padding:4px 12px">⭐ ${esc(lv.name)}</span>
           ${p.bio ? `<p style="margin:10px 0 0;line-height:1.8;font-size:13.5px;white-space:pre-wrap;word-break:break-word">${esc(p.bio)}</p>` : (me ? `<p style="margin:10px 0 0;color:var(--muted);font-size:13px">${T('أضف نبذة تعريفية عنك…', 'Add an About Me…')}</p>` : '')}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${chips}</div>
-          ${me ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="lbp-btn gold" onclick="atlEditProfile()"><i class="fa-solid fa-pen"></i> ${T('تعديل الملف', 'Edit profile')}</button><button class="lbp-btn" onclick="goSettings('hub')"><i class="fa-solid fa-camera"></i> ${T('تغيير الصورة', 'Change photo')}</button>${p.is_public ? '' : `<span class="lbp-chip">🔒 ${T('ملفك خاص', 'Private')}</span>`}</div>` : ''}
+          ${me ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="lbp-btn gold" onclick="atlEditProfile()"><i class="fa-solid fa-pen"></i> ${T('تعديل الملف', 'Edit profile')}</button><button class="lbp-btn" onclick="goSettings('profile')"><i class="fa-solid fa-camera"></i> ${T('تغيير الصورة', 'Change photo')}</button>${p.is_public ? '' : `<span class="lbp-chip">🔒 ${T('ملفك خاص', 'Private')}</span>`}</div>` : ''}
           ${share}</div></div></div>
       <div class="lbp-grid">
         ${stat('fa-star', num(p.points), T('إجمالي النقاط', 'Total points'))}${stat('fa-layer-group', esc(lv.name), T('المستوى', 'Level'))}
@@ -20722,7 +20725,7 @@ async function csAdmShowLink(id, btn) {
         await rpc('set_my_profile', { p_username: uname, p_university: document.getElementById('pfeUni').value, p_major: document.getElementById('pfeMajor').value, p_public: document.getElementById('pfePub').checked });
         try { if (window._saveProfileExtras) await window._saveProfileExtras({ bio: document.getElementById('pfeBio').value.trim().slice(0, 300), academicLevel: document.getElementById('pfeLvl').value, job: document.getElementById('pfeJob').value.trim() }); } catch (e2) { console.warn('extras:', e2); }
         o.remove(); toast(T('✓ تم حفظ ملفك', '✓ Profile saved'));
-        if ((window._currentPage || '').indexOf('profile') === 0) { navigate('profile', document.getElementById('menuProfile') || undefined, false, true); }
+        if ((window._currentPage || '').indexOf('profile') === 0) { navigate('profile', document.getElementById('menuAccount') || undefined, false, true); }
       } catch (e) { console.warn(e); err.textContent = errTxt(e) || T('تعذّر الحفظ، حاول تاني', 'Could not save'); b.disabled = false; b.textContent = T('حفظ', 'Save'); }
     };
   }
