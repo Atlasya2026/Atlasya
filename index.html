@@ -4428,6 +4428,9 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                         <button class="nav-item" id="menuUnits" onclick="navigate('unitconverter', this)">
                             <i class="fa-solid fa-ruler-combined"></i> <span id="menuUnitsTxt">محول الوحدات</span>
                         </button>
+                        <button class="nav-item" id="menuFormulas" onclick="navigate('unitformulas', this)">
+                            <i class="fa-solid fa-square-root-variable"></i> <span id="menuFormulasTxt">معادلات التحويل</span>
+                        </button>
                         <div class="nav-soon" style="padding:12px 16px;display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);cursor:default;"><i class="fa-solid fa-hourglass-half" style="color:var(--gold3);"></i> <span id="navSoonTxt">قريباً</span></div>
                     </div>
                 </div>
@@ -7744,6 +7747,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuDataTxt: 'البيانات المكانية',
                 menuToolTxt: 'أدوات البرامج',
                 menuUnitsTxt: 'محول الوحدات',
+                menuFormulasTxt: 'معادلات التحويل',
                 menuJobTxt: 'لوحة الوظائف',
                 menuCourseTxt: 'الكورسات',
                 menuConnectTxt: 'سوشيال ميديا',
@@ -7778,6 +7782,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuDataTxt: 'Spatial Datasets',
                 menuToolTxt: 'GIS Software',
                 menuUnitsTxt: 'Unit Converter',
+                menuFormulasTxt: 'Conversion Formulas',
                 menuJobTxt: 'Job Board',
                 menuCourseTxt: 'Courses',
                 menuConnectTxt: 'Social Media',
@@ -8342,7 +8347,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 if (editBtn) editBtn.style.display = 'none';
 
                 // Restore hidden nav items
-                const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuUnits','menuCourse','menuConnect','menuCV','menuPortfolio','menuMentorship'];
+                const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuUnits','menuFormulas','menuCourse','menuConnect','menuCV','menuPortfolio','menuMentorship'];
                 adminHideItems.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.style.display = '';
@@ -8416,7 +8421,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
            or browser back/forward), where no click event/element is available. */
         const PAGE_NAV_ID_MAP = {
             dashboard: 'menuDash', playlists: 'menuPlay', library: 'menuLib',
-            insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool', unitconverter: 'menuUnits',
+            insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool', unitconverter: 'menuUnits', unitformulas: 'menuFormulas',
             jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
             community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
             account: 'menuAccount', achievements: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
@@ -8470,6 +8475,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 datasets:  lang==='AR'?'البيانات المكانية':'Spatial Datasets',
                 tools:     lang==='AR'?'أدوات البرامج':'GIS Software Tools',
                 unitconverter: lang==='AR'?'محول الوحدات والقياسات':'Unit Converter',
+                unitformulas: lang==='AR'?'معادلات التحويل':'Conversion Formulas',
                 jobs:      lang==='AR'?'لوحة الوظائف':'Job Board',
                 courses:   lang==='AR'?'الكورسات':'Courses',
                 expert:    lang==='AR'?'الدعم الفني':'Technical Support',
@@ -8521,6 +8527,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             else if (page === 'insights') renderInsights(area);
             else if (page === 'tools') renderTools(area);
             else if (page === 'unitconverter' && window.renderUnitConverter) window.renderUnitConverter(area);
+            else if (page === 'unitformulas' && window.renderUnitFormulas) window.renderUnitFormulas(area);
             else if (page === 'community') renderCommunity(area);
             else if (page === 'jobs') renderJobs(area);
             else if (page === 'cvbuilder') renderCVBuilder(area);
@@ -14489,7 +14496,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.3.12';
+        window.ATL_APP_VERSION = '2026.11.3.13';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
@@ -19259,7 +19266,7 @@ async function csAdmShowLink(id, btn) {
                 });
 
                 // Hide nav items not relevant for admin
-                const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuUnits','menuCourse','menuConnect','menuCV','menuPortfolio','menuMentorship'];
+                const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuUnits','menuFormulas','menuCourse','menuConnect','menuCV','menuPortfolio','menuMentorship'];
                 adminHideItems.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.style.display = 'none';
@@ -20925,6 +20932,16 @@ async function csAdmShowLink(id, btn) {
 .uc-ricons { position: absolute; top: 8px; inset-inline-end: 8px; display: flex; gap: 6px; z-index: 1; }
 .uc-ic { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--border2); background: rgba(127,127,127,.12); color: var(--g4); font-size: 14px; cursor: pointer; transition: all .15s; }
 .uc-ic:hover { background: rgba(var(--brand-rgb,30,122,52), .25); transform: translateY(-1px); }
+.uc-ftitle { font-size: 15px; }
+.uc-tblwrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin-top: 8px; }
+.uc-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.uc-tbl th, .uc-tbl td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: start; white-space: nowrap; }
+.uc-tbl thead th { background: rgba(var(--brand-rgb,30,122,52), .14); font-weight: 800; position: sticky; top: 0; }
+.uc-tbl tbody tr:nth-child(even) { background: rgba(127,127,127,.05); }
+.uc-mx th:first-child, .uc-mx tbody th { background: rgba(var(--brand-rgb,30,122,52), .1); position: sticky; inset-inline-start: 0; }
+.uc-mx .uc-diag { color: var(--gold3); font-weight: 800; }
+.uc-ex { margin: 6px 0 0; padding-inline-start: 22px; font-size: 13px; color: var(--muted); line-height: 1.9; }
+.uc-ex li { list-style: disc; }
 @media (prefers-reduced-motion: reduce) { .uc-card, .uc-cat, .uc-swap { animation: none; transition: none; } }
 </style>
 <script id="atl-unit-converter-js">
@@ -21014,7 +21031,7 @@ async function csAdmShowLink(id, btn) {
       ex: [['1', 'mi', 'km'], ['100', 'ft', 'm'], ['1', 'nmi', 'km'], ['5', 'in', 'cm']] },
     area: { icon: 'fa-vector-square', ar: 'المساحات', en: 'Area', units: AREA, neg: false, def: ['m2', 'feddan'],
       ex: [['1', 'feddan', 'm2'], ['5', 'qirat', 'm2'], ['10', 'ha', 'feddan'], ['1', 'acre', 'm2']] },
-    volume: { icon: 'fa-cube', ar: 'الحجوم', en: 'Volume', units: VOLUME, neg: false, def: ['m3', 'L'],
+    volume: { icon: 'fa-cube', ar: 'الأحجام', en: 'Volume', units: VOLUME, neg: false, def: ['m3', 'L'],
       ex: [['1', 'galus', 'L'], ['1', 'galuk', 'L'], ['1', 'm3', 'L'], ['1', 'ft3', 'L']] },
     mass: { icon: 'fa-weight-hanging', ar: 'الكتل والأوزان', en: 'Mass & Weight', units: MASS, neg: false, def: ['kg', 'lb'],
       ex: [['1', 'lb', 'kg'], ['1', 't', 'kg'], ['16', 'oz', 'lb']] },
@@ -21220,7 +21237,7 @@ async function csAdmShowLink(id, btn) {
     area.innerHTML = ''; area.appendChild(root);
     root.innerHTML =
       '<div class="page-header"><h2>' + T('📏 محول الوحدات والقياسات', '📏 Unit Converter') + '</h2>' +
-      '<p>' + T('ATLASYA Unit Converter — مكان واحد لتحويل الأطوال والمساحات (بالفدان والقيراط والسهم) والحجوم والكتل والزمن والسرعة والحرارة والزوايا، مع أدوات خاصة بالمساحة.',
+      '<p>' + T('ATLASYA Unit Converter — مكان واحد لتحويل الأطوال والمساحات (بالفدان والقيراط والسهم) والأحجام والكتل والزمن والسرعة والحرارة والزوايا، مع أدوات خاصة بالمساحة.',
         'ATLASYA Unit Converter — one place to convert length, area (incl. Egyptian Feddan/Qirat/Sahm), volume, mass, time, speed, temperature and angles, plus surveying tools.') + '</p></div>' +
       '<div class="uc-cats" id="ucCats"></div><div id="ucBody"></div>';
     bind(root); drawCats(); drawBody();
@@ -21491,6 +21508,78 @@ async function csAdmShowLink(id, btn) {
     return CATS[id].ex.map(function (e) { return ['g', { cat: id, v: e[0], from: e[1], to: e[2] }]; });
   }
 
+  /* ───────────── صفحة المعادلات (للمراجعة) — مولّدة من نفس بيانات الأداة بالظبط ───────────── */
+  var BASE = { length: 'm', area: 'm²', volume: 'm³', mass: 'kg', time: 's', speed: 'm/s', angle: '°' };
+  var DEFN = {
+    length: { km: '1000 m', m: '—', dm: '0.1 m', cm: '0.01 m', mm: '0.001 m', um: '10⁻⁶ m', nm: '10⁻⁹ m', mi: '5280 ft = 1609.344 m', yd: '3 ft = 0.9144 m', ft: '12 in = 0.3048 m', 'in': '0.0254 m', nmi: '1852 m' },
+    area: { km2: '(1000 m)²', ha: '(100 m)² = 10⁴ m²', are: '(10 m)² = 100 m²', m2: '—', dm2: '(0.1 m)²', cm2: '(0.01 m)²', mm2: '(0.001 m)²',
+      feddan: '333⅓ × (3.55 m)² = 4200.8333… m²', qirat: 'feddan ÷ 24', sahm: 'qirat ÷ 24 = feddan ÷ 576',
+      mi2: '(1609.344 m)²', yd2: '(0.9144 m)²', ft2: '(0.3048 m)²', in2: '(0.0254 m)²', acre: '43,560 ft² = 4840 yd²' },
+    volume: { km3: '(1000 m)³', m3: '—', dm3: '(0.1 m)³ = 10⁻³ m³', L: '1 dm³', mL: '1 cm³', cm3: '(0.01 m)³', mm3: '(0.001 m)³',
+      galus: '231 in³ = 3.785411784 L', galuk: '4.54609 L', ft3: '(0.3048 m)³', in3: '(0.0254 m)³' },
+    mass: { t: '1000 kg', kg: '—', g: '10⁻³ kg', mg: '10⁻⁶ kg', ug: '10⁻⁹ kg', lb: '0.45359237 kg', oz: 'lb ÷ 16' },
+    time: { s: '—', min: '60 s', h: '60 min', d: '24 h', wk: '7 d', mo: '30 d (' + 'convention' + ')', yr: '365 d (' + 'convention' + ')' },
+    speed: { ms: '—', kmh: '1000 m ÷ 3600 s', mph: '1609.344 m ÷ 3600 s', kn: '1852 m ÷ 3600 s' },
+    angle: { deg: '—', rad: '180/π °', gon: '0.9°  (400 gon = 360°)', arcmin: '1/60 °', arcsec: '1/3600 °' }
+  };
+
+  function fTable(id) {
+    var cat = CATS[id], base = BASE[id], rows = cat.units.map(function (u) {
+      return '<tr><td>' + (isAR() ? u.ar : u.en) + '</td><td dir="ltr">' + atlEscSafe(u.sym) + '</td><td dir="ltr">' + (u.f === 1 && DEFN[id][u.k] === '—' ? T('الوحدة الأساسية', 'base unit') : '1 ' + atlEscSafe(u.sym) + ' = ' + fmt(u.f, 'auto') + ' ' + base) + '</td><td dir="ltr">' + atlEscSafe(DEFN[id][u.k] || '') + '</td></tr>';
+    }).join('');
+    return '<div class="uc-tblwrap"><table class="uc-tbl"><thead><tr><th>' + T('الوحدة', 'Unit') + '</th><th>' + T('الرمز', 'Symbol') + '</th><th>' + T('القيمة بالوحدة الأساسية', 'Value in base unit') + ' (' + base + ')</th><th>' + T('التعريف', 'Definition') + '</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+  function fMatrix(id) {
+    var L = CATS[id].units;
+    var head = '<tr><th>1 ↓ / →</th>' + L.map(function (u) { return '<th dir="ltr">' + atlEscSafe(u.sym) + '</th>'; }).join('') + '</tr>';
+    var body = L.map(function (a) {
+      return '<tr><th dir="ltr">1 ' + atlEscSafe(a.sym) + '</th>' + L.map(function (b) { return '<td dir="ltr"' + (a.k === b.k ? ' class="uc-diag"' : '') + '>' + fmt(a.f / b.f, 'auto') + '</td>'; }).join('') + '</tr>';
+    }).join('');
+    return '<details class="uc-det"><summary>' + T('جدول التحويل الكامل (1 وحدة من الصف = كام وحدة من العمود)', 'Full conversion matrix (1 row unit = how many column units)') + '</summary><div class="uc-tblwrap"><table class="uc-tbl uc-mx"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div></details>';
+  }
+  function fExamples(id) {
+    var out = CATS[id].ex.slice(0, 3).map(function (e) {
+      var c = convert(id, parseNum(e[0]).v, e[1], e[2], 'auto');
+      return c.err ? '' : '<li dir="ltr">' + fmt(parseNum(e[0]).v, 'auto') + ' ' + atlEscSafe(c.uf.sym) + ' = ' + fmt(c.r, 'auto') + ' ' + atlEscSafe(c.ut.sym) + '</li>';
+    }).join('');
+    return '<div class="uc-sec-title" style="margin-top:12px">' + T('أمثلة محسوبة', 'Computed examples') + '</div><ul class="uc-ex">' + out + '</ul>';
+  }
+  function fCard(icon, title, inner) {
+    return '<div class="uc-card"><div class="uc-sec-title uc-ftitle"><i class="fa-solid ' + icon + '"></i> ' + title + '</div>' + inner + '</div>';
+  }
+  var GEN = T('النتيجة = القيمة × (عامل الوحدة الأصلية ÷ عامل الوحدة المطلوبة)', 'Result = value × (source-unit factor ÷ target-unit factor)');
+
+  function renderFormulas(area) {
+    var root = document.createElement('div'); root.className = 'uc-wrap'; root.id = 'ucFormulas';
+    var h = '<div class="page-header"><h2>' + T('🧮 معادلات التحويل', '🧮 Conversion Formulas') + '</h2>' +
+      '<p>' + T('كل المعادلات وعوامل التحويل المستخدمة في محول الوحدات للمراجعة. الصفحة دي بتتولّد من نفس بيانات الأداة، فأي قيمة هنا هي نفس القيمة اللي بيحسب بيها المحول.',
+        'All formulas and factors used by the Unit Converter, for review. This page is generated from the same data the converter uses, so every value here is exactly what the tool calculates with.') + '</p></div>';
+    h += '<div class="uc-card"><div class="uc-sec-title uc-ftitle"><i class="fa-solid fa-square-root-variable"></i> ' + T('القاعدة العامة', 'General rule') + '</div>' +
+      '<div class="uc-formula" dir="ltr">' + atlEscSafe(GEN) + '</div>' +
+      '<div class="uc-note"><i class="fa-solid fa-circle-info"></i> ' + T('كل وحدة ليها عامل نسبةً لوحدة أساسية (متر، م²، م³، كجم، ثانية، م/ث، درجة). الحساب بيتم بدقة كاملة والتقريب بيحصل عند العرض بس. القيم المعرّفة (البوصة، القدم، الياردة، الميل، الرطل، الجالون...) دقيقة بالتعريف.',
+        'Every unit has a factor relative to a base unit (m, m², m³, kg, s, m/s, degree). Calculation uses full precision; rounding happens only at display. Defined values (inch, foot, yard, mile, pound, gallon…) are exact by definition.') + '</div></div>';
+    ORDER.forEach(function (id) {
+      var cat = CATS[id], inner;
+      if (cat.kind === 'temp') {
+        inner = '<div class="uc-tblwrap"><table class="uc-tbl"><thead><tr><th>' + T('من ← إلى', 'From → To') + '</th><th>' + T('المعادلة', 'Formula') + '</th></tr></thead><tbody>' +
+          ['C>F', 'F>C', 'C>K', 'K>C', 'F>K', 'K>F'].map(function (k) { return '<tr><td dir="ltr">' + k.replace('>', ' → ').replace(/([CFK])/g, function (m) { return m === 'K' ? 'K' : '°' + m; }) + '</td><td dir="ltr">' + TEMP_FORMULA[k] + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+          '<div class="uc-note"><i class="fa-solid fa-circle-info"></i> ' + T('الحرارة مش بتتحول بمعامل ضرب ثابت لأن فيها إزاحة (offset). الأداة بتحوّل دايمًا عن طريق سيلسيوس. الصفر المطلق = −273.15 °C = 0 K = −459.67 °F، وأي قيمة أقل منه بتترفض.',
+            'Temperature is not a pure multiplication (it has an offset). The tool always converts via Celsius. Absolute zero = −273.15 °C = 0 K = −459.67 °F; lower values are rejected.') + '</div>' + fExamples(id);
+      } else {
+        inner = fTable(id) + fMatrix(id) + fExamples(id) + noteHTML(id, cat.units.map(function (u) { return u.k; }));
+        if (id === 'angle') inner += '<div class="uc-formula" dir="ltr" style="margin-top:10px">DMS: d = ⌊x⌋ ; m = ⌊(x − d) × 60⌋ ; s = ((x − d) × 60 − m) × 60</div>';
+      }
+      h += fCard(cat.icon, catName(id), inner);
+    });
+    /* أدوات المساحة */
+    var sv = '<div class="uc-formula" dir="ltr">' + T('مقياس الخريطة 1:N', 'Map scale 1:N') + '<br>' + T('المسافة الحقيقية = المسافة على الخريطة × N', 'Real distance = map distance × N') + '<br>' + T('المسافة على الخريطة = المسافة الحقيقية ÷ N', 'Map distance = real distance ÷ N') + '</div>' +
+      '<div class="uc-formula" dir="ltr" style="margin-top:10px">' + T('الميل', 'Slope') + '<br>% = tan(θ) × 100 &nbsp;|&nbsp; θ = arctan(% ÷ 100) &nbsp;|&nbsp; 1 : n ⇒ % = 100 ÷ n</div>' +
+      '<ul class="uc-ex"><li dir="ltr">1:50,000 — 5 cm = 2.5 km</li><li dir="ltr">10 % = ' + fmt(Math.atan(0.1) * 180 / Math.PI, 'auto') + '° = 1 : 10</li><li dir="ltr">45° = ' + fmt(Math.tan(Math.PI / 4) * 100, 'auto') + ' % = 1 : 1</li></ul>' +
+      '<div class="uc-note"><i class="fa-solid fa-circle-info"></i> ' + T('المسافات والمساحات في "أدوات المساحة" بتستخدم نفس عوامل الأطوال والمساحات فوق (مع القدم المساحي الأمريكي = 1200/3937 م).', 'Distances and areas in "Surveying Units" use the same length/area factors above (plus the US survey foot = 1200/3937 m).') + '</div>';
+    h += fCard('fa-satellite-dish', T('أدوات المساحة', 'Surveying Units'), sv);
+    root.innerHTML = h; area.innerHTML = ''; area.appendChild(root);
+  }
+  window.renderUnitFormulas = renderFormulas;
   window.renderUnitConverter = render;
 })();
 </script>
