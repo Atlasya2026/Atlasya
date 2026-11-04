@@ -4431,6 +4431,9 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                         <button class="nav-item" id="menuUnits" onclick="navigate('unitconverter', this)">
                             <i class="fa-solid fa-ruler-combined"></i> <span id="menuUnitsTxt">محول وحدات القياس</span>
                         </button>
+                        <button class="nav-item" id="menuLevel" onclick="navigate('levelingcalc', this)">
+                            <i class="fa-solid fa-ruler-vertical"></i> <span id="menuLevelTxt">حاسبة الميزانية المساحية</span>
+                        </button>
                         <div class="nav-soon" style="padding:12px 16px;display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);cursor:default;"><i class="fa-solid fa-hourglass-half" style="color:var(--gold3);"></i> <span id="navSoonTxt">قريباً</span></div>
                     </div>
                 </div>
@@ -7565,6 +7568,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuDataTxt: 'البيانات المكانية',
                 menuToolTxt: 'أدوات البرامج',
                 menuUnitsTxt: 'محول وحدات القياس',
+                menuLevelTxt: 'حاسبة الميزانية المساحية',
                 menuJobTxt: 'لوحة الوظائف',
                 menuCourseTxt: 'الكورسات',
                 menuConnectTxt: 'سوشيال ميديا',
@@ -7599,6 +7603,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuDataTxt: 'Spatial Datasets',
                 menuToolTxt: 'GIS Software',
                 menuUnitsTxt: 'Measurement Unit Converter',
+                menuLevelTxt: 'Leveling Calculator',
                 menuJobTxt: 'Job Board',
                 menuCourseTxt: 'Courses',
                 menuConnectTxt: 'Social Media',
@@ -8237,7 +8242,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
            or browser back/forward), where no click event/element is available. */
         const PAGE_NAV_ID_MAP = {
             dashboard: 'menuDash', playlists: 'menuPlay', library: 'menuLib',
-            insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool', unitconverter: 'menuUnits',
+            insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool', unitconverter: 'menuUnits', levelingcalc: 'menuLevel',
             jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
             community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
             account: 'menuAccount', achievements: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
@@ -8291,6 +8296,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 datasets:  lang==='AR'?'البيانات المكانية':'Spatial Datasets',
                 tools:     lang==='AR'?'أدوات البرامج':'GIS Software Tools',
                 unitconverter: lang==='AR'?'محول الوحدات والقياسات':'Unit Converter',
+                levelingcalc: lang==='AR'?'حاسبة الميزانية المساحية':'Leveling Calculator',
                 jobs:      lang==='AR'?'لوحة الوظائف':'Job Board',
                 courses:   lang==='AR'?'الكورسات':'Courses',
                 expert:    lang==='AR'?'الدعم الفني':'Technical Support',
@@ -8342,6 +8348,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             else if (page === 'insights') renderInsights(area);
             else if (page === 'tools') renderTools(area);
             else if (page === 'unitconverter' && window.renderUnitConverter) window.renderUnitConverter(area);
+            else if (page === 'levelingcalc' && window.renderLevelingCalc) window.renderLevelingCalc(area);
             else if (page === 'community') renderCommunity(area);
             else if (page === 'jobs') renderJobs(area);
             else if (page === 'cvbuilder') renderCVBuilder(area);
@@ -21620,5 +21627,995 @@ body.light-mode .guest-auth a{background:rgba(0,0,0,.04)}
 })();
 </script>
 
+
+<!-- ATLASYA Leveling Calculator (حاسبة الميزانية المساحية) — أداة مستقلة، كل كلاساتها lv- ومش بتلمس أي كود تاني -->
+<style id="atl-leveling-css">
+/* ATLASYA Leveling Calculator — كل الكلاسات بتبدأ بـ lv- عشان متتعارضش مع أي ستايل موجود */
+.lv-wrap { max-width: 1180px; margin: 0 auto; }
+.lv-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r, 14px); padding: 18px; margin-bottom: 14px; animation: fadeUp .3s ease both; }
+.lv-card-t { font-weight: 800; font-size: 15px; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.lv-card-t i { color: var(--g4); }
+.lv-count { background: rgba(var(--brand-rgb,30,122,52), .18); color: var(--gold3); border-radius: 999px; padding: 1px 10px; font-size: 12px; }
+.lv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.lv-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lv-field > label { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.lv-in { width: 100%; box-sizing: border-box; padding: 10px 12px; background: rgba(127,127,127,.09); border: 1px solid var(--border2); border-radius: 10px; color: var(--text); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.lv-in:focus { border-color: var(--g4); box-shadow: 0 0 0 3px rgba(var(--brand-rgb,30,122,52), .18); }
+.lv-in:disabled { opacity: .5; }
+.lv-in option { background: var(--bg2); color: var(--text); }
+.lv-in-s { width: 70px; padding: 6px 8px; }
+.lv-chk { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); cursor: pointer; margin-top: 2px; }
+.lv-chk input { accent-color: var(--g4); }
+.lv-actions { margin-top: 14px; }
+.lv-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 15px; background: var(--card); border: 1px solid var(--border2); border-radius: 10px; color: var(--text); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: transform .12s, border-color .15s, background .15s; }
+.lv-btn:hover:not(:disabled) { border-color: var(--g4); transform: translateY(-1px); }
+.lv-btn:disabled { opacity: .4; cursor: not-allowed; }
+.lv-btn-pri { background: linear-gradient(135deg, var(--g3), var(--g2)); border-color: transparent; color: #fff; }
+.lv-btn-danger { background: #c0392b; border-color: transparent; color: #fff; }
+.lv-flip { transform: scaleX(-1); }
+html[dir="ltr"] .lv-flip, [dir="ltr"] .lv-flip { transform: none; }
+.lv-ex { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lv-ex-l { font-size: 12.5px; color: var(--muted); font-weight: 700; }
+.lv-ex-l i { color: var(--gold3); }
+.lv-chip { padding: 7px 13px; background: rgba(var(--brand-rgb,30,122,52), .1); border: 1px solid var(--border2); border-radius: 999px; color: var(--text); font-family: inherit; font-size: 12.5px; cursor: pointer; transition: background .15s; }
+.lv-chip:hover { background: rgba(var(--brand-rgb,30,122,52), .24); }
+.lv-note { padding: 11px 14px; border-radius: 12px; font-size: 13px; line-height: 1.7; margin-bottom: 14px; display: flex; gap: 9px; align-items: flex-start; }
+.lv-note-warn { background: rgba(212,160,23,.1); border: 1px solid rgba(212,160,23,.35); color: var(--text); }
+.lv-note i { margin-top: 3px; color: var(--gold3); }
+.lv-empty { padding: 26px 10px; text-align: center; color: var(--muted); font-size: 13.5px; }
+
+/* قائمة الدفاتر */
+.lv-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.lv-book { display: flex; align-items: stretch; background: rgba(127,127,127,.06); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; transition: border-color .15s; }
+.lv-book:hover { border-color: var(--g4); }
+.lv-book-main { flex: 1; min-width: 0; text-align: start; background: none; border: none; padding: 14px; color: var(--text); font-family: inherit; cursor: pointer; }
+.lv-book-name { font-weight: 800; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-book-sub { font-size: 12.5px; color: var(--muted); margin: 3px 0 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-book-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; color: var(--muted); }
+.lv-book-meta i { color: var(--g4); margin-inline-end: 3px; }
+.lv-book-date { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+.lv-bs { font-weight: 800; }
+.lv-bs-ok { color: #27ae60; } .lv-bs-bad { color: #e74c3c; } .lv-bs-incomplete { color: var(--gold3); }
+.lv-book-btns { display: flex; flex-direction: column; border-inline-start: 1px solid var(--border); }
+.lv-ibtn { flex: 1; width: 42px; background: none; border: none; border-bottom: 1px solid var(--border); color: var(--muted); cursor: pointer; font-size: 13px; transition: background .15s, color .15s; }
+.lv-ibtn:last-child { border-bottom: none; }
+.lv-ibtn:hover { background: rgba(var(--brand-rgb,30,122,52), .15); color: var(--text); }
+.lv-ibtn-del:hover { background: rgba(231,76,60,.18); color: #e74c3c; }
+
+/* المحرر */
+.lv-topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+.lv-name { flex: 1 1 220px; font-weight: 800; font-size: 16px; }
+.lv-state { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.lv-st-ok { color: #27ae60; } .lv-st-warn { color: var(--gold3); } .lv-st-bad { color: #e74c3c; }
+.lv-grid-meta { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.lv-meta > summary { cursor: pointer; list-style: none; margin-bottom: 0; }
+.lv-meta > summary::-webkit-details-marker { display: none; }
+.lv-meta[open] > summary { margin-bottom: 14px; }
+.lv-chev { margin-inline-start: auto; transition: transform .2s; color: var(--muted) !important; }
+.lv-meta[open] .lv-chev { transform: rotate(180deg); }
+.lv-methodcard { padding: 12px 16px; }
+.lv-methodrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.lv-seg { display: inline-flex; background: rgba(127,127,127,.1); border: 1px solid var(--border2); border-radius: 999px; padding: 3px; }
+.lv-segb { padding: 8px 15px; border: none; background: none; border-radius: 999px; color: var(--text); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.lv-segb.on { background: linear-gradient(135deg, var(--g3), var(--g2)); color: #fff; }
+.lv-formula { font-size: 12px; color: var(--muted); font-family: 'Courier New', monospace; flex: 1 1 260px; }
+.lv-dec { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.lv-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.lv-sp { flex: 1; }
+
+/* الجدول — بيتّسع على العرض بدون تمرير أفقي، وعلى الموبايل بيتحول لبطاقات */
+.lv-tablewrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--r, 14px); overflow: hidden; }
+.lv-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.lv-table th { padding: 8px 4px; background: rgba(var(--brand-rgb,30,122,52), .16); color: var(--text); font-weight: 800; font-size: 12.5px; border-bottom: 1px solid var(--border2); text-align: center; }
+.lv-table th small { display: block; font-weight: 500; font-size: 10px; color: var(--muted); }
+.lv-th-n { width: 56px; } .lv-th-a { width: 108px; } .lv-th-st { width: 14%; } .lv-th-rm { width: 14%; }
+.lv-table td { padding: 3px 3px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: center; }
+.lv-cell { width: 100%; box-sizing: border-box; padding: 8px 6px; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text); font-family: inherit; font-size: 13.5px; text-align: center; outline: none; transition: background .12s, border-color .12s; }
+.lv-td-st .lv-cell, .lv-td-rm .lv-cell { text-align: start; }
+.lv-cell:hover { background: rgba(127,127,127,.08); }
+.lv-cell:focus { background: rgba(var(--brand-rgb,30,122,52), .1); border-color: var(--g4); }
+.lv-o { padding-top: 11px !important; font-family: 'Courier New', monospace; font-weight: 700; direction: ltr; min-height: 36px; }
+.lv-rl { color: var(--text); font-size: 14px; background: rgba(var(--brand-rgb,30,122,52), .06); }
+.lv-rise { color: #27ae60; } .lv-fall { color: #e74c3c; }
+.lv-sec-hi .lv-rise, .lv-sec-hi .lv-fall { opacity: .55; }
+.lv-sec-rf [data-o="hi"] { opacity: .55; }
+.lv-n { padding-top: 6px !important; white-space: nowrap; }
+.lv-num { display: inline-block; min-width: 20px; font-weight: 800; color: var(--muted); font-size: 12px; }
+.lv-cpbadge { display: none; font-size: 9.5px; font-weight: 800; background: var(--gold3); color: #1a1a1a; border-radius: 5px; padding: 1px 5px; margin-inline-start: 3px; }
+.lv-cp .lv-cpbadge { display: inline-block; }
+.lv-cp { background: rgba(212,160,23,.1); box-shadow: inset 3px 0 0 var(--gold3); }
+.lv-cp td[data-label="B.S"], .lv-cp td[data-label="F.S"] { background: rgba(212,160,23,.14); }
+.lv-cp td[data-label="F.S"] { box-shadow: inset 0 -2px 0 var(--gold3); }
+.lv-cp td[data-label="B.S"] { box-shadow: inset 0 2px 0 var(--gold3); }
+.lv-err { background: rgba(231,76,60,.07); }
+.lv-warn { background: rgba(212,160,23,.05); }
+.lv-last .lv-rl { background: rgba(39,174,96,.18); }
+.lv-flash { animation: lvFlash 1.2s ease; }
+@keyframes lvFlash { 0%,60% { outline: 2px solid var(--gold3); outline-offset: -2px; } 100% { outline: 2px solid transparent; } }
+.lv-rowmsg { text-align: start; }
+.lv-im { display: block; font-size: 11px; line-height: 1.5; padding: 1px 5px 3px; font-weight: 600; }
+.lv-im-err { color: #e74c3c; } .lv-im-warn { color: var(--gold3); }
+.lv-act { white-space: nowrap; padding-top: 6px !important; }
+.lv-rb { width: 30px; height: 30px; margin: 0 1px; background: rgba(127,127,127,.1); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-family: inherit; font-size: 11px; font-weight: 800; cursor: pointer; transition: background .12s, color .12s; }
+.lv-rb:hover { background: rgba(var(--brand-rgb,30,122,52), .22); color: var(--text); }
+.lv-rb-cp { width: 38px; }
+.lv-rb-cp.on { background: var(--gold3); border-color: transparent; color: #1a1a1a; }
+.lv-rb-del:hover { background: rgba(231,76,60,.2); color: #e74c3c; }
+.lv-hint { font-size: 12px; color: var(--muted); margin: 10px 2px 14px; line-height: 1.7; }
+
+/* لوحة النتائج */
+.lv-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.lv-stat { display: flex; align-items: center; gap: 11px; padding: 12px; background: rgba(127,127,127,.07); border: 1px solid var(--border); border-radius: 12px; }
+.lv-stat > i { font-size: 17px; color: var(--g4); width: 22px; text-align: center; }
+.lv-stat-v { font-size: 18px; font-weight: 800; font-family: 'Courier New', monospace; }
+.lv-stat-l { font-size: 11.5px; color: var(--muted); }
+.lv-stat-up .lv-stat-v { color: #27ae60; } .lv-stat-down .lv-stat-v { color: #e74c3c; }
+.lv-stat-big { background: rgba(var(--brand-rgb,30,122,52), .14); border-color: var(--border2); }
+.lv-closing { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: rgba(212,160,23,.1); border: 1px solid rgba(212,160,23,.35); font-size: 13.5px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.lv-closing i { color: var(--gold3); }
+.lv-cl-v { font-family: 'Courier New', monospace; font-weight: 800; font-size: 15px; }
+.lv-cl-s { font-size: 11.5px; color: var(--muted); }
+.lv-closing-na { color: var(--muted); }
+.lv-verify { margin-top: 12px; padding: 14px; border-radius: 12px; border: 1px solid var(--border2); }
+.lv-v-ok { background: rgba(39,174,96,.1); border-color: rgba(39,174,96,.4); }
+.lv-v-bad { background: rgba(231,76,60,.1); border-color: rgba(231,76,60,.45); }
+.lv-v-incomplete { background: rgba(127,127,127,.07); }
+.lv-v-t { font-weight: 800; font-size: 14.5px; display: flex; align-items: center; gap: 8px; }
+.lv-v-ok .lv-v-t { color: #27ae60; } .lv-v-bad .lv-v-t { color: #e74c3c; } .lv-v-incomplete .lv-v-t { color: var(--gold3); }
+.lv-chk-row { display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: center; margin-top: 9px; font-size: 12.5px; font-family: 'Courier New', monospace; }
+.lv-chk-row span:last-child { margin-inline-start: auto; font-weight: 800; font-size: 15px; }
+.lv-ok { color: #27ae60; } .lv-no { color: #e74c3c; }
+.lv-reasons { margin: 10px 0 0; padding-inline-start: 20px; font-size: 12.5px; color: var(--muted); line-height: 1.9; }
+.lv-alerts { margin-top: 12px; }
+.lv-alerts-t { font-weight: 800; font-size: 13px; margin-bottom: 6px; }
+.lv-alert { display: block; width: 100%; text-align: start; padding: 7px 10px; margin-bottom: 4px; border-radius: 9px; border: 1px solid var(--border); background: rgba(127,127,127,.06); color: var(--text); font-family: inherit; font-size: 12.5px; cursor: pointer; }
+.lv-alert:hover { border-color: var(--g4); }
+.lv-alert-err i { color: #e74c3c; } .lv-alert-warn i { color: var(--gold3); }
+.lv-more { font-size: 12px; color: var(--muted); padding: 2px 8px; }
+
+/* نوافذ التأكيد */
+.lv-modal-ov { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.lv-modal { background: var(--bg2, #111); color: var(--text); border: 1px solid var(--border2); border-radius: 16px; padding: 22px; width: min(420px, 100%); box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.lv-modal h3 { margin: 0 0 10px; font-size: 17px; }
+.lv-modal p { margin: 0 0 14px; font-size: 13.5px; color: var(--muted); line-height: 1.8; }
+.lv-modal .lv-in { margin-bottom: 14px; }
+.lv-modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* الموبايل: كل صف بيتحول لبطاقة (من غير تمرير أفقي) */
+@media (max-width: 820px) {
+  .lv-table, .lv-table tbody { display: block; }
+  .lv-table thead { display: none; }
+  .lv-tablewrap { background: none; border: none; }
+  .lv-tr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 6px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px; margin-bottom: 10px; }
+  .lv-table td { display: block; border: none; padding: 0; text-align: start; }
+  .lv-table td::before { content: attr(data-label); display: block; font-size: 10px; font-weight: 800; color: var(--muted); margin-bottom: 2px; text-align: start; }
+  .lv-n { grid-column: 1 / -1; display: flex !important; align-items: center; gap: 6px; padding: 0 0 4px !important; }
+  .lv-n::before { margin: 0 !important; }
+  .lv-td-st { grid-column: 1 / -1; }
+  .lv-td-rm { grid-column: 1 / -1; }
+  .lv-table td.lv-o { padding: 7px 8px !important; border-radius: 8px; background: rgba(127,127,127,.07); min-height: 0; font-size: 13px; }
+  .lv-table td.lv-rl { background: rgba(var(--brand-rgb,30,122,52), .16); }
+  .lv-act { grid-column: 1 / -1; padding-top: 6px !important; display: flex !important; gap: 6px; justify-content: flex-end; }
+  .lv-act::before { display: none !important; }
+  .lv-rb { width: 38px; height: 36px; } .lv-rb-cp { width: 48px; }
+  .lv-cell { background: rgba(127,127,127,.09); border-color: var(--border); font-size: 15px; padding: 10px 8px; text-align: start; }
+  .lv-cp { box-shadow: inset 4px 0 0 var(--gold3); }
+  .lv-cp td[data-label="B.S"], .lv-cp td[data-label="F.S"] { box-shadow: none; }
+  .lv-topbar .lv-btn { flex: 1; }
+  .lv-books { grid-template-columns: 1fr; }
+}
+@media print { .lv-toolbar, .lv-topbar, .lv-act, .lv-hint { display: none !important; } }
+@media (max-width: 820px) {
+  .lv-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lv-stat { padding: 10px; gap: 8px; } .lv-stat-v { font-size: 16px; }
+  .lv-stat-big { grid-column: 1 / -1; }
+  .lv-table td.lv-rl { grid-column: 1 / -1; }
+}
+</style>
+<script id="atl-leveling-js">
+/* ATLASYA Leveling Calculator — حاسبة الميزانية المساحية (دفتر ميزانية إلكتروني)
+   أداة مستقلة: بتتسجّل كـ window.renderLevelingCalc وبتتنادى من navigate('levelingcalc').
+   - محرك الحساب (analyze) دوال نقية بدون DOM، متاح للاختبار عبر window.ATL_LEVELING.
+   - الحفظ: نسخة محلية (localStorage لكل مستخدم) + مزامنة مع حساب المستخدم عبر window._lvLoadBooks/_lvSaveBook/_lvDeleteBook
+     (بتتعرّف في سكربت الـ module الرئيسي). لو الدوال دي مش متاحة (زائر / الجدول لسه متعملش) بيشتغل محلي بس وبيوضّح ده للمستخدم. */
+(function () {
+  'use strict';
+
+  function isAR() { try { return lang === 'AR'; } catch (e) { return true; } }
+  function T(a, e) { return isAR() ? a : e; }
+  function $(id) { return document.getElementById(id); }
+  function toast(m, err) { try { showToast(m, !!err); } catch (e) { /* no-op */ } }
+  function esc(s) {
+    if (window.atlEsc) return window.atlEsc(s);
+    return String(s == null ? '' : s).replace(/[&<>"'`]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]; });
+  }
+  function curUid() { try { return window._currentUid || null; } catch (e) { return null; } }
+
+  /* ═══════════════════════════ محرك الحساب ═══════════════════════════ */
+  function round6(x) { return Math.round(x * 1e6) / 1e6; }
+
+  /* قراءة رقم من نص: بيقبل الأرقام العربية/الفارسية والفاصلة العشرية العربية. null = فاضي، NaN = غير صالح */
+  function parseNum(v) {
+    if (v == null) return null;
+    if (typeof v === 'number') return isFinite(v) ? v : NaN;
+    var s = String(v).trim();
+    if (s === '') return null;
+    s = s.replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); })
+      .replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x06F0); })
+      .replace(/[٬\s]/g, '').replace(/[٫,]/g, '.').replace(/[−–]/g, '-');
+    if (!/^[+-]?(\d+\.?\d*|\.\d+)$/.test(s)) return NaN;
+    return parseFloat(s);
+  }
+
+  var MAX_STAFF = 6; /* قراءة أكبر من كده غير معتادة (القامات الشائعة 4–5 م) */
+
+  function analyze(book) {
+    var rows = book.rows || [];
+    var start = parseNum(book.startRL);
+    var closeAtStart = !!book.closeAtStart;
+    var endKnown = closeAtStart ? start : parseNum(book.endRL);
+    var an = { rows: [], byId: {}, global: [], reasons: [], sumBS: 0, sumFS: 0, sumRise: 0, sumFall: 0, points: 0, setups: 0, firstRL: null, lastRL: null, complete: false, status: 'incomplete', checks: null, closing: null, agree: null, startOk: start !== null && !isNaN(start) };
+
+    var P = rows.map(function (r, i) {
+      var bs = parseNum(r.bs), is = parseNum(r.is), fs = parseNum(r.fs);
+      var empty = bs === null && is === null && fs === null && !String(r.station || '').trim() && !String(r.remarks || '').trim() && !r.cp;
+      return { i: i, id: r.id, bs: bs, is: is, fs: fs, cp: !!r.cp, empty: empty, hasRead: (bs !== null || is !== null || fs !== null), issues: [], errs: 0, out: { hi: null, rise: null, fall: null, rl: null, rl2: null } };
+    });
+    P.forEach(function (p) { an.rows.push(p); an.byId[p.id] = p; });
+    function add(p, lvl, ar, en) { p.issues.push({ lvl: lvl, ar: ar, en: en }); if (lvl === 'err') p.errs++; }
+
+    var active = P.filter(function (p) { return !p.empty; });
+    var N = active.length;
+
+    /* ── 1) فحص البنية والقيم ── */
+    active.forEach(function (p, k) {
+      var isFirst = k === 0, isLast = k === N - 1;
+      [['bs', 'B.S'], ['is', 'I.S'], ['fs', 'F.S']].forEach(function (pr) {
+        var v = p[pr[0]];
+        if (v === null) return;
+        if (isNaN(v)) add(p, 'err', 'قيمة غير رقمية في ' + pr[1], 'Non-numeric value in ' + pr[1]);
+        else {
+          if (v < 0) add(p, 'warn', pr[1] + ' سالبة — راجع القراءة', pr[1] + ' is negative — please check');
+          else if (v > MAX_STAFF) add(p, 'warn', pr[1] + ' = ' + v + ' م أكبر من المعتاد (' + MAX_STAFF + ' م) — راجع القراءة', pr[1] + ' = ' + v + ' m exceeds the usual staff range (' + MAX_STAFF + ' m)');
+        }
+      });
+      var hasBS = p.bs !== null, hasIS = p.is !== null, hasFS = p.fs !== null;
+      if (isFirst) {
+        if (!hasBS) add(p, 'err', 'نقطة البداية تحتاج قراءة B.S', 'The starting point needs a B.S reading');
+        if (hasIS || hasFS) add(p, 'err', 'نقطة البداية يُسجَّل عليها B.S فقط', 'Only a B.S is recorded on the starting point');
+        if (p.cp) add(p, 'err', 'نقطة البداية لا يمكن أن تكون C.P', 'The starting point cannot be a C.P');
+      } else if (!p.hasRead) {
+        add(p, 'warn', 'لا توجد قراءة لهذه النقطة — لن تُحتسب', 'No reading on this point — it is skipped');
+      } else if (hasIS && (hasFS || hasBS)) {
+        add(p, 'err', 'I.S لا يجتمع مع F.S أو B.S في نفس الصف', 'I.S cannot share a row with F.S or B.S');
+      } else if (p.cp) {
+        if (!hasFS || !hasBS) add(p, 'err', 'نقطة التغيير تحتاج F.S (الوضع الأول) وB.S (الوضع التالي)', 'A change point needs both F.S (old setup) and B.S (new setup)');
+      } else if (hasBS && hasFS) {
+        add(p, 'err', 'قراءتا B.S وF.S في صف غير محدد كنقطة تغيير — فعّل C.P', 'Both B.S and F.S on a row that is not marked C.P — enable C.P');
+      } else if (hasBS) {
+        add(p, 'err', 'B.S بدون F.S — فعّل C.P وأدخل F.S', 'B.S without F.S — enable C.P and enter the F.S');
+      } else if (hasFS && !isLast) {
+        add(p, 'err', 'F.S في نقطة وسطية بدون B.S — فعّل C.P وأدخل B.S، أو اجعلها آخر نقطة', 'F.S on a middle point without B.S — enable C.P and add the B.S, or make it the last point');
+      }
+    });
+
+    if (!an.startOk) an.global.push({ lvl: 'err', ar: 'أدخل منسوب نقطة البداية (Starting RL)', en: 'Enter the starting R.L' });
+    if (N === 0) an.reasons.push({ ar: 'الجدول فارغ', en: 'The table is empty' });
+    else if (N < 2) an.reasons.push({ ar: 'أدخل نقطتين على الأقل (بداية ونهاية)', en: 'Enter at least two points (start and end)' });
+
+    /* ── 2) الحساب — محركان مستقلان (H.I و Rise & Fall) بيتوقفوا عند أول خطأ ── */
+    var blocked = !an.startOk, HI = null, prev = null, prevRL = null, rl = null, rl2 = null;
+    for (var k = 0; k < N && !blocked; k++) {
+      var p = active[k];
+      if (p.errs) { blocked = true; break; }
+      if (!p.hasRead) continue;
+      if (k === 0) {
+        rl = start; HI = round6(rl + p.bs); p.out.rl = rl; p.out.hi = HI;
+        rl2 = start; prev = p.bs; prevRL = start; p.out.rl2 = rl2;
+      } else {
+        var r = p.is !== null ? p.is : p.fs;
+        /* طريقة H.I */
+        p.out.rl = round6(HI - r);
+        if (p.bs !== null) { HI = round6(p.out.rl + p.bs); p.out.hi = HI; }
+        /* طريقة Rise & Fall — المقارنة دايمًا مع القراءة السابقة على نفس وضع الجهاز */
+        var d = round6(prev - r);
+        if (d > 0) p.out.rise = d; else if (d < 0) p.out.fall = -d;
+        rl2 = round6(prevRL + d); p.out.rl2 = rl2; prevRL = rl2;
+        prev = p.bs !== null ? p.bs : r;
+      }
+    }
+    /* H.I المعروض في وضع Rise & Fall (وعكسه) — يتم اشتقاقه من المحرك الآخر عند العرض */
+
+    /* ── 3) الإجماليات ── */
+    var lastP = null;
+    active.forEach(function (p) {
+      if (p.bs !== null && !isNaN(p.bs)) an.sumBS = round6(an.sumBS + p.bs);
+      if (p.fs !== null && !isNaN(p.fs)) an.sumFS = round6(an.sumFS + p.fs);
+      if (p.out.rl !== null) { an.points++; lastP = p; }
+      if (p.out.rise !== null) an.sumRise = round6(an.sumRise + p.out.rise);
+      if (p.out.fall !== null) an.sumFall = round6(an.sumFall + p.out.fall);
+      if (p.cp && p.out.rl !== null) an.setups++;
+    });
+    if (an.points > 0) an.setups += 1;
+    an.firstRL = an.startOk ? start : null;
+    an.lastRL = lastP ? lastP.out.rl : null;
+    an.lastId = lastP ? lastP.id : null;
+
+    /* ── 4) هل الدفتر مكتمل؟ ── */
+    var errRows = active.filter(function (p) { return p.errs > 0; });
+    if (errRows.length) an.reasons.push({ ar: 'يوجد ' + errRows.length + ' صف به خطأ — صحّحه ليكتمل الحساب', en: errRows.length + ' row(s) contain errors — fix them to complete the calculation' });
+    if (!an.startOk) an.reasons.push({ ar: 'منسوب البداية غير مُدخل', en: 'Starting R.L is missing' });
+    if (N >= 2 && !errRows.length) {
+      var lp = active[N - 1];
+      if (!(lp.fs !== null && !isNaN(lp.fs) && lp.bs === null && lp.is === null && !lp.cp)) {
+        an.reasons.push({ ar: 'آخر صف يجب أن يحتوي F.S فقط (قراءة أمامية على نقطة النهاية)', en: 'The last row must contain only an F.S (fore sight on the end point)' });
+      }
+    }
+    an.complete = !blocked && an.startOk && N >= 2 && !errRows.length && an.reasons.length === 0;
+
+    if (an.complete) {
+      var diff = round6(an.lastRL - an.firstRL), tol = 1e-6;
+      var c1 = round6(an.sumBS - an.sumFS), c2 = round6(an.sumRise - an.sumFall);
+      var agree = active.every(function (p) { return p.out.rl === null || Math.abs(p.out.rl - p.out.rl2) <= tol; });
+      an.checks = { diff: diff, c1: c1, c2: c2, ok1: Math.abs(c1 - diff) <= tol, ok2: Math.abs(c2 - diff) <= tol, agree: agree };
+      an.status = (an.checks.ok1 && an.checks.ok2 && agree) ? 'ok' : 'bad';
+      if (endKnown !== null && !isNaN(endKnown)) an.closing = { known: endKnown, err: round6(an.lastRL - endKnown) };
+    } else an.status = 'incomplete';
+    return an;
+  }
+
+  /* ═══════════════════════════ أمثلة جاهزة ═══════════════════════════ */
+  var rid = 0;
+  function newId(p) { rid++; return (p || 'r') + Date.now().toString(36) + rid.toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
+  function mkRow(st, bs, is, fs, cp, rem) { return { id: newId('r'), station: st || '', bs: bs == null ? '' : String(bs), is: is == null ? '' : String(is), fs: fs == null ? '' : String(fs), cp: !!cp, remarks: rem || '' }; }
+  function todayStr() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+
+  var EXAMPLES = [
+    { key: 'ex1', ar: 'خط ميزانية مفتوح (H.I) — بمنسوب نهاية معلوم', en: 'Open level run (H.I) — known end level',
+      make: function () { return { name: 'مثال: خط ميزانية مفتوح', project: 'مشروع تجريبي', site: 'طريق رئيسي — المحطة 0+000', surveyor: '', startRL: '100.000', endRL: '100.746', closeAtStart: false, method: 'hi', dec: 3, rows: [
+        mkRow('BM1', '1.524', '', '', false, 'نقطة البداية'), mkRow('A', '', '1.250'), mkRow('TP1', '1.986', '', '2.115', true, 'نقطة تغيير'), mkRow('B', '', '1.432'), mkRow('C', '', '0.865'),
+        mkRow('TP2', '2.208', '', '1.742', true, 'نقطة تغيير'), mkRow('BM2', '', '', '1.115', false, 'نقطة النهاية')] }; } },
+    { key: 'ex2', ar: 'طريقة Rise & Fall — خط به ارتفاعات وانخفاضات', en: 'Rise & Fall method — run with rises and falls',
+      make: function () { return { name: 'مثال: Rise & Fall', project: 'مشروع تجريبي', site: 'قطعة أرض — قطاع طولي', surveyor: '', startRL: '25.000', endRL: '', closeAtStart: false, method: 'rf', dec: 3, rows: [
+        mkRow('BM-A', '2.345', '', '', false, 'نقطة البداية'), mkRow('P1', '', '1.980'), mkRow('P2', '', '2.610'), mkRow('TP1', '3.010', '', '1.455', true, 'نقطة تغيير'),
+        mkRow('P3', '', '2.740'), mkRow('P4', '', '1.905'), mkRow('TP2', '1.620', '', '1.380', true, 'نقطة تغيير'), mkRow('BM-B', '', '', '2.845', false, 'نقطة النهاية')] }; } },
+    { key: 'ex3', ar: 'دورة مقفلة بخطأ قفل 3 مم', en: 'Closed loop with a 3 mm misclosure',
+      make: function () { return { name: 'مثال: دورة مقفلة', project: 'مشروع تجريبي', site: 'شبكة نقاط الضبط', surveyor: '', startRL: '50.000', endRL: '', closeAtStart: true, method: 'hi', dec: 3, rows: [
+        mkRow('BM1', '1.215', '', '', false, 'نقطة البداية'), mkRow('TP1', '0.940', '', '1.870', true), mkRow('TP2', '1.455', '', '1.602', true), mkRow('TP3', '2.110', '', '0.880', true),
+        mkRow('BM1 (رجوع)', '', '', '1.371', false, 'العودة لنقطة البداية')] }; } }
+  ];
+
+  /* ═══════════════════════════ الحالة والتخزين ═══════════════════════════ */
+  var S = { view: 'list', books: [], loaded: false, loading: false, syncMode: 'local', book: null, an: null, dirty: false, saving: false, saveState: 'idle', undo: [], prevJson: '', lastChangeAt: 0, saveTimer: null, metaOpen: null };
+
+  function lsKey() { return 'atl_lv_books_' + (curUid() || 'guest'); }
+  function lsDelKey() { return 'atl_lv_del_' + (curUid() || 'guest'); }
+  function lsRead(k) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function lsWrite(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function remoteOK() { return !!(curUid() && window._lvSaveBook && window._lvLoadBooks); }
+
+  function cleanBook(b) {
+    var o = { id: String(b.id || newId('b')), name: String(b.name || '').slice(0, 120), project: String(b.project || '').slice(0, 160), site: String(b.site || '').slice(0, 160), date: String(b.date || todayStr()).slice(0, 10), surveyor: String(b.surveyor || '').slice(0, 120),
+      startRL: String(b.startRL == null ? '' : b.startRL), endRL: String(b.endRL == null ? '' : b.endRL), closeAtStart: !!b.closeAtStart, method: b.method === 'rf' ? 'rf' : 'hi', dec: [2, 3, 4].indexOf(Number(b.dec)) >= 0 ? Number(b.dec) : 3,
+      createdAt: Number(b.createdAt) || Date.now(), updatedAt: Number(b.updatedAt) || Date.now(), rows: [] };
+    (Array.isArray(b.rows) ? b.rows : []).slice(0, 20000).forEach(function (r) {
+      o.rows.push({ id: String(r.id || newId('r')), station: String(r.station || '').slice(0, 80), bs: String(r.bs == null ? '' : r.bs).slice(0, 24), is: String(r.is == null ? '' : r.is).slice(0, 24), fs: String(r.fs == null ? '' : r.fs).slice(0, 24), cp: !!r.cp, remarks: String(r.remarks || '').slice(0, 300) });
+    });
+    return o;
+  }
+
+  function loadBooks(force) {
+    if (S.loading) return Promise.resolve();
+    S.loading = true;
+    var local = lsRead(lsKey()).map(cleanBook);
+    var dels = lsRead(lsDelKey());
+    S.books = local.filter(function (b) { return dels.indexOf(b.id) < 0; });
+    S.syncMode = remoteOK() ? 'cloud' : 'local';
+    if (!remoteOK()) { S.loading = false; S.loaded = true; return Promise.resolve(); }
+    return window._lvLoadBooks().then(function (list) {
+      var map = {};
+      S.books.forEach(function (b) { map[b.id] = b; });
+      (list || []).forEach(function (x) {
+        try {
+          var b = cleanBook(JSON.parse(x.payload));
+          if (dels.indexOf(b.id) >= 0) return;
+          if (!map[b.id] || b.updatedAt > map[b.id].updatedAt) map[b.id] = b;
+        } catch (e) { /* سجل تالف — نتجاهله */ }
+      });
+      /* دفاتر محلية أحدث/غير موجودة على السيرفر — نرفعها */
+      var remoteIds = {}; (list || []).forEach(function (x) { remoteIds[x.bookId] = x.updatedAt || 0; });
+      S.books = Object.keys(map).map(function (k) { return map[k]; });
+      S.books.forEach(function (b) { if (!(b.id in remoteIds) || b.updatedAt > remoteIds[b.id]) window._lvSaveBook(b).catch(function () { }); });
+      dels.forEach(function (id) { window._lvDeleteBook(id).then(function () { lsWrite(lsDelKey(), lsRead(lsDelKey()).filter(function (x) { return x !== id; })); }).catch(function () { }); });
+      lsWrite(lsKey(), S.books);
+      S.syncMode = 'cloud';
+    }).catch(function (e) {
+      console.warn('[leveling] تعذّرت المزامنة مع الحساب — بيشتغل محليًا:', e && e.message);
+      S.syncMode = 'local-fallback';
+    }).then(function () { S.loading = false; S.loaded = true; });
+  }
+
+  function persistLocal() { lsWrite(lsKey(), S.books); }
+
+  function saveBookNow() {
+    var b = S.book; if (!b) return Promise.resolve();
+    clearTimeout(S.saveTimer); S.saveTimer = null;
+    b.updatedAt = Date.now();
+    var i = S.books.findIndex(function (x) { return x.id === b.id; });
+    var copy = cleanBook(b);
+    if (i >= 0) S.books[i] = copy; else S.books.push(copy);
+    var okLocal = lsWrite(lsKey(), S.books);
+    S.dirty = false;
+    if (!remoteOK()) { setSaveState(okLocal ? 'local' : 'error'); return Promise.resolve(); }
+    setSaveState('saving');
+    return window._lvSaveBook(copy).then(function () { setSaveState(S.dirty ? 'unsaved' : 'cloud'); S.syncMode = 'cloud'; })
+      .catch(function (e) { console.warn('[leveling] فشل الحفظ على الحساب:', e && e.message); S.syncMode = 'local-fallback'; setSaveState(okLocal ? 'local-fallback' : 'error'); });
+  }
+
+  function setSaveState(st) {
+    S.saveState = st;
+    var el = $('lvSaveState'); if (!el) return;
+    var map = {
+      idle: ['fa-circle', T('جاهز', 'Ready'), ''], unsaved: ['fa-pen', T('تعديلات غير محفوظة…', 'Unsaved changes…'), 'lv-st-warn'], saving: ['fa-spinner fa-spin', T('جارٍ الحفظ…', 'Saving…'), ''],
+      cloud: ['fa-cloud-arrow-up', T('تم الحفظ في حسابك', 'Saved to your account'), 'lv-st-ok'], local: ['fa-floppy-disk', T('تم الحفظ على هذا الجهاز (سجّل الدخول للحفظ في حسابك)', 'Saved on this device (sign in to save to your account)'), 'lv-st-ok'],
+      'local-fallback': ['fa-triangle-exclamation', T('محفوظ على هذا الجهاز فقط — تعذّرت المزامنة مع الحساب', 'Saved on this device only — account sync failed'), 'lv-st-warn'], error: ['fa-circle-exclamation', T('تعذّر الحفظ', 'Could not save'), 'lv-st-bad']
+    };
+    var m = map[st] || map.idle;
+    el.className = 'lv-state ' + m[2]; el.innerHTML = '<i class="fa-solid ' + m[0] + '"></i> <span>' + esc(m[1]) + '</span>';
+  }
+
+  function markDirty() {
+    S.dirty = true; setSaveState('unsaved');
+    clearTimeout(S.saveTimer);
+    S.saveTimer = setTimeout(function () { saveBookNow(); }, 1500);
+  }
+
+  /* ═══════════════════════════ التراجع (Undo) ═══════════════════════════ */
+  function snap() { var b = S.book; return JSON.stringify({ name: b.name, project: b.project, site: b.site, date: b.date, surveyor: b.surveyor, startRL: b.startRL, endRL: b.endRL, closeAtStart: b.closeAtStart, method: b.method, dec: b.dec, rows: b.rows }); }
+  /* بنسجّل اللقطة قبل أي تعديل؛ الكتابة المتتالية السريعة بتتجمّع في خطوة تراجع واحدة */
+  function beforeChange(structural) {
+    var now = Date.now();
+    if (structural || now - S.lastChangeAt > 900) { S.undo.push(S.prevJson); if (S.undo.length > 100) S.undo.shift(); }
+    S.lastChangeAt = structural ? 0 : now;
+  }
+  function afterChange() { S.prevJson = snap(); updateUndoBtn(); markDirty(); }
+  function updateUndoBtn() { var b = $('lvUndo'); if (b) b.disabled = S.undo.length === 0; }
+  function doUndo() {
+    if (!S.undo.length) return;
+    var j = S.undo.pop(), o; try { o = JSON.parse(j); } catch (e) { return; }
+    Object.keys(o).forEach(function (k) { S.book[k] = o[k]; });
+    S.prevJson = snap(); S.lastChangeAt = 0;
+    renderEditor(true); markDirty();
+    toast(T('تم التراجع عن آخر تعديل', 'Last change undone'));
+  }
+
+  /* ═══════════════════════════ التنسيق ═══════════════════════════ */
+  function fmt(n, dec) {
+    if (n === null || n === undefined || isNaN(n)) return '';
+    var s = Number(n).toFixed(dec);
+    if (/^-0(\.0+)?$/.test(s)) s = s.slice(1);
+    return s;
+  }
+  function fmtSigned(n, dec) { var s = fmt(n, dec); return (n > 0 ? '+' : '') + s; }
+  function dateTxt(ms) { try { return new Date(ms).toLocaleString(isAR() ? 'ar-EG-u-nu-latn' : 'en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } }
+  function methodName(m) { return m === 'rf' ? 'Rise and Fall' : 'Height of Instrument (H.I)'; }
+  function userName() { try { var u = window._userData || {}; return ((u.firstName || '') + ' ' + (u.lastName || '')).trim(); } catch (e) { return ''; } }
+  function issueText(i) { return isAR() ? i.ar : i.en; }
+
+  /* ═══════════════════════════ نوافذ صغيرة ═══════════════════════════ */
+  function modal(opts) {
+    var ov = document.createElement('div'); ov.className = 'lv-modal-ov';
+    ov.innerHTML = '<div class="lv-modal" role="dialog" aria-modal="true"><h3>' + esc(opts.title) + '</h3>' + (opts.msg ? '<p>' + esc(opts.msg) + '</p>' : '') +
+      (opts.input != null ? '<input class="lv-in" id="lvModalIn" maxlength="120" value="' + esc(opts.input) + '">' : '') +
+      '<div class="lv-modal-btns"><button type="button" class="lv-btn" data-x="no">' + esc(T('إلغاء', 'Cancel')) + '</button><button type="button" class="lv-btn ' + (opts.danger ? 'lv-btn-danger' : 'lv-btn-pri') + '" data-x="ok">' + esc(opts.ok) + '</button></div></div>';
+    document.body.appendChild(ov);
+    var inp = ov.querySelector('#lvModalIn'); if (inp) { inp.focus(); inp.select(); } else ov.querySelector('[data-x="ok"]').focus();
+    function close() { ov.remove(); }
+    function ok() { var v = inp ? inp.value.trim() : true; if (inp && !v) { inp.focus(); return; } close(); opts.onOk(v); }
+    ov.addEventListener('click', function (e) { var x = e.target.getAttribute && e.target.getAttribute('data-x'); if (x === 'ok') ok(); else if (x === 'no' || e.target === ov) close(); });
+    ov.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); else if (e.key === 'Enter') { e.preventDefault(); ok(); } });
+  }
+
+  /* ═══════════════════════════ الواجهة: القائمة ═══════════════════════════ */
+  var root = null;
+  function render(area) {
+    root = document.createElement('div'); root.className = 'lv-wrap'; root.id = 'lvRoot';
+    area.innerHTML = ''; area.appendChild(root);
+    bindRoot();
+    S.view = 'list';
+    renderList();
+    loadBooks().then(function () { if (S.view === 'list' && root && root.isConnected) renderList(); });
+  }
+
+  function syncNote() {
+    if (!curUid()) return '<div class="lv-note lv-note-warn"><i class="fa-solid fa-circle-info"></i> ' + esc(T('أنت غير مسجل الدخول: الدفاتر بتتحفظ على هذا الجهاز فقط. سجّل الدخول لحفظها في حسابك.', 'You are not signed in: books are saved on this device only. Sign in to save them to your account.')) + '</div>';
+    if (S.syncMode === 'local-fallback' || (S.loaded && !remoteOK())) return '<div class="lv-note lv-note-warn"><i class="fa-solid fa-triangle-exclamation"></i> ' + esc(T('مزامنة الدفاتر مع حسابك غير متاحة حاليًا — الدفاتر محفوظة على هذا الجهاز وهتترفع لحسابك تلقائيًا أول ما تبقى المزامنة متاحة.', 'Account sync is currently unavailable — books are kept on this device and will upload automatically once sync is available.')) + '</div>';
+    return '';
+  }
+
+  function renderList() {
+    var h = '';
+    h += '<div class="page-header"><h2>📐 ' + esc(T('حاسبة الميزانية المساحية', 'Leveling Calculator')) + '</h2>' +
+      '<p>' + esc(T('Leveling Calculator — دفتر ميزانية إلكتروني يحاكي العمل الميداني بجهاز الميزان والقامة: سجّل القراءات (B.S / I.S / F.S)، واحسب المناسيب بطريقتي H.I وRise & Fall، وتحقق من الحسابات واحفظ دفاترك وصدّرها.', 'An electronic level book that mirrors fieldwork with an auto level and staff: enter B.S / I.S / F.S readings, reduce levels by the H.I or Rise & Fall method, verify the arithmetic, then save and export your books.')) + '</p></div>';
+    h += syncNote();
+    h += '<div class="lv-card"><div class="lv-card-t"><i class="fa-solid fa-file-circle-plus"></i> ' + esc(T('إنشاء دفتر ميزانية جديد', 'Create a new level book')) + '</div>' +
+      '<div class="lv-grid">' +
+      fld('nbProject', T('اسم المشروع', 'Project name'), '<input class="lv-in" id="nbProject" maxlength="160" autocomplete="off">') +
+      fld('nbSite', T('اسم الموقع', 'Site name'), '<input class="lv-in" id="nbSite" maxlength="160" autocomplete="off">') +
+      fld('nbDate', T('تاريخ العمل', 'Date of work'), '<input class="lv-in" id="nbDate" type="date" value="' + todayStr() + '">') +
+      fld('nbSurveyor', T('اسم المسّاح', 'Surveyor'), '<input class="lv-in" id="nbSurveyor" maxlength="120" autocomplete="off" value="' + esc(userName()) + '">') +
+      fld('nbStart', T('منسوب نقطة البداية (Starting RL) بالمتر', 'Starting R.L (m)'), '<input class="lv-in" id="nbStart" inputmode="decimal" dir="ltr" placeholder="100.000" autocomplete="off">') +
+      fld('nbMethod', T('طريقة الحساب', 'Calculation method'), '<select class="lv-in" id="nbMethod"><option value="hi">Height of Instrument (H.I)</option><option value="rf">Rise and Fall</option></select>') +
+      '</div><div class="lv-actions"><button type="button" class="lv-btn lv-btn-pri" data-act="create"><i class="fa-solid fa-plus"></i> ' + esc(T('إنشاء الدفتر', 'Create book')) + '</button></div>' +
+      '<div class="lv-ex"><span class="lv-ex-l"><i class="fa-solid fa-flask"></i> ' + esc(T('جرّب بمثال جاهز:', 'Try a ready example:')) + '</span>' +
+      EXAMPLES.map(function (e) { return '<button type="button" class="lv-chip" data-act="example" data-k="' + e.key + '">' + esc(T(e.ar, e.en)) + '</button>'; }).join('') + '</div></div>';
+
+    h += '<div class="lv-card"><div class="lv-card-t"><i class="fa-solid fa-book"></i> ' + esc(T('دفاترك', 'Your books')) + (S.books.length ? ' <span class="lv-count">' + S.books.length + '</span>' : '') + '</div>';
+    if (!S.loaded) h += '<div class="lv-empty"><i class="fa-solid fa-spinner fa-spin"></i> ' + esc(T('جارٍ التحميل…', 'Loading…')) + '</div>';
+    else if (!S.books.length) h += '<div class="lv-empty">' + esc(T('لا توجد دفاتر بعد — أنشئ دفترًا جديدًا أو جرّب أحد الأمثلة.', 'No books yet — create one or try an example.')) + '</div>';
+    else {
+      var sorted = S.books.slice().sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+      h += '<div class="lv-books">' + sorted.map(function (b) {
+        var a = analyze(b);
+        return '<div class="lv-book" data-id="' + esc(b.id) + '"><button type="button" class="lv-book-main" data-act="open" data-id="' + esc(b.id) + '"><div class="lv-book-name">' + esc(b.name || T('دفتر بدون اسم', 'Untitled book')) + '</div>' +
+          '<div class="lv-book-sub">' + esc([b.project, b.site].filter(Boolean).join(' — ') || '—') + '</div>' +
+          '<div class="lv-book-meta"><span><i class="fa-solid fa-location-dot"></i> ' + a.points + ' ' + esc(T('نقطة', 'pts')) + '</span><span><i class="fa-solid fa-ruler-horizontal"></i> ' + esc(methodName(b.method)) + '</span>' +
+          '<span class="lv-bs lv-bs-' + a.status + '">' + (a.status === 'ok' ? '✓ ' + esc(T('متطابق', 'Verified')) : a.status === 'bad' ? '✗ ' + esc(T('عدم تطابق', 'Mismatch')) : '⚠ ' + esc(T('غير مكتمل', 'Incomplete'))) + '</span></div>' +
+          '<div class="lv-book-date"><i class="fa-regular fa-clock"></i> ' + esc(T('آخر تعديل: ', 'Last modified: ')) + esc(dateTxt(b.updatedAt)) + '</div></button>' +
+          '<div class="lv-book-btns"><button type="button" class="lv-ibtn" data-act="open" data-id="' + esc(b.id) + '" title="' + esc(T('فتح', 'Open')) + '"><i class="fa-solid fa-folder-open"></i></button>' +
+          '<button type="button" class="lv-ibtn" data-act="rename" data-id="' + esc(b.id) + '" title="' + esc(T('إعادة تسمية', 'Rename')) + '"><i class="fa-solid fa-pen"></i></button>' +
+          '<button type="button" class="lv-ibtn" data-act="dup" data-id="' + esc(b.id) + '" title="' + esc(T('إنشاء نسخة', 'Duplicate')) + '"><i class="fa-regular fa-copy"></i></button>' +
+          '<button type="button" class="lv-ibtn lv-ibtn-del" data-act="delbook" data-id="' + esc(b.id) + '" title="' + esc(T('حذف', 'Delete')) + '"><i class="fa-solid fa-trash"></i></button></div></div>';
+      }).join('') + '</div>';
+    }
+    h += '</div>';
+    root.innerHTML = h;
+  }
+  function fld(id, label, inner) { return '<div class="lv-field"><label for="' + id + '">' + esc(label) + '</label>' + inner + '</div>'; }
+
+  function createBook(data) {
+    var b = cleanBook(Object.assign({ id: newId('b'), createdAt: Date.now(), updatedAt: Date.now(), rows: [mkRow('BM1'), mkRow(), mkRow()] }, data));
+    if (!b.name) b.name = (b.project || T('دفتر ميزانية', 'Level book')) + (b.site ? ' — ' + b.site : '');
+    S.books.push(b); persistLocal();
+    openBook(b.id);
+    S.book.updatedAt = Date.now(); saveBookNow();
+  }
+
+  function openBook(id) {
+    var b = S.books.find(function (x) { return x.id === id; });
+    if (!b) return;
+    S.book = cleanBook(JSON.parse(JSON.stringify(b)));
+    S.undo = []; S.prevJson = snap(); S.lastChangeAt = 0; S.dirty = false; S.view = 'editor';
+    renderEditor();
+    setSaveState(S.syncMode === 'cloud' ? 'cloud' : 'local');
+    window.scrollTo && window.scrollTo(0, 0);
+  }
+
+  function leaveEditor() {
+    var p = S.dirty ? saveBookNow() : Promise.resolve();
+    S.view = 'list'; S.book = null;
+    return p.then(function () { if (root && root.isConnected) renderList(); });
+  }
+
+  /* ═══════════════════════════ الواجهة: المحرر ═══════════════════════════ */
+  var COLS_EDIT = ['station', 'bs', 'is', 'fs', 'remarks'];
+  var COLS_FULL = ['station', 'bs', 'is', 'fs', 'hi', 'rise', 'fall', 'rl', 'remarks'];
+
+  function renderEditor(keepFocus) {
+    var b = S.book, f = null;
+    if (keepFocus) { var ae = document.activeElement; if (ae && ae.dataset && ae.dataset.c && root.contains(ae)) f = { id: ae.closest('tr').dataset.id, c: ae.dataset.c, s: ae.selectionStart }; }
+    var h = '';
+    h += '<div class="lv-topbar"><button type="button" class="lv-btn" data-act="back"><i class="fa-solid fa-arrow-right lv-flip"></i> ' + esc(T('الدفاتر', 'Books')) + '</button>' +
+      '<input class="lv-in lv-name" data-m="name" maxlength="120" value="' + esc(b.name) + '" aria-label="' + esc(T('اسم الدفتر', 'Book name')) + '">' +
+      '<span class="lv-state" id="lvSaveState"></span>' +
+      '<button type="button" class="lv-btn lv-btn-pri" data-act="save"><i class="fa-solid fa-floppy-disk"></i> ' + esc(T('حفظ الدفتر', 'Save book')) + '</button></div>';
+
+    if (S.metaOpen === null) S.metaOpen = window.innerWidth > 820;
+    h += '<details class="lv-card lv-meta" id="lvMeta"' + (S.metaOpen ? ' open' : '') + '><summary class="lv-card-t"><i class="fa-solid fa-circle-info"></i> ' + esc(T('بيانات الدفتر', 'Book details')) + '<i class="fa-solid fa-chevron-down lv-chev"></i></summary><div class="lv-grid lv-grid-meta">' +
+      fld('mProject', T('اسم المشروع', 'Project'), '<input class="lv-in" id="mProject" data-m="project" maxlength="160" value="' + esc(b.project) + '">') +
+      fld('mSite', T('اسم الموقع', 'Site'), '<input class="lv-in" id="mSite" data-m="site" maxlength="160" value="' + esc(b.site) + '">') +
+      fld('mDate', T('تاريخ العمل', 'Date'), '<input class="lv-in" id="mDate" data-m="date" type="date" value="' + esc(b.date) + '">') +
+      fld('mSurv', T('المسّاح', 'Surveyor'), '<input class="lv-in" id="mSurv" data-m="surveyor" maxlength="120" value="' + esc(b.surveyor) + '">') +
+      fld('mStart', T('منسوب البداية Starting RL (م)', 'Starting R.L (m)'), '<input class="lv-in" id="mStart" data-m="startRL" inputmode="decimal" dir="ltr" value="' + esc(b.startRL) + '">') +
+      fld('mEnd', T('منسوب النهاية المعلوم (اختياري)', 'Known end R.L (optional)'), '<input class="lv-in" id="mEnd" data-m="endRL" inputmode="decimal" dir="ltr" value="' + esc(b.endRL) + '"' + (b.closeAtStart ? ' disabled' : '') + '>' +
+        '<label class="lv-chk"><input type="checkbox" data-m="closeAtStart"' + (b.closeAtStart ? ' checked' : '') + '> ' + esc(T('دورة مقفلة (النهاية = منسوب البداية)', 'Closed loop (end = start R.L)')) + '</label>') +
+      '</div></details>' +
+      '<div class="lv-card lv-methodcard"><div class="lv-methodrow"><div class="lv-seg" role="tablist" aria-label="' + esc(T('طريقة الحساب', 'Method')) + '">' +
+      '<button type="button" class="lv-segb' + (b.method === 'hi' ? ' on' : '') + '" data-act="method" data-v="hi">Height of Instrument (H.I)</button>' +
+      '<button type="button" class="lv-segb' + (b.method === 'rf' ? ' on' : '') + '" data-act="method" data-v="rf">Rise and Fall</button></div>' +
+      '<div class="lv-formula" dir="ltr" id="lvFormula"></div>' +
+      '<label class="lv-dec">' + esc(T('المنازل العشرية', 'Decimals')) + ' <select class="lv-in lv-in-s" data-m="dec">' + [2, 3, 4].map(function (d) { return '<option value="' + d + '"' + (b.dec === d ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></label></div></div>';
+
+    h += '<div class="lv-toolbar">' +
+      '<button type="button" class="lv-btn" data-act="addrow"><i class="fa-solid fa-plus"></i> ' + esc(T('إضافة صف', 'Add row')) + '</button>' +
+      '<button type="button" class="lv-btn" data-act="addcp"><i class="fa-solid fa-right-left"></i> ' + esc(T('إضافة نقطة تغيير C.P', 'Add change point (C.P)')) + '</button>' +
+      '<button type="button" class="lv-btn" id="lvUndo" data-act="undo"><i class="fa-solid fa-rotate-left"></i> ' + esc(T('تراجع', 'Undo')) + '</button>' +
+      '<span class="lv-sp"></span>' +
+      '<button type="button" class="lv-btn" data-act="xlsx"><i class="fa-solid fa-file-excel"></i> Excel</button>' +
+      '<button type="button" class="lv-btn" data-act="pdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>' +
+      '<button type="button" class="lv-btn" data-act="print"><i class="fa-solid fa-print"></i> ' + esc(T('طباعة', 'Print')) + '</button></div>';
+
+    h += '<div class="lv-tablewrap"><table class="lv-table" dir="ltr"><thead><tr>' +
+      '<th class="lv-th-n">' + esc(T('م', '#')) + '</th><th class="lv-th-st">Station<small>' + esc(T('النقطة', 'Point')) + '</small></th>' +
+      '<th>B.S<small>' + esc(T('خلفية', 'Back')) + '</small></th><th>I.S<small>' + esc(T('متوسطة', 'Inter.')) + '</small></th><th>F.S<small>' + esc(T('أمامية', 'Fore')) + '</small></th>' +
+      '<th class="lv-th-o">H.I<small>' + esc(T('خط النظر', 'Inst. ht')) + '</small></th><th class="lv-th-o">Rise<small>' + esc(T('ارتفاع', 'Rise')) + '</small></th><th class="lv-th-o">Fall<small>' + esc(T('انخفاض', 'Fall')) + '</small></th><th class="lv-th-o lv-th-rl">R.L<small>' + esc(T('المنسوب', 'Level')) + '</small></th>' +
+      '<th class="lv-th-rm">Remarks<small>' + esc(T('ملاحظات', 'Notes')) + '</small></th><th class="lv-th-a"></th></tr></thead><tbody id="lvBody"></tbody></table></div>' +
+      '<div class="lv-hint"><i class="fa-solid fa-keyboard"></i> ' + esc(T('Enter = الصف التالي • ↑ ↓ للتنقل • Tab للخانة التالية • الصق من Excel مباشرة في أي خانة • الوحدات: متر (m)', 'Enter = next row • ↑ ↓ to move • Tab = next cell • paste straight from Excel into any cell • Units: meters (m)')) + '</div>' +
+      '<div id="lvResults"></div>';
+    root.innerHTML = h;
+    buildBody();
+    if (f) { var tr = root.querySelector('tr[data-id="' + f.id + '"]'), inp = tr && tr.querySelector('[data-c="' + f.c + '"]'); if (inp) { inp.focus(); try { inp.setSelectionRange(f.s, f.s); } catch (e) { } } }
+    updateUndoBtn(); setSaveState(S.saveState);
+  }
+
+  function rowHtml(r, i) {
+    var cp = r.cp;
+    function inp(c, extra) { return '<input class="lv-cell' + (extra || '') + '" data-c="' + c + '" value="' + esc(r[c]) + '" autocomplete="off" spellcheck="false"' + (c === 'bs' || c === 'is' || c === 'fs' ? ' inputmode="decimal" dir="ltr"' : ' dir="auto"') + '>'; }
+    return '<tr class="lv-tr' + (cp ? ' lv-cp' : '') + '" data-id="' + esc(r.id) + '">' +
+      '<td class="lv-n" data-label="#"><span class="lv-num">' + (i + 1) + '</span><span class="lv-cpbadge">C.P</span></td>' +
+      '<td class="lv-td-st" data-label="Station">' + inp('station') + '<div class="lv-rowmsg"></div></td>' +
+      '<td data-label="B.S">' + inp('bs') + '</td><td data-label="I.S">' + inp('is') + '</td><td data-label="F.S">' + inp('fs') + '</td>' +
+      '<td class="lv-o" data-o="hi" data-label="H.I"></td><td class="lv-o lv-rise" data-o="rise" data-label="Rise"></td><td class="lv-o lv-fall" data-o="fall" data-label="Fall"></td><td class="lv-o lv-rl" data-o="rl" data-label="R.L"></td>' +
+      '<td class="lv-td-rm" data-label="Remarks">' + inp('remarks') + '</td>' +
+      '<td class="lv-act"><button type="button" class="lv-rb lv-rb-cp' + (cp ? ' on' : '') + '" data-act="cp" title="' + esc(T('تحديد/إلغاء نقطة تغيير C.P', 'Toggle change point (C.P)')) + '">C.P</button>' +
+      '<button type="button" class="lv-rb" data-act="ins" title="' + esc(T('إدراج صف بعده', 'Insert row below')) + '"><i class="fa-solid fa-plus"></i></button>' +
+      '<button type="button" class="lv-rb lv-rb-del" data-act="delrow" title="' + esc(T('حذف الصف', 'Delete row')) + '"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  }
+
+  function buildBody() {
+    var tb = $('lvBody'); if (!tb) return;
+    tb.innerHTML = S.book.rows.map(rowHtml).join('');
+    refresh();
+  }
+
+  /* تحديث الخانات المحسوبة + لوحة النتائج فقط (من غير إعادة بناء الجدول عشان الفوكس ما يضيعش) */
+  function refresh() {
+    var b = S.book, an = analyze(b); S.an = an; var dec = b.dec;
+    var rf = b.method === 'rf';
+    var fm = $('lvFormula');
+    if (fm) fm.innerHTML = rf ? 'Rise = prev − next &nbsp;|&nbsp; R.L = prev R.L ± Rise/Fall' : 'H.I = R.L + B.S &nbsp;|&nbsp; R.L = H.I − I.S &nbsp;|&nbsp; R.L = H.I − F.S';
+    var tb = $('lvBody'); if (!tb) return;
+    var trs = tb.children;
+    for (var i = 0; i < trs.length; i++) {
+      var tr = trs[i], p = an.byId[tr.dataset.id]; if (!p) continue;
+      var hiV = p.out.hi, riseV = p.out.rise, fallV = p.out.fall, rlV = p.out.rl;
+      if (rf && rlV !== null) { rlV = p.out.rl2; }
+      var set = function (o, v) { var c = tr.querySelector('[data-o="' + o + '"]'); if (c) c.textContent = v; };
+      set('hi', fmt(hiV, dec)); set('rise', fmt(riseV, dec)); set('fall', fmt(fallV, dec)); set('rl', fmt(rlV, dec));
+      tr.classList.toggle('lv-sec-hi', rf); tr.classList.toggle('lv-sec-rf', !rf);
+      tr.classList.toggle('lv-err', p.errs > 0); tr.classList.toggle('lv-warn', p.errs === 0 && p.issues.length > 0);
+      tr.classList.toggle('lv-last', p.id === an.lastId && an.complete);
+      var n = tr.querySelector('.lv-num'); if (n) n.textContent = String(i + 1);
+      var msg = tr.querySelector('.lv-rowmsg');
+      if (msg) msg.innerHTML = p.issues.map(function (x) { return '<span class="lv-im lv-im-' + x.lvl + '"><i class="fa-solid ' + (x.lvl === 'err' ? 'fa-circle-exclamation' : 'fa-triangle-exclamation') + '"></i> ' + esc(issueText(x)) + '</span>'; }).join('');
+      var btn = tr.querySelector('[data-act="cp"]'); if (btn) btn.classList.toggle('on', !!p.cp);
+      tr.classList.toggle('lv-cp', !!p.cp);
+    }
+    paintResults(an);
+  }
+
+  function paintResults(an) {
+    var el = $('lvResults'); if (!el) return;
+    var b = S.book, dec = b.dec, h = '';
+    function stat(ic, lab, val, cls) { return '<div class="lv-stat ' + (cls || '') + '"><i class="fa-solid ' + ic + '"></i><div><div class="lv-stat-v" dir="ltr">' + val + '</div><div class="lv-stat-l">' + esc(lab) + '</div></div></div>'; }
+    var lastShown = an.lastRL === null ? '—' : fmt(b.method === 'rf' ? lastRl2(an) : an.lastRL, dec);
+    h += '<div class="lv-card"><div class="lv-card-t"><i class="fa-solid fa-chart-column"></i> ' + esc(T('لوحة النتائج', 'Results')) + '</div><div class="lv-stats">' +
+      stat('fa-location-dot', T('عدد النقاط', 'Points'), an.points) + stat('fa-tower-observation', T('عدد المحطات (أوضاع الجهاز)', 'Instrument setups'), an.setups) +
+      stat('fa-arrow-left-long', 'ΣB.S', fmt(an.sumBS, dec)) + stat('fa-arrow-right-long', 'ΣF.S', fmt(an.sumFS, dec)) +
+      stat('fa-arrow-trend-up', T('إجمالي Rise', 'ΣRise'), fmt(an.sumRise, dec), 'lv-stat-up') + stat('fa-arrow-trend-down', T('إجمالي Fall', 'ΣFall'), fmt(an.sumFall, dec), 'lv-stat-down') +
+      stat('fa-flag-checkered', T('منسوب آخر نقطة', 'Last R.L'), lastShown, 'lv-stat-big') + '</div>';
+
+    /* خطأ القفل */
+    if (an.closing) {
+      var mm = an.closing.err * 1000;
+      h += '<div class="lv-closing"><i class="fa-solid fa-bullseye"></i> <b>' + esc(T('خطأ القفل (Closing Error)', 'Closing error')) + ':</b> <span dir="ltr" class="lv-cl-v">' + fmtSigned(an.closing.err, dec) + ' m (' + (mm > 0 ? '+' : '') + Math.round(mm * 100) / 100 + ' mm)</span> ' +
+        '<span class="lv-cl-s">' + esc(T('المنسوب المحسوب ' + fmt(an.lastRL, dec) + ' − المعلوم ' + fmt(an.closing.known, dec), 'computed ' + fmt(an.lastRL, dec) + ' − known ' + fmt(an.closing.known, dec))) + '</span></div>';
+    } else if (an.complete) h += '<div class="lv-closing lv-closing-na"><i class="fa-solid fa-bullseye"></i> ' + esc(T('أدخل منسوب نهاية معلوم (أو فعّل الدورة المقفلة) لعرض خطأ القفل.', 'Enter a known end R.L (or enable closed loop) to see the closing error.')) + '</div>';
+
+    /* التحقق الحسابي */
+    var st = an.status;
+    h += '<div class="lv-verify lv-v-' + st + '"><div class="lv-v-t">' +
+      (st === 'ok' ? '<i class="fa-solid fa-circle-check"></i> ' + esc(T('الحسابات متطابقة', 'Calculations agree')) : st === 'bad' ? '<i class="fa-solid fa-circle-xmark"></i> ' + esc(T('يوجد خطأ حسابي أو عدم تطابق', 'Arithmetic error or mismatch found')) : '<i class="fa-solid fa-triangle-exclamation"></i> ' + esc(T('بيانات ناقصة أو غير صالحة — لا يمكن إجراء التحقق', 'Incomplete or invalid data — verification not possible'))) + '</div>';
+    if (an.checks) {
+      var c = an.checks;
+      h += '<div class="lv-chk-row" dir="ltr"><span>ΣB.S − ΣF.S = <b>' + fmt(c.c1, dec) + '</b></span><span>Last R.L − First R.L = <b>' + fmt(c.diff, dec) + '</b></span><span class="' + (c.ok1 ? 'lv-ok' : 'lv-no') + '">' + (c.ok1 ? '✓' : '✗') + '</span></div>' +
+        '<div class="lv-chk-row" dir="ltr"><span>ΣRise − ΣFall = <b>' + fmt(c.c2, dec) + '</b></span><span>Last R.L − First R.L = <b>' + fmt(c.diff, dec) + '</b></span><span class="' + (c.ok2 ? 'lv-ok' : 'lv-no') + '">' + (c.ok2 ? '✓' : '✗') + '</span></div>' +
+        '<div class="lv-chk-row"><span>' + esc(T('تطابق طريقتي H.I وRise & Fall في كل المناسيب', 'H.I and Rise & Fall give identical levels for every point')) + '</span><span class="' + (c.agree ? 'lv-ok' : 'lv-no') + '">' + (c.agree ? '✓' : '✗') + '</span></div>';
+    } else {
+      var rs = an.reasons.map(function (r) { return '<li>' + esc(isAR() ? r.ar : r.en) + '</li>'; }).join('');
+      var gl = an.global.map(function (r) { return '<li>' + esc(isAR() ? r.ar : r.en) + '</li>'; }).join('');
+      if (rs || gl) h += '<ul class="lv-reasons">' + gl + rs + '</ul>';
+    }
+    h += '</div>';
+
+    /* التنبيهات */
+    var al = [];
+    an.rows.forEach(function (p, i) { p.issues.forEach(function (x) { al.push({ id: p.id, n: i + 1, x: x }); }); });
+    if (al.length) {
+      al.sort(function (a, b) { return (a.x.lvl === 'err' ? 0 : 1) - (b.x.lvl === 'err' ? 0 : 1) || a.n - b.n; });
+      h += '<div class="lv-alerts"><div class="lv-alerts-t"><i class="fa-solid fa-bell"></i> ' + esc(T('تنبيهات (' + al.length + ')', 'Alerts (' + al.length + ')')) + '</div>' + al.slice(0, 15).map(function (a) {
+        return '<button type="button" class="lv-alert lv-alert-' + a.x.lvl + '" data-act="goto" data-id="' + esc(a.id) + '"><i class="fa-solid ' + (a.x.lvl === 'err' ? 'fa-circle-exclamation' : 'fa-triangle-exclamation') + '"></i> <b>' + esc(T('الصف ', 'Row ')) + a.n + '</b> — ' + esc(issueText(a.x)) + '</button>';
+      }).join('') + (al.length > 15 ? '<div class="lv-more">+' + (al.length - 15) + '</div>' : '') + '</div>';
+    }
+    h += '</div>';
+    el.innerHTML = h;
+  }
+  function lastRl2(an) { for (var i = an.rows.length - 1; i >= 0; i--) if (an.rows[i].id === an.lastId) return an.rows[i].out.rl2; return an.lastRL; }
+
+  /* ═══════════════════════════ التفاعل ═══════════════════════════ */
+  function rowIdx(id) { return S.book.rows.findIndex(function (r) { return r.id === id; }); }
+  function focusCell(id, c, sel) {
+    var tr = root.querySelector('tr[data-id="' + id + '"]'), inp = tr && tr.querySelector('[data-c="' + c + '"]');
+    if (inp) { inp.focus(); if (sel !== false) { try { inp.select(); } catch (e) { } } if (inp.scrollIntoView) inp.scrollIntoView({ block: 'nearest' }); }
+  }
+
+  function bindRoot() {
+    root.addEventListener('input', function (e) {
+      var t = e.target;
+      if (t.classList && t.classList.contains('lv-cell')) {
+        var tr = t.closest('tr'), i = rowIdx(tr.dataset.id); if (i < 0) return;
+        beforeChange(false);
+        var r = S.book.rows[i], c = t.dataset.c; r[c] = t.value;
+        /* تسهيل: لو كتب B.S وF.S في نفس الصف بعد الصف الأول، نفعّل C.P تلقائيًا */
+        if ((c === 'bs' || c === 'fs') && i > 0 && !r.cp && parseNum(r.bs) !== null && parseNum(r.fs) !== null && parseNum(r.is) === null) { r.cp = true; }
+        afterChange(); refresh();
+      } else if (t.dataset && t.dataset.m) onMeta(t, false);
+    });
+    root.addEventListener('change', function (e) { var t = e.target; if (t.dataset && t.dataset.m && (t.type === 'checkbox' || t.tagName === 'SELECT')) onMeta(t, true); });
+    root.addEventListener('keydown', onKey);
+    root.addEventListener('paste', onPaste);
+    root.addEventListener('click', onClick);
+    root.addEventListener('toggle', function (e) { if (e.target && e.target.id === 'lvMeta') S.metaOpen = e.target.open; }, true);
+  }
+
+  function onMeta(t, structural) {
+    var k = t.dataset.m; if (!S.book) return;
+    beforeChange(!!structural);
+    if (t.type === 'checkbox') S.book[k] = t.checked; else if (k === 'dec') S.book[k] = Number(t.value); else S.book[k] = t.value;
+    if (k === 'closeAtStart') { var e = $('mEnd'); if (e) e.disabled = t.checked; }
+    afterChange(); refresh();
+  }
+
+  function onKey(e) {
+    var t = e.target; if (!t.classList || !t.classList.contains('lv-cell')) return;
+    var tr = t.closest('tr'), i = rowIdx(tr.dataset.id), c = t.dataset.c, rows = S.book.rows;
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && S.undo.length && !e.shiftKey) { e.preventDefault(); doUndo(); return; }
+    if (e.key === 'Enter' || e.key === 'ArrowDown') {
+      if (e.shiftKey && e.key === 'Enter') { e.preventDefault(); if (i > 0) focusCell(rows[i - 1].id, c); return; }
+      e.preventDefault();
+      if (i === rows.length - 1) { if (e.key === 'ArrowDown') return; beforeChange(true); rows.push(mkRow()); afterChange(); buildBody(); }
+      focusCell(rows[i + 1].id, c);
+    } else if (e.key === 'ArrowUp') { e.preventDefault(); if (i > 0) focusCell(rows[i - 1].id, c); }
+  }
+
+  /* لصق من Excel: صفوف بـ \n وأعمدة بـ \t. لو الصف فيه 9+ أعمدة بنفترض نفس ترتيب الجدول (والمحسوبة بتتجاهل) */
+  function onPaste(e) {
+    var t = e.target; if (!t.classList || !t.classList.contains('lv-cell')) return;
+    var txt = (e.clipboardData || window.clipboardData).getData('text'); if (!txt || !/[\t\n]/.test(txt.replace(/\r?\n$/, ''))) return;
+    e.preventDefault();
+    var lines = txt.replace(/\r/g, '').split('\n'); while (lines.length && lines[lines.length - 1] === '') lines.pop();
+    var M = lines.map(function (l) { return l.split('\t'); });
+    var hdr = /^(station|النقطة|b\.?s|i\.?s|f\.?s|م|#)$/i;
+    if (M.length && M[0].some(function (x) { return hdr.test(String(x).trim()); })) M.shift();
+    if (!M.length) return;
+    var i0 = rowIdx(t.closest('tr').dataset.id), c0 = COLS_EDIT.indexOf(t.dataset.c), rows = S.book.rows;
+    beforeChange(true);
+    var count = 0;
+    M.forEach(function (cells, k) {
+      cells = cells.map(function (x) { return String(x).trim(); });
+      var map, vals = cells;
+      if (cells.length >= 9) { if (cells.length >= 10 && /^\d+$/.test(cells[0])) vals = cells.slice(1); map = COLS_FULL; }
+      else { map = COLS_EDIT.slice(c0); }
+      var idx = i0 + k; while (rows.length <= idx) rows.push(mkRow());
+      var r = rows[idx];
+      var touched = false;
+      map.forEach(function (col, j) { if (j < vals.length && COLS_EDIT.indexOf(col) >= 0) { r[col] = vals[j]; if (col === 'bs' || col === 'is' || col === 'fs') touched = true; } });
+      /* لو القراءات اتلصقت، C.P بيتحدد من القراءات الجديدة (B.S + F.S = نقطة تغيير) بدل علامة قديمة */
+      if (touched) r.cp = idx > 0 && parseNum(r.bs) !== null && parseNum(r.fs) !== null && parseNum(r.is) === null;
+      count++;
+    });
+    afterChange(); buildBody();
+    toast(T('تم لصق ' + count + ' صف', count + ' row(s) pasted'));
+  }
+
+  function onClick(e) {
+    var el = e.target.closest('[data-act]'); if (!el || !root.contains(el)) return;
+    var act = el.dataset.act, id = el.dataset.id;
+    var tr = el.closest('tr'), rows = S.book && S.book.rows, i = tr ? rowIdx(tr.dataset.id) : -1;
+    switch (act) {
+      case 'create': {
+        var start = parseNum($('nbStart').value);
+        if (start === null || isNaN(start)) { toast(T('أدخل منسوب نقطة البداية كرقم صحيح', 'Enter a valid starting R.L'), true); $('nbStart').focus(); return; }
+        createBook({ project: $('nbProject').value.trim(), site: $('nbSite').value.trim(), date: $('nbDate').value || todayStr(), surveyor: $('nbSurveyor').value.trim(), startRL: String(start), method: $('nbMethod').value });
+        break;
+      }
+      case 'example': {
+        var ex = EXAMPLES.find(function (x) { return x.key === el.dataset.k; }); if (!ex) break;
+        var d = ex.make(); d.surveyor = userName(); d.date = todayStr(); createBook(d); break;
+      }
+      case 'open': openBook(id); break;
+      case 'back': leaveEditor(); break;
+      case 'save': saveBookNow().then(function () { toast(S.saveState === 'cloud' ? T('تم حفظ الدفتر في حسابك', 'Book saved to your account') : S.saveState === 'error' ? T('تعذّر الحفظ', 'Could not save') : T('تم حفظ الدفتر', 'Book saved')); }); break;
+      case 'rename': {
+        var b = S.books.find(function (x) { return x.id === id; }); if (!b) break;
+        modal({ title: T('إعادة تسمية الدفتر', 'Rename book'), input: b.name, ok: T('حفظ', 'Save'), onOk: function (v) { b.name = String(v).slice(0, 120); b.updatedAt = Date.now(); persistLocal(); if (remoteOK()) window._lvSaveBook(cleanBook(b)).catch(function () { S.syncMode = 'local-fallback'; }); renderList(); toast(T('تمت إعادة التسمية', 'Renamed')); } });
+        break;
+      }
+      case 'dup': {
+        var src = S.books.find(function (x) { return x.id === id; }); if (!src) break;
+        var cp = cleanBook(JSON.parse(JSON.stringify(src))); cp.id = newId('b'); cp.name = T('نسخة من ', 'Copy of ') + (src.name || ''); cp.createdAt = cp.updatedAt = Date.now();
+        cp.rows.forEach(function (r) { r.id = newId('r'); });
+        S.books.push(cp); persistLocal(); if (remoteOK()) window._lvSaveBook(cp).catch(function () { S.syncMode = 'local-fallback'; });
+        renderList(); toast(T('تم إنشاء نسخة من الدفتر', 'Book duplicated')); break;
+      }
+      case 'delbook': {
+        var db = S.books.find(function (x) { return x.id === id; }); if (!db) break;
+        modal({ title: T('حذف الدفتر', 'Delete book'), msg: T('سيتم حذف الدفتر "' + (db.name || '') + '" نهائيًا ولا يمكن استرجاعه. هل أنت متأكد؟', 'The book "' + (db.name || '') + '" will be permanently deleted. Are you sure?'), ok: T('نعم، احذف', 'Yes, delete'), danger: true,
+          onOk: function () {
+            S.books = S.books.filter(function (x) { return x.id !== id; }); persistLocal();
+            if (remoteOK()) { window._lvDeleteBook(id).catch(function () { var q = lsRead(lsDelKey()); q.push(id); lsWrite(lsDelKey(), q); }); }
+            renderList(); toast(T('تم حذف الدفتر', 'Book deleted'));
+          } });
+        break;
+      }
+      case 'method': beforeChange(true); S.book.method = el.dataset.v; afterChange(); root.querySelectorAll('.lv-segb').forEach(function (b2) { b2.classList.toggle('on', b2.dataset.v === S.book.method); }); refresh(); break;
+      case 'addrow': { beforeChange(true); var nr = mkRow(); rows.push(nr); afterChange(); buildBody(); focusCell(nr.id, 'station'); break; }
+      case 'addcp': { beforeChange(true); var nc = mkRow('', '', '', '', true); rows.push(nc); afterChange(); buildBody(); focusCell(nc.id, 'station'); break; }
+      case 'ins': { if (i < 0) break; beforeChange(true); var ni = mkRow(); rows.splice(i + 1, 0, ni); afterChange(); buildBody(); focusCell(ni.id, 'station'); break; }
+      case 'delrow': {
+        if (i < 0) break; beforeChange(true);
+        rows.splice(i, 1); if (!rows.length) rows.push(mkRow());
+        afterChange(); buildBody(); toast(T('تم حذف الصف — يمكنك التراجع', 'Row deleted — you can undo')); break;
+      }
+      case 'cp': {
+        if (i < 0) break; if (i === 0) { toast(T('نقطة البداية لا يمكن أن تكون نقطة تغيير', 'The starting point cannot be a change point'), true); break; }
+        beforeChange(true); var r2 = rows[i]; r2.cp = !r2.cp; afterChange(); refresh();
+        if (r2.cp) focusCell(r2.id, parseNum(r2.fs) === null ? 'fs' : 'bs'); break;
+      }
+      case 'undo': doUndo(); break;
+      case 'goto': { var tr2 = root.querySelector('tr[data-id="' + id + '"]'); if (tr2) { tr2.scrollIntoView({ block: 'center', behavior: 'smooth' }); tr2.classList.add('lv-flash'); setTimeout(function () { tr2.classList.remove('lv-flash'); }, 1400); } break; }
+      case 'xlsx': exportXlsx(); break;
+      case 'pdf': exportPdf(); break;
+      case 'print': doPrint(); break;
+    }
+  }
+
+  /* ═══════════════════════════ التصدير والطباعة ═══════════════════════════ */
+  function rowOut(p, b) { var rf = b.method === 'rf'; return { hi: p.out.hi, rise: p.out.rise, fall: p.out.fall, rl: (rf && p.out.rl !== null) ? p.out.rl2 : p.out.rl }; }
+  function fileBase() { return String((S.book.name || 'leveling-book')).replace(/[\\/:*?"<>|]+/g, '_').trim().slice(0, 60) || 'leveling-book'; }
+
+  function loadScript(url, test) {
+    return new Promise(function (res, rej) {
+      if (test()) return res();
+      var s = document.createElement('script'); s.src = url; s.async = true; s.onload = function () { test() ? res() : rej(new Error('lib')); }; s.onerror = function () { rej(new Error('load')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function summaryLines(an, b) {
+    var dec = b.dec, L = [];
+    L.push(['ΣB.S', fmt(an.sumBS, dec)], ['ΣF.S', fmt(an.sumFS, dec)], ['ΣRise', fmt(an.sumRise, dec)], ['ΣFall', fmt(an.sumFall, dec)],
+      ['First R.L', an.firstRL === null ? '' : fmt(an.firstRL, dec)], ['Last R.L', an.lastRL === null ? '' : fmt(b.method === 'rf' ? lastRl2(an) : an.lastRL, dec)]);
+    L.push([T('عدد النقاط / Points', 'Points'), String(an.points)], [T('عدد المحطات / Setups', 'Setups'), String(an.setups)]);
+    if (an.checks) {
+      L.push(['ΣB.S − ΣF.S', fmt(an.checks.c1, dec)], ['ΣRise − ΣFall', fmt(an.checks.c2, dec)], ['Last R.L − First R.L', fmt(an.checks.diff, dec)]);
+      if (an.closing) L.push([T('خطأ القفل / Closing error', 'Closing error'), fmtSigned(an.closing.err, dec) + ' m (' + (an.closing.err * 1000 > 0 ? '+' : '') + Math.round(an.closing.err * 100000) / 100 + ' mm)']);
+    }
+    var st = an.status === 'ok' ? T('الحسابات متطابقة ✓', 'Calculations agree ✓') : an.status === 'bad' ? T('يوجد خطأ حسابي أو عدم تطابق ✗', 'Arithmetic error / mismatch ✗') : T('بيانات ناقصة — لم يتم التحقق', 'Incomplete data — not verified');
+    L.push([T('حالة التحقق / Check', 'Check'), st]);
+    return L;
+  }
+
+  function exportXlsx() {
+    var b = S.book, an = S.an, dec = b.dec; if (!b) return;
+    var num = function (v) { return v === null || v === undefined || isNaN(v) ? '' : Number(v); };
+    var aoa = [['ATLASYA — ' + T('دفتر الميزانية المساحية', 'Leveling Book') + ' / Leveling Book'], [],
+    [T('اسم الدفتر / Book', 'Book'), b.name], [T('المشروع / Project', 'Project'), b.project, '', T('الموقع / Site', 'Site'), b.site],
+    [T('التاريخ / Date', 'Date'), b.date, '', T('المسّاح / Surveyor', 'Surveyor'), b.surveyor],
+    [T('طريقة الحساب / Method', 'Method'), methodName(b.method), '', T('الوحدات / Units', 'Units'), 'm (' + T('متر', 'meters') + ')'],
+    ['Starting R.L (m)', num(parseNum(b.startRL)), '', T('المنسوب المعلوم للنهاية / Known end R.L (m)', 'Known end R.L (m)'), b.closeAtStart ? num(parseNum(b.startRL)) : num(parseNum(b.endRL))], [],
+    ['#', 'Station', 'B.S (m)', 'I.S (m)', 'F.S (m)', 'H.I (m)', 'Rise (m)', 'Fall (m)', 'R.L (m)', 'Remarks']];
+    var hdrRow = aoa.length;
+    an.rows.forEach(function (p, i) {
+      var r = b.rows[i]; if (p.empty) return; var o = rowOut(p, b);
+      aoa.push([i + 1, r.station + (r.cp ? ' (C.P)' : ''), num(p.bs), num(p.is), num(p.fs), num(o.hi), num(o.rise), num(o.fall), num(o.rl), r.remarks]);
+    });
+    aoa.push([]); aoa.push([T('الإجماليات والتحقق / Totals & checks', 'Totals & checks')]);
+    summaryLines(an, b).forEach(function (l) { aoa.push([l[0], '', l[1]]); });
+    aoa.push([]); aoa.push([T('تم الإنشاء بواسطة ATLASYA', 'Generated by ATLASYA'), new Date().toISOString().slice(0, 16).replace('T', ' ')]);
+    toast(T('جارٍ تجهيز ملف Excel…', 'Preparing Excel file…'));
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', function () { return window.XLSX; }).then(function () {
+      var ws = XLSX.utils.aoa_to_sheet(aoa), wb = XLSX.utils.book_new();
+      ws['!cols'] = [{ wch: 8 }, { wch: 26 }, { wch: 11 }, { wch: 11 }, { wch: 11 }, { wch: 11 }, { wch: 11 }, { wch: 11 }, { wch: 12 }, { wch: 34 }];
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }];
+      var fmtStr = '0.' + new Array(dec + 1).join('0');
+      for (var R = hdrRow + 1; R < hdrRow + 1 + an.rows.length + 1; R++) for (var C = 2; C <= 8; C++) { var cell = ws[XLSX.utils.encode_cell({ r: R, c: C })]; if (cell && typeof cell.v === 'number') cell.z = fmtStr; }
+      ws['!views'] = [{ rightToLeft: false }];
+      XLSX.utils.book_append_sheet(wb, ws, 'Leveling');
+      XLSX.writeFile(wb, fileBase() + '.xlsx'); toast(T('تم تصدير ملف Excel', 'Excel file exported'));
+    }).catch(function () {
+      /* بديل بدون مكتبة: CSV (UTF-8 مع BOM عشان العربي يظهر صح في Excel) */
+      var csv = '﻿' + aoa.map(function (r) { return r.map(function (c) { var s = String(c == null ? '' : c); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(','); }).join('\r\n');
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = fileBase() + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+      toast(T('تعذّر تحميل مكتبة Excel — تم التصدير بصيغة CSV', 'Excel library unavailable — exported as CSV'), true);
+    });
+  }
+
+  /* تقرير HTML بصفحات A4 أفقية — بيستخدم للطباعة وللـ PDF */
+  function reportPages() {
+    var b = S.book, an = S.an, dec = b.dec, ar = isAR();
+    var rowsData = [];
+    an.rows.forEach(function (p, i) { if (p.empty) return; var r = b.rows[i], o = rowOut(p, b); rowsData.push({ n: i + 1, r: r, p: p, o: o }); });
+    var PER = 20, chunks = []; for (var i = 0; i < rowsData.length; i += PER) chunks.push(rowsData.slice(i, i + PER)); if (!chunks.length) chunks.push([]);
+    var sum = summaryLines(an, b);
+    var head = '<div class="rh"><div class="rt"><span class="rlogo">ATLASYA</span> ' + esc(T('دفتر الميزانية المساحية', 'Leveling Book')) + ' <span class="ren">Leveling Book</span></div>' +
+      '<table class="rm"><tr><td><b>' + esc(T('اسم الدفتر', 'Book')) + ':</b> ' + esc(b.name) + '</td><td><b>' + esc(T('المشروع', 'Project')) + ':</b> ' + esc(b.project) + '</td><td><b>' + esc(T('الموقع', 'Site')) + ':</b> ' + esc(b.site) + '</td></tr>' +
+      '<tr><td><b>' + esc(T('التاريخ', 'Date')) + ':</b> <span dir="ltr">' + esc(b.date) + '</span></td><td><b>' + esc(T('المسّاح', 'Surveyor')) + ':</b> ' + esc(b.surveyor) + '</td><td><b>' + esc(T('الطريقة', 'Method')) + ':</b> ' + esc(methodName(b.method)) + '</td></tr>' +
+      '<tr><td><b>Starting R.L:</b> <span dir="ltr">' + esc(fmt(parseNum(b.startRL), dec)) + ' m</span></td><td><b>' + esc(T('الوحدات', 'Units')) + ':</b> ' + esc(T('متر (m)', 'meters (m)')) + '</td><td><b>' + esc(T('تاريخ الطباعة', 'Printed')) + ':</b> <span dir="ltr">' + esc(new Date().toISOString().slice(0, 10)) + '</span></td></tr></table></div>';
+    function tbl(list) {
+      return '<table class="rd" dir="ltr"><thead><tr><th>#</th><th>Station</th><th>B.S (m)</th><th>I.S (m)</th><th>F.S (m)</th><th>H.I (m)</th><th>Rise (m)</th><th>Fall (m)</th><th>R.L (m)</th><th>Remarks</th></tr></thead><tbody>' +
+        list.map(function (x) {
+          return '<tr class="' + (x.r.cp ? 'cp' : '') + '"><td>' + x.n + '</td><td class="l">' + esc(x.r.station) + (x.r.cp ? ' <b>(C.P)</b>' : '') + '</td><td>' + esc(fmt(x.p.bs, dec)) + '</td><td>' + esc(fmt(x.p.is, dec)) + '</td><td>' + esc(fmt(x.p.fs, dec)) + '</td><td>' + esc(fmt(x.o.hi, dec)) + '</td><td>' + esc(fmt(x.o.rise, dec)) + '</td><td>' + esc(fmt(x.o.fall, dec)) + '</td><td><b>' + esc(fmt(x.o.rl, dec)) + '</b></td><td class="l">' + esc(x.r.remarks) + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+    var sumHtml = '<div class="rs"><div class="rst">' + esc(T('الإجماليات والتحقق الحسابي', 'Totals & arithmetic checks')) + '</div><table class="rsum">' + sum.map(function (l) { return '<tr><td>' + esc(l[0]) + '</td><td dir="ltr">' + esc(l[1]) + '</td></tr>'; }).join('') + '</table></div>';
+    var pages = chunks.map(function (c, k) {
+      var last = k === chunks.length - 1, withSum = last && c.length <= 10;
+      return '<div class="pg" dir="' + (ar ? 'rtl' : 'ltr') + '">' + head + tbl(c) + (withSum ? sumHtml : '') + '<div class="rf">ATLASYA — ' + esc(T('صفحة', 'Page')) + ' ' + (k + 1) + '/' + (chunks.length + (last && !withSum ? 1 : 0)) + '</div></div>';
+    });
+    if (chunks[chunks.length - 1].length > 10) pages.push('<div class="pg" dir="' + (ar ? 'rtl' : 'ltr') + '">' + head + sumHtml + '<div class="rf">ATLASYA — ' + esc(T('صفحة', 'Page')) + ' ' + (pages.length + 1) + '/' + (pages.length + 1) + '</div></div>');
+    return pages;
+  }
+  var REPORT_CSS = '*{box-sizing:border-box}body{margin:0;background:#fff;color:#111;font-family:Tajawal,Segoe UI,Arial,sans-serif}.pg{width:1122px;min-height:790px;padding:26px 30px;background:#fff;page-break-after:always;position:relative}' +
+    '.rt{font-size:22px;font-weight:800;margin-bottom:10px;border-bottom:3px solid #1e7a34;padding-bottom:8px}.rlogo{color:#1e7a34;letter-spacing:1px}.ren{font-size:13px;color:#666;font-weight:600}' +
+    '.rm{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:13px}.rm td{padding:4px 8px;border:1px solid #ddd;width:33%}' +
+    '.rd{width:100%;border-collapse:collapse;font-size:12.5px}.rd th{background:#1e7a34;color:#fff;padding:6px 5px;border:1px solid #14572a;font-size:12px}.rd td{border:1px solid #bbb;padding:5px 6px;text-align:center;height:26px}.rd td.l{text-align:start}.rd tr.cp td{background:#fff3cf}' +
+    '.rs{margin-top:14px}.rst{font-weight:800;font-size:15px;margin-bottom:6px;color:#1e7a34}.rsum{border-collapse:collapse;font-size:13px;min-width:420px}.rsum td{border:1px solid #ccc;padding:4px 10px}.rsum td:first-child{font-weight:700;background:#f3f6f4}' +
+    '.rf{position:absolute;bottom:12px;inset-inline:30px;text-align:center;font-size:11px;color:#777}';
+
+  function doPrint() {
+    var pages = reportPages();
+    var fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;right:-9999px;bottom:0;width:0;height:0;border:0';
+    document.body.appendChild(fr);
+    var d = fr.contentWindow.document; d.open();
+    d.write('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(S.book.name) + '</title><style>@page{size:A4 landscape;margin:6mm}' + REPORT_CSS + '.pg{width:auto;min-height:0;padding:0 4px}@media print{.pg:last-child{page-break-after:auto}}</style></head><body>' + pages.join('') + '</body></html>');
+    d.close();
+    setTimeout(function () { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast(T('تعذّرت الطباعة', 'Print failed'), true); } setTimeout(function () { fr.remove(); }, 2000); }, 350);
+  }
+
+  function exportPdf() {
+    var pages = reportPages();
+    toast(T('جارٍ تجهيز ملف PDF…', 'Preparing PDF…'));
+    var host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-20000px;top:0;width:1122px;background:#fff;z-index:-1';
+    host.innerHTML = '<style>' + REPORT_CSS + '</style>' + pages.join(''); document.body.appendChild(host);
+    Promise.all([
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', function () { return window.html2canvas; }),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', function () { return window.jspdf && window.jspdf.jsPDF; })
+    ]).then(function () {
+      var pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+      var els = host.querySelectorAll('.pg'), chain = Promise.resolve();
+      els.forEach(function (el, k) {
+        chain = chain.then(function () { return window.html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true }); }).then(function (cv) {
+          if (k > 0) pdf.addPage();
+          var w = 297, h = Math.min(210, w * cv.height / cv.width);
+          pdf.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h);
+        });
+      });
+      return chain.then(function () { pdf.save(fileBase() + '.pdf'); toast(T('تم تحميل ملف PDF', 'PDF downloaded')); });
+    }).catch(function (e) {
+      console.warn('[leveling] PDF:', e);
+      toast(T('تعذّر إنشاء PDF مباشرة — استخدم الطباعة واختر «حفظ كـ PDF»', 'Direct PDF failed — use Print and choose “Save as PDF”'), true);
+    }).then(function () { host.remove(); });
+  }
+
+  /* حفظ نهائي عند إخفاء الصفحة/إغلاقها */
+  function flush() { if (S.view === 'editor' && S.dirty && S.book) saveBookNow(); }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(); });
+  window.addEventListener('pagehide', flush);
+
+  window.ATL_LEVELING = { analyze: analyze, parseNum: parseNum, examples: EXAMPLES, cleanBook: cleanBook };
+  window.renderLevelingCalc = render;
+})();
+</script>
 </body>
     </html>
