@@ -4425,7 +4425,10 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                         <i class="fa-solid fa-chevron-down nav-group-chevron"></i>
                     </button>
                     <div class="nav-group-items">
-                        <div class="nav-soon" style="padding:12px 16px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);cursor:default;"><i class="fa-solid fa-hourglass-half" style="color:var(--gold3);"></i> <span id="navSoonTxt">قريباً</span></div>
+                        <button class="nav-item" id="menuUnits" onclick="navigate('unitconverter', this)">
+                            <i class="fa-solid fa-ruler-combined"></i> <span id="menuUnitsTxt">محول الوحدات</span>
+                        </button>
+                        <div class="nav-soon" style="padding:12px 16px;display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);cursor:default;"><i class="fa-solid fa-hourglass-half" style="color:var(--gold3);"></i> <span id="navSoonTxt">قريباً</span></div>
                     </div>
                 </div>
 
@@ -7740,6 +7743,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuInsightTxt: 'رؤى GIS',
                 menuDataTxt: 'البيانات المكانية',
                 menuToolTxt: 'أدوات البرامج',
+                menuUnitsTxt: 'محول الوحدات',
                 menuJobTxt: 'لوحة الوظائف',
                 menuCourseTxt: 'الكورسات',
                 menuConnectTxt: 'سوشيال ميديا',
@@ -7773,6 +7777,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuInsightTxt: 'GIS Insights',
                 menuDataTxt: 'Spatial Datasets',
                 menuToolTxt: 'GIS Software',
+                menuUnitsTxt: 'Unit Converter',
                 menuJobTxt: 'Job Board',
                 menuCourseTxt: 'Courses',
                 menuConnectTxt: 'Social Media',
@@ -8337,7 +8342,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 if (editBtn) editBtn.style.display = 'none';
 
                 // Restore hidden nav items
-                const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuCourse','menuConnect','menuCV','menuPortfolio','menuMentorship'];
+                const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuUnits','menuCourse','menuConnect','menuCV','menuPortfolio','menuMentorship'];
                 adminHideItems.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.style.display = '';
@@ -8411,7 +8416,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
            or browser back/forward), where no click event/element is available. */
         const PAGE_NAV_ID_MAP = {
             dashboard: 'menuDash', playlists: 'menuPlay', library: 'menuLib',
-            insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool',
+            insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool', unitconverter: 'menuUnits',
             jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
             community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
             account: 'menuAccount', achievements: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
@@ -8464,6 +8469,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 insights:  lang==='AR'?'رؤى GIS':'GIS Insights',
                 datasets:  lang==='AR'?'البيانات المكانية':'Spatial Datasets',
                 tools:     lang==='AR'?'أدوات البرامج':'GIS Software Tools',
+                unitconverter: lang==='AR'?'محول الوحدات والقياسات':'Unit Converter',
                 jobs:      lang==='AR'?'لوحة الوظائف':'Job Board',
                 courses:   lang==='AR'?'الكورسات':'Courses',
                 expert:    lang==='AR'?'الدعم الفني':'Technical Support',
@@ -8514,6 +8520,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             else if (page === 'datasets') renderDatasets(area);
             else if (page === 'insights') renderInsights(area);
             else if (page === 'tools') renderTools(area);
+            else if (page === 'unitconverter' && window.renderUnitConverter) window.renderUnitConverter(area);
             else if (page === 'community') renderCommunity(area);
             else if (page === 'jobs') renderJobs(area);
             else if (page === 'cvbuilder') renderCVBuilder(area);
@@ -14482,7 +14489,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.4.2';
+        window.ATL_APP_VERSION = '2026.11.4.5';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
@@ -19252,7 +19259,7 @@ async function csAdmShowLink(id, btn) {
                 });
 
                 // Hide nav items not relevant for admin
-                const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuCourse','menuConnect','menuCV','menuPortfolio','menuMentorship'];
+                const adminHideItems = ['menuPlay','menuLib','menuInsight','menuData','menuTool','menuUnits','menuCourse','menuConnect','menuCV','menuPortfolio','menuMentorship'];
                 adminHideItems.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.style.display = 'none';
@@ -19572,6 +19579,7 @@ async function csAdmShowLink(id, btn) {
         
     /* ─── Notification targets: الزر اللي الإشعار بيخصه (الأدمن بيختار، والطالب بيتنقل له بالضغط) ─── */
     const NOTIF_TARGETS = [
+        { key:'dashboard',      ar:'لوحة التحكم',        en:'Dashboard' },
         { key:'dailychallenge', ar:'التحديات',            en:'Challenges' },
         { key:'wheel',          ar:'عجلة الحظ',           en:'Lucky Wheel' },
         { key:'playlists',      ar:'قوائم التشغيل',       en:'Playlists' },
@@ -19579,7 +19587,6 @@ async function csAdmShowLink(id, btn) {
         { key:'insights',       ar:'رؤى GIS',             en:'GIS Insights' },
         { key:'datasets',       ar:'البيانات المكانية',   en:'Spatial Datasets' },
         { key:'tools',          ar:'أدوات البرامج',       en:'Software Tools' },
-        { key:'unitconverter',  ar:'محوّل وحدات القياس',  en:'Unit Converter' },
         { key:'jobs',           ar:'الوظائف',             en:'Job Board' },
         { key:'courses',        ar:'الكورسات',            en:'Courses' },
         { key:'community',      ar:'مجتمع الطلاب',        en:'Community' },
@@ -19587,8 +19594,7 @@ async function csAdmShowLink(id, btn) {
         { key:'portfolio',      ar:'خرائط الطلبة',        en:'Student Maps' },
         { key:'mentorship',     ar:'اسأل خبير GIS',       en:'Ask a GIS Expert' },
         { key:'expert',         ar:'الدعم الفني',         en:'Technical Support' },
-        { key:'appreviews',    ar:'تقييمات الطلبة',     en:'Student Reviews' },
-        { key:'invite',         ar:'دعوة الأصدقاء (الإعدادات)', en:'Invite Friends (Settings)' }
+        { key:'appreviews',    ar:'تقييمات الطلبة',     en:'Student Reviews' }
     ];
     function notifTargetLabel(key, isAR) {
         const t = NOTIF_TARGETS.find(x => x.key === key);
@@ -19607,7 +19613,6 @@ async function csAdmShowLink(id, btn) {
             try { if (window._markNotifsAsSeen) window._markNotifsAsSeen(); } catch(e) {}
             if (_notifOpen) toggleNotifDropdown();
             if (page === 'appreviews') { goSettings('appinfo'); return; }
-            if (page === 'invite') { goSettings('invite'); return; }
             const navId = (typeof PAGE_NAV_ID_MAP !== 'undefined' && PAGE_NAV_ID_MAP[page]) || null;
             navigate(page, navId ? document.getElementById(navId) : null);
         }
@@ -20834,6 +20839,787 @@ async function csAdmShowLink(id, btn) {
   }
 })();
 
+</script>
+<!-- ATLASYA Unit Converter (محول الوحدات والقياسات) — أداة مستقلة، مش بتلمس أي كود تاني -->
+<style id="atl-unit-converter-css">
+/* ATLASYA Unit Converter — كل الكلاسات بتبدأ بـ uc- عشان متتعارضش مع أي ستايل موجود */
+.uc-wrap { max-width: 980px; margin: 0 auto; }
+.uc-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.uc-cat { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 13px 8px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; color: var(--text); font-family: inherit; font-size: 12.5px; font-weight: 700; line-height: 1.3; text-align: center; cursor: pointer; transition: transform .15s, border-color .15s, background .15s, box-shadow .15s; }
+.uc-cat i { font-size: 20px; color: var(--g4); transition: color .15s; }
+.uc-cat:hover { transform: translateY(-2px); border-color: var(--border2); }
+.uc-cat.active { border-color: var(--g4); background: rgba(var(--brand-rgb,30,122,52), .14); box-shadow: 0 6px 18px -8px rgba(var(--brand2-rgb,39,163,70), .55); }
+.uc-cat.active i { color: var(--gold3); }
+.uc-subtabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.uc-sub { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; color: var(--text); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; }
+.uc-sub i { color: var(--g4); }
+.uc-sub.active { background: linear-gradient(135deg, var(--g3), var(--g2)); border-color: transparent; color: #fff; }
+.uc-sub.active i { color: var(--gold5); }
+.uc-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r, 14px); padding: 18px; margin-bottom: 14px; animation: fadeUp .3s ease both; }
+.uc-top { display: flex; gap: 12px; flex-wrap: wrap; }
+.uc-grow { flex: 1 1 220px; min-width: 0; }
+.uc-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; min-width: 0; }
+.uc-field > label { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.uc-in { width: 100%; box-sizing: border-box; padding: 11px 12px; background: rgba(127,127,127,.09); border: 1px solid var(--border2); border-radius: 10px; color: var(--text); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.uc-in:focus { border-color: var(--g4); box-shadow: 0 0 0 3px rgba(var(--brand-rgb,30,122,52), .18); }
+.uc-in option { background: var(--bg2); color: var(--text); }
+.uc-big { font-size: 22px; font-weight: 700; padding: 14px 14px; }
+.uc-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; }
+.uc-row .uc-field { margin-bottom: 0; }
+.uc-swap { width: 44px; height: 44px; margin-top: 22px; border-radius: 50%; border: 1px solid var(--border2); background: rgba(var(--brand-rgb,30,122,52), .12); color: var(--g4); font-size: 15px; cursor: pointer; transition: transform .25s, background .15s; flex-shrink: 0; }
+.uc-swap:hover { transform: rotate(180deg); background: rgba(var(--brand-rgb,30,122,52), .25); }
+.uc-result { margin-top: 16px; padding: 18px 14px; border-radius: 14px; text-align: center; background: linear-gradient(135deg, rgba(var(--brand-rgb,30,122,52), .14), rgba(212,160,23,.08)); border: 1px solid var(--border2); min-height: 74px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.uc-result.uc-bad { background: rgba(231,76,60,.08); border-color: rgba(231,76,60,.35); }
+.uc-resval { font-size: clamp(24px, 5.2vw, 38px); font-weight: 800; color: var(--text); line-height: 1.25; word-break: break-all; }
+.uc-resunit { font-size: .5em; font-weight: 700; color: var(--gold3); }
+.uc-resname { font-size: 12.5px; color: var(--muted); }
+.uc-ph { font-size: 13.5px; color: var(--muted); }
+.uc-err { font-size: 13.5px; font-weight: 700; color: var(--danger, #e74c3c); display: flex; gap: 8px; align-items: center; justify-content: center; }
+.uc-result3 { flex-direction: row; flex-wrap: wrap; justify-content: space-around; gap: 14px; }
+.uc-result3 .uc-ph, .uc-result3 .uc-err { width: 100%; }
+.uc-r3 { flex: 1 1 140px; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.uc-r3 .uc-resval { font-size: clamp(20px, 4vw, 28px); }
+.uc-r3l { font-size: 12px; font-weight: 700; color: var(--muted); }
+.uc-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.uc-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border2); background: transparent; color: var(--text); font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all .15s; }
+.uc-btn:hover { background: rgba(var(--brand-rgb,30,122,52), .12); }
+.uc-btn-main { background: linear-gradient(135deg, var(--g3), var(--g2)); border-color: transparent; color: #fff; }
+.uc-btn-main:hover { background: linear-gradient(135deg, var(--g4), var(--g3)); }
+.uc-formula { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: rgba(127,127,127,.08); font-size: 13px; font-weight: 600; color: var(--text); word-break: break-word; }
+.uc-formula i { color: var(--gold3); margin-inline-end: 6px; }
+.uc-extra { margin-top: 8px; font-size: 13.5px; font-weight: 700; color: var(--g4); }
+.uc-note { margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.7; color: var(--muted); background: rgba(212,160,23,.08); border: 1px solid rgba(212,160,23,.22); }
+.uc-note i { color: var(--gold3); margin-inline-end: 6px; }
+.uc-det { margin-top: 10px; font-size: 13px; }
+.uc-det summary { cursor: pointer; font-weight: 700; color: var(--g4); padding: 6px 0; }
+.uc-det ol { margin: 6px 0 0; padding-inline-start: 22px; color: var(--muted); line-height: 1.9; }
+.uc-det li { list-style: decimal; unicode-bidi: plaintext; }
+.uc-sec { padding: 14px 16px; }
+.uc-sec-title { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 800; margin-bottom: 10px; }
+.uc-sec-title i { color: var(--gold3); }
+.uc-link { margin-inline-start: auto; background: none; border: none; color: var(--g4); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; }
+.uc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.uc-sec .uc-chips { margin-bottom: 0; }
+.uc-chip { padding: 8px 13px; border-radius: 999px; border: 1px solid var(--border2); background: rgba(var(--brand-rgb,30,122,52), .08); color: var(--text); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .15s; }
+.uc-chip:hover { background: rgba(var(--brand-rgb,30,122,52), .22); border-color: var(--g4); }
+.uc-hist { display: flex; flex-direction: column; gap: 6px; }
+.uc-hrow { text-align: start; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border); background: rgba(127,127,127,.06); color: var(--text); font-family: inherit; font-size: 13px; cursor: pointer; word-break: break-all; }
+.uc-hrow:hover { border-color: var(--g4); }
+.uc-empty { font-size: 13px; color: var(--muted); }
+.uc-scalebox { display: flex; align-items: center; gap: 8px; }
+.uc-scalebox span { font-size: 18px; font-weight: 800; color: var(--gold3); }
+.uc-seg { display: flex; gap: 6px; padding: 4px; border-radius: 12px; background: rgba(127,127,127,.1); margin-bottom: 12px; }
+.uc-seg button { flex: 1; padding: 10px 8px; border: none; border-radius: 9px; background: transparent; color: var(--muted); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; }
+.uc-seg button.active { background: linear-gradient(135deg, var(--g3), var(--g2)); color: #fff; }
+@media (max-width: 640px) {
+  .uc-cats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .uc-cat { padding: 11px 4px; font-size: 11.5px; }
+  .uc-card { padding: 14px; }
+  .uc-row { grid-template-columns: 1fr; gap: 8px; }
+  .uc-row .uc-field { margin-bottom: 0; }
+  .uc-swap { margin: 0 auto; width: 40px; height: 40px; }
+  .uc-swap i { transform: rotate(90deg); }
+}
+.uc-resbox { position: relative; margin-top: 16px; }
+.uc-resbox .uc-result { margin-top: 0; padding-top: 34px; }
+.uc-ricons { position: absolute; top: 8px; inset-inline-end: 8px; display: flex; gap: 6px; z-index: 1; }
+.uc-ic { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--border2); background: rgba(127,127,127,.12); color: var(--g4); font-size: 14px; cursor: pointer; transition: all .15s; }
+.uc-ic:hover { background: rgba(var(--brand-rgb,30,122,52), .25); transform: translateY(-1px); }
+.uc-ftitle { font-size: 15px; }
+.uc-tblwrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin-top: 8px; }
+.uc-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.uc-tbl th, .uc-tbl td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: start; white-space: nowrap; }
+.uc-tbl thead th { background: rgba(var(--brand-rgb,30,122,52), .14); font-weight: 800; position: sticky; top: 0; }
+.uc-tbl tbody tr:nth-child(even) { background: rgba(127,127,127,.05); }
+.uc-mx th:first-child, .uc-mx tbody th { background: rgba(var(--brand-rgb,30,122,52), .1); position: sticky; inset-inline-start: 0; }
+.uc-mx .uc-diag { color: var(--gold3); font-weight: 800; }
+.uc-ex { margin: 6px 0 0; padding-inline-start: 22px; font-size: 13px; color: var(--muted); line-height: 1.9; }
+.uc-ex li { list-style: disc; }
+.uc-toprow { display: flex; margin-bottom: 14px; }
+.uc-pill { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px; border: 1px solid var(--border2); background: linear-gradient(135deg, var(--g3), var(--g2)); color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; box-shadow: 0 6px 18px -8px rgba(var(--brand2-rgb,39,163,70), .6); transition: transform .15s, box-shadow .15s; }
+.uc-pill:hover { transform: translateY(-1px); }
+.uc-pill i { color: var(--gold5); }
+.uc-symgrp { margin-top: 12px; }
+.uc-symtitle { font-size: 13px; font-weight: 800; color: var(--g4); margin-bottom: 7px; display: flex; align-items: center; gap: 7px; }
+.uc-syms { display: flex; flex-wrap: wrap; gap: 6px; }
+.uc-symchip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(127,127,127,.09); border: 1px solid var(--border); font-size: 12.5px; }
+.uc-symchip b { color: var(--gold3); font-size: 13.5px; min-width: 18px; text-align: center; }
+.uc-symchip em { font-style: normal; color: var(--muted); font-size: 11.5px; margin-inline-start: 4px; }
+@media (prefers-reduced-motion: reduce) { .uc-card, .uc-cat, .uc-swap { animation: none; transition: none; } }
+</style>
+<script id="atl-unit-converter-js">
+/* ATLASYA Unit Converter — محول الوحدات والقياسات
+   أداة مستقلة بالكامل (بدون قاعدة بيانات ولا API): بتتسجّل كـ window.renderUnitConverter وبتتنادى من navigate('unitconverter').
+   كل الحسابات بتتم بدقة double كاملة، والتقريب بيحصل عند العرض بس. */
+(function () {
+  'use strict';
+
+  function isAR() { try { return lang === 'AR'; } catch (e) { return true; } }
+  function T(a, e) { return isAR() ? a : e; }
+  function $(id) { return document.getElementById(id); }
+  function toast(m, err) { try { showToast(m, !!err); } catch (e) { /* no-op */ } }
+
+  /* ───────────── البيانات: عوامل التحويل (نسبةً للوحدة الأساسية لكل فئة) ───────────── */
+  function U(k, sym, f, ar, en) { return { k: k, sym: sym, f: f, ar: ar, en: en }; }
+
+  var FEDDAN = 12602.5 / 3; /* 1 فدان = 333⅓ قصبة² × (3.55 م)² = 4200.8333… م² — القيراط = فدان/24 والسهم = قيراط/24 */
+
+  var LENGTH = [
+    U('km', 'km', 1000, 'كيلومتر', 'Kilometer'), U('m', 'm', 1, 'متر', 'Meter'),
+    U('dm', 'dm', 0.1, 'ديسيمتر', 'Decimeter'), U('cm', 'cm', 0.01, 'سنتيمتر', 'Centimeter'),
+    U('mm', 'mm', 0.001, 'مليمتر', 'Millimeter'), U('um', 'µm', 1e-6, 'ميكرومتر', 'Micrometer'),
+    U('nm', 'nm', 1e-9, 'نانومتر', 'Nanometer'), U('mi', 'mi', 1609.344, 'ميل', 'Mile'),
+    U('yd', 'yd', 0.9144, 'ياردة', 'Yard'), U('ft', 'ft', 0.3048, 'قدم', 'Foot'),
+    U('in', 'in', 0.0254, 'بوصة', 'Inch'), U('nmi', 'nmi', 1852, 'ميل بحري', 'Nautical Mile')
+  ];
+  var AREA = [
+    U('km2', 'km²', 1e6, 'كيلومتر مربع', 'Square Kilometer'), U('ha', 'ha', 1e4, 'هكتار', 'Hectare'),
+    U('are', 'a', 100, 'آر', 'Are'), U('m2', 'm²', 1, 'متر مربع', 'Square Meter'),
+    U('dm2', 'dm²', 0.01, 'ديسيمتر مربع', 'Square Decimeter'), U('cm2', 'cm²', 1e-4, 'سنتيمتر مربع', 'Square Centimeter'),
+    U('mm2', 'mm²', 1e-6, 'مليمتر مربع', 'Square Millimeter'),
+    U('feddan', 'فدان', FEDDAN, 'فدان', 'Feddan'), U('qirat', 'قيراط', FEDDAN / 24, 'قيراط', 'Qirat'),
+    U('sahm', 'سهم', FEDDAN / 576, 'سهم', 'Sahm'),
+    U('mi2', 'mi²', 2589988.110336, 'ميل مربع', 'Square Mile'), U('yd2', 'yd²', 0.83612736, 'ياردة مربعة', 'Square Yard'),
+    U('ft2', 'ft²', 0.09290304, 'قدم مربع', 'Square Foot'), U('in2', 'in²', 0.00064516, 'بوصة مربعة', 'Square Inch'),
+    U('acre', 'acre', 4046.8564224, 'أكر', 'Acre')
+  ];
+  var VOLUME = [
+    U('km3', 'km³', 1e9, 'كيلومتر مكعب', 'Cubic Kilometer'), U('m3', 'm³', 1, 'متر مكعب', 'Cubic Meter'),
+    U('dm3', 'dm³', 1e-3, 'ديسيمتر مكعب', 'Cubic Decimeter'), U('L', 'L', 1e-3, 'لتر', 'Liter'),
+    U('mL', 'mL', 1e-6, 'مليلتر', 'Milliliter'), U('cm3', 'cm³', 1e-6, 'سنتيمتر مكعب', 'Cubic Centimeter'),
+    U('mm3', 'mm³', 1e-9, 'مليمتر مكعب', 'Cubic Millimeter'),
+    U('galus', 'US gal', 0.003785411784, 'جالون أمريكي', 'US Gallon'), U('galuk', 'Imp gal', 0.00454609, 'جالون إمبراطوري', 'Imperial Gallon'),
+    U('ft3', 'ft³', 0.028316846592, 'قدم مكعب', 'Cubic Foot'), U('in3', 'in³', 1.6387064e-5, 'بوصة مكعبة', 'Cubic Inch')
+  ];
+  var MASS = [
+    U('t', 't', 1000, 'طن متري', 'Metric Ton'), U('kg', 'kg', 1, 'كيلوجرام', 'Kilogram'),
+    U('g', 'g', 1e-3, 'جرام', 'Gram'), U('mg', 'mg', 1e-6, 'ملليجرام', 'Milligram'),
+    U('ug', 'µg', 1e-9, 'ميكروجرام', 'Microgram'), U('lb', 'lb', 0.45359237, 'رطل (باوند)', 'Pound'),
+    U('oz', 'oz', 0.028349523125, 'أوقية', 'Ounce')
+  ];
+  var TIME = [
+    U('s', 's', 1, 'ثانية', 'Second'), U('min', 'min', 60, 'دقيقة', 'Minute'), U('h', 'h', 3600, 'ساعة', 'Hour'),
+    U('d', 'day', 86400, 'يوم', 'Day'), U('wk', 'week', 604800, 'أسبوع', 'Week'),
+    U('mo', 'month', 2592000, 'شهر (30 يوم)', 'Month (30 days)'), U('yr', 'year', 31536000, 'سنة (365 يوم)', 'Year (365 days)')
+  ];
+  var SPEED = [
+    U('ms', 'm/s', 1, 'متر/ثانية', 'Meter per Second'), U('kmh', 'km/h', 1 / 3.6, 'كيلومتر/ساعة', 'Kilometer per Hour'),
+    U('mph', 'mph', 0.44704, 'ميل/ساعة', 'Mile per Hour'), U('kn', 'knot', 1852 / 3600, 'عقدة', 'Knot')
+  ];
+  var TEMP = [
+    U('C', '°C', 0, 'سيلسيوس', 'Celsius'), U('F', '°F', 0, 'فهرنهايت', 'Fahrenheit'), U('K', 'K', 0, 'كلفن', 'Kelvin')
+  ];
+  var ANGLE = [ /* العامل نسبةً للدرجة */
+    U('deg', '°', 1, 'درجة', 'Degree'), U('rad', 'rad', 180 / Math.PI, 'راديان', 'Radian'),
+    U('gon', 'gon', 0.9, 'غراد', 'Gradian'), U('arcmin', '′', 1 / 60, 'دقيقة قوسية', 'Arcminute'),
+    U('arcsec', '″', 1 / 3600, 'ثانية قوسية', 'Arcsecond')
+  ];
+  var SV_DIST = [
+    U('km', 'km', 1000, 'كيلومتر', 'Kilometer'), U('m', 'm', 1, 'متر', 'Meter'), U('cm', 'cm', 0.01, 'سنتيمتر', 'Centimeter'),
+    U('mm', 'mm', 0.001, 'مليمتر', 'Millimeter'), U('mi', 'mi', 1609.344, 'ميل', 'Mile'), U('yd', 'yd', 0.9144, 'ياردة', 'Yard'),
+    U('ft', 'ft', 0.3048, 'قدم', 'Foot'), U('usft', 'ft(US)', 1200 / 3937, 'قدم مساحي أمريكي', 'US Survey Foot'),
+    U('in', 'in', 0.0254, 'بوصة', 'Inch')
+  ];
+  var SV_AREA = [
+    U('km2', 'km²', 1e6, 'كيلومتر مربع', 'Square Kilometer'), U('ha', 'ha', 1e4, 'هكتار', 'Hectare'),
+    U('m2', 'm²', 1, 'متر مربع', 'Square Meter'), U('feddan', 'فدان', FEDDAN, 'فدان', 'Feddan'),
+    U('qirat', 'قيراط', FEDDAN / 24, 'قيراط', 'Qirat'), U('sahm', 'سهم', FEDDAN / 576, 'سهم', 'Sahm'),
+    U('acre', 'acre', 4046.8564224, 'أكر', 'Acre')
+  ];
+  var MAP_LEN = ['mm', 'cm', 'm', 'km', 'in', 'ft', 'yd', 'mi'].map(function (k) { return LENGTH.filter(function (u) { return u.k === k; })[0]; });
+
+  /* neg: هل القيمة السالبة مسموحة؟ (طول/سرعة/حرارة/زاوية: نعم — مساحة/حجم/كتلة/زمن: لا) */
+  var CATS = {
+    length: { icon: 'fa-ruler-combined', ar: 'الأطوال والمسافات', en: 'Length & Distance', units: LENGTH, neg: true, def: ['km', 'm'],
+      ex: [['1', 'mi', 'km'], ['100', 'ft', 'm'], ['1', 'nmi', 'km'], ['5', 'in', 'cm']] },
+    area: { icon: 'fa-vector-square', ar: 'المساحات', en: 'Area', units: AREA, neg: false, def: ['m2', 'feddan'],
+      ex: [['1', 'feddan', 'm2'], ['5', 'qirat', 'm2'], ['10', 'ha', 'feddan'], ['1', 'acre', 'm2']] },
+    volume: { icon: 'fa-cube', ar: 'الأحجام', en: 'Volume', units: VOLUME, neg: false, def: ['m3', 'L'],
+      ex: [['1', 'galus', 'L'], ['1', 'galuk', 'L'], ['1', 'm3', 'L'], ['1', 'ft3', 'L']] },
+    mass: { icon: 'fa-weight-hanging', ar: 'الكتل والأوزان', en: 'Mass & Weight', units: MASS, neg: false, def: ['kg', 'lb'],
+      ex: [['1', 'lb', 'kg'], ['1', 't', 'kg'], ['16', 'oz', 'lb']] },
+    time: { icon: 'fa-clock', ar: 'الزمن', en: 'Time', units: TIME, neg: false, def: ['h', 'min'],
+      ex: [['1', 'yr', 'd'], ['2', 'h', 's'], ['1', 'wk', 'h']] },
+    speed: { icon: 'fa-gauge-high', ar: 'السرعة', en: 'Speed', units: SPEED, neg: true, def: ['kmh', 'ms'],
+      ex: [['100', 'kmh', 'ms'], ['30', 'kn', 'kmh'], ['60', 'mph', 'kmh']] },
+    temp: { icon: 'fa-temperature-half', ar: 'درجات الحرارة', en: 'Temperature', units: TEMP, neg: true, def: ['C', 'F'], kind: 'temp',
+      ex: [['100', 'C', 'F'], ['0', 'K', 'C'], ['-40', 'C', 'F'], ['98.6', 'F', 'C']] },
+    angle: { icon: 'fa-compass-drafting', ar: 'الزوايا', en: 'Angle', units: ANGLE, neg: true, def: ['deg', 'rad'],
+      ex: [['180', 'deg', 'rad'], ['1', 'rad', 'deg'], ['100', 'gon', 'deg'], ['45.5', 'deg', 'arcmin']] },
+    sv_dist: { hidden: true, ar: 'مسافات المساحة', en: 'Surveying Distances', units: SV_DIST, neg: true, def: ['m', 'ft'],
+      ex: [['100', 'm', 'ft'], ['1', 'usft', 'm'], ['300', 'yd', 'm']] },
+    sv_area: { hidden: true, ar: 'مساحات المساحة', en: 'Surveying Areas', units: SV_AREA, neg: false, def: ['m2', 'feddan'],
+      ex: [['4200.8333', 'm2', 'feddan'], ['3', 'qirat', 'm2'], ['2.5', 'feddan', 'ha'], ['500', 'sahm', 'm2']] }
+  };
+  var ORDER = ['length', 'area', 'volume', 'mass', 'time', 'speed', 'temp', 'angle'];
+
+  var NOTES = [
+    { cats: ['area', 'sv_area'], keys: ['feddan', 'qirat', 'sahm'],
+      ar: 'التعريف المصري القياسي: 1 فدان = 4200.8333 م² = 24 قيراط = 576 سهم (1 قيراط ≈ 175.0347 م² — 1 سهم ≈ 7.2931 م²). الوحدات التقليدية قد تختلف قيمها حسب العُرف المحلي.',
+      en: 'Standard Egyptian definition: 1 Feddan = 4,200.8333 m² = 24 Qirat = 576 Sahm (1 Qirat ≈ 175.0347 m², 1 Sahm ≈ 7.2931 m²). Traditional units may vary by local custom.' },
+    { cats: ['volume'], keys: ['galus', 'galuk'],
+      ar: 'الجالون الأمريكي = 3.785411784 لتر، والجالون الإمبراطوري = 4.54609 لتر — مش نفس القيمة.',
+      en: 'US gallon = 3.785411784 L, Imperial gallon = 4.54609 L — they are different units.' },
+    { cats: ['time'], keys: ['mo', 'yr'],
+      ar: 'للأغراض الحسابية فقط: الشهر = 30 يومًا والسنة = 365 يومًا.',
+      en: 'For calculation only: 1 month = 30 days, 1 year = 365 days.' },
+    { cats: ['sv_dist'], keys: ['usft'],
+      ar: 'القدم المساحي الأمريكي = 1200/3937 م (≈ 0.3048006 م) وبيظهر في بيانات المساحة القديمة، بيختلف قليلًا عن القدم الدولي (0.3048 م).',
+      en: 'US survey foot = 1200/3937 m (≈ 0.3048006 m), found in legacy survey data; slightly different from the international foot (0.3048 m).' }
+  ];
+
+  /* ───────────── أدوات الأرقام: قراءة (عربي/إنجليزي) + تنسيق ───────────── */
+  var AR_D = '٠١٢٣٤٥٦٧٨٩', FA_D = '۰۱۲۳۴۵۶۷۸۹';
+  function parseNum(s) {
+    s = String(s == null ? '' : s).trim();
+    if (!s) return { empty: true };
+    s = s.replace(/[٠-٩]/g, function (d) { return AR_D.indexOf(d); })
+      .replace(/[۰-۹]/g, function (d) { return FA_D.indexOf(d); })
+      .replace(/٫/g, '.').replace(/[٬\s_']/g, '').replace(/[−–]/g, '-');
+    if (/^[+-]?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g, '');
+    else if ((s.match(/,/g) || []).length === 1 && s.indexOf('.') < 0) s = s.replace(',', '.');
+    if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s)) return { err: 'bad' };
+    var v = Number(s);
+    if (!isFinite(v)) return { err: 'big' };
+    return { v: v };
+  }
+  var SUP = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '-': '⁻', '+': '' };
+  function expo(n, digits, plain) {
+    var s = n.toExponential(digits === undefined ? 11 : digits).split('e');
+    var m = s[0]; if (m.indexOf('.') > -1) m = m.replace(/0+$/, '').replace(/\.$/, '');
+    var e = parseInt(s[1], 10);
+    if (plain) return m + 'e' + (e < 0 ? '-' : '+') + Math.abs(e);
+    return m + ' × 10' + String(e).split('').map(function (c) { return SUP[c] || c; }).join('');
+  }
+  function group(s) {
+    var neg = s.charAt(0) === '-'; if (neg) s = s.slice(1);
+    var p = s.split('.'); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return (neg ? '-' : '') + p.join('.');
+  }
+  /* dec: 'auto' أو عدد المنازل. plain=true للنسخ (بدون فواصل ألوف) */
+  function fmt(n, dec, plain) {
+    if (!isFinite(n)) return '—';
+    if (n === 0) return dec === 'auto' || +dec === 0 ? '0' : (0).toFixed(+dec);
+    var s, c, a;
+    if (dec === 'auto' || dec === undefined) {
+      c = Number(n.toPrecision(12)); a = Math.abs(c);
+      if (a >= 1e15 || a < 1e-7) return expo(c, 11, plain);
+      var d = Math.max(0, Math.min(20, 11 - Math.floor(Math.log10(a))));
+      s = c.toFixed(d);
+      if (s.indexOf('.') > -1) s = s.replace(/0+$/, '').replace(/\.$/, '');
+    } else {
+      a = Math.abs(n);
+      if (a >= 1e21) return expo(n, 9, plain);
+      s = n.toFixed(+dec);
+      if (Number(s) === 0) return expo(n, 6, plain); /* صغير جدًا بالنسبة لعدد المنازل المختار */
+    }
+    return plain ? s : group(s);
+  }
+  function dms(deg) {
+    var neg = deg < 0, a = Math.abs(deg);
+    var d = Math.floor(a + 1e-12), mf = (a - d) * 60, m = Math.floor(mf + 1e-9), sec = (mf - m) * 60;
+    sec = Math.round(sec * 100) / 100;
+    if (sec >= 60) { sec -= 60; m += 1; }
+    if (m >= 60) { m -= 60; d += 1; }
+    return (neg ? '-' : '') + d + '° ' + m + '′ ' + (Math.round(sec * 100) / 100) + '″';
+  }
+
+  /* ───────────── منطق التحويل ───────────── */
+  function unitOf(catId, k) { var L = CATS[catId].units; for (var i = 0; i < L.length; i++) if (L[i].k === k) return L[i]; return L[0]; }
+  function toC(k, v) { return k === 'C' ? v : k === 'F' ? (v - 32) * 5 / 9 : v - 273.15; }
+  function fromC(k, c) { return k === 'C' ? c : k === 'F' ? c * 9 / 5 + 32 : c + 273.15; }
+  var TEMP_FORMULA = {
+    'C>F': '°F = °C × 9/5 + 32', 'F>C': '°C = (°F − 32) × 5/9', 'C>K': 'K = °C + 273.15',
+    'K>C': '°C = K − 273.15', 'F>K': 'K = (°F − 32) × 5/9 + 273.15', 'K>F': '°F = (K − 273.15) × 9/5 + 32'
+  };
+
+  /* يرجّع { r, formula, steps[], extra } أو { err } — بدون أي تقريب */
+  function convert(catId, v, fromK, toK, dec) {
+    var cat = CATS[catId], uf = unitOf(catId, fromK), ut = unitOf(catId, toK);
+    if (!cat.neg && v < 0) return { err: T('القيمة لا يمكن أن تكون سالبة في هذا النوع من التحويل.', 'This conversion does not accept negative values.') };
+    var r, steps = [], formula = '', extra = '';
+    var vs = fmt(v, dec) + ' ' + uf.sym;
+    if (cat.kind === 'temp') {
+      var c = toC(fromK, v);
+      if (c < -273.15 - 1e-9) return { err: T('الدرجة المُدخلة أقل من الصفر المطلق (−273.15 °C).', 'The value is below absolute zero (−273.15 °C).') };
+      r = fromC(toK, c);
+      if (fromK === toK) { formula = T('نفس الوحدة — لا يوجد تحويل.', 'Same unit — nothing to convert.'); }
+      else {
+        formula = TEMP_FORMULA[fromK + '>' + toK];
+        steps.push(T('نحوّل ' + vs + ' إلى سيلسيوس: ', 'Convert ' + vs + ' to Celsius: ') + fmt(c, dec) + ' °C');
+        steps.push(T('من سيلسيوس إلى ' + ut.sym + ': ', 'From Celsius to ' + ut.sym + ': ') + fmt(r, dec) + ' ' + ut.sym);
+      }
+    } else {
+      var base = v * uf.f; r = base / ut.f;
+      var ratio = uf.f / ut.f;
+      formula = '1 ' + uf.sym + ' = ' + fmt(ratio, 'auto') + ' ' + ut.sym + '   |   1 ' + ut.sym + ' = ' + fmt(ut.f / uf.f, 'auto') + ' ' + uf.sym;
+      if (fromK === toK) formula = T('نفس الوحدة — لا يوجد تحويل.', 'Same unit — nothing to convert.');
+      else {
+        steps.push(T('نضرب القيمة في عامل الوحدة الأصلية للوصول للوحدة الأساسية: ', 'Multiply by the source-unit factor to reach the base unit: ') +
+          fmt(v, dec) + ' × ' + fmt(uf.f, 'auto') + ' = ' + fmt(base, 'auto'));
+        steps.push(T('نقسم على عامل الوحدة المطلوبة: ', 'Divide by the target-unit factor: ') +
+          fmt(base, 'auto') + ' ÷ ' + fmt(ut.f, 'auto') + ' = ' + fmt(r, dec) + ' ' + ut.sym);
+      }
+      if (catId === 'angle' && toK === 'deg') extra = 'DMS: ' + dms(r);
+    }
+    if (!isFinite(r)) return { err: T('الناتج كبير جدًا ولا يمكن عرضه.', 'The result is too large to display.') };
+    return { r: r, formula: formula, steps: steps, extra: extra, uf: uf, ut: ut };
+  }
+
+  /* مقياس الخريطة */
+  function scaleCalc(sc) {
+    var N = parseNum(sc.N), p = parseNum(sc.v);
+    if (N.empty || N.err) return { err: T('أدخل مقياس الخريطة كرقم (مثال: 50000 للمقياس 1:50000).', 'Enter the map scale as a number (e.g. 50000 for 1:50000).') };
+    if (!(N.v > 0)) return { err: T('مقياس الخريطة لازم يكون أكبر من صفر.', 'The scale denominator must be greater than zero.') };
+    if (p.empty) return { empty: true };
+    if (p.err) return { err: T('أدخل رقمًا صحيحًا للمسافة.', 'Enter a valid number for the distance.') };
+    if (p.v < 0) return { err: T('المسافة لا يمكن أن تكون سالبة.', 'Distance cannot be negative.') };
+    var ui = unitOf('length', sc.inU), uo = unitOf('length', sc.outU), m2r = sc.mode === 'm2r';
+    var inM = p.v * ui.f, outM = m2r ? inM * N.v : inM / N.v, r = outM / uo.f;
+    if (!isFinite(r)) return { err: T('الناتج كبير جدًا ولا يمكن عرضه.', 'The result is too large to display.') };
+    var mapU = m2r ? ui : uo, realU = m2r ? uo : ui;
+    var steps = [
+      fmt(p.v, 'auto') + ' ' + ui.sym + ' = ' + fmt(inM, 'auto') + ' m',
+      m2r ? fmt(inM, 'auto') + ' m × ' + fmt(N.v, 'auto') + ' = ' + fmt(outM, 'auto') + ' m'
+        : fmt(inM, 'auto') + ' m ÷ ' + fmt(N.v, 'auto') + ' = ' + fmt(outM, 'auto') + ' m',
+      fmt(outM, 'auto') + ' m ÷ ' + fmt(uo.f, 'auto') + ' = ' + fmt(r, sc.dec) + ' ' + uo.sym
+    ];
+    var formula = '1 ' + mapU.sym + ' ' + T('على الخريطة', 'on the map') + ' = ' + fmt(N.v * mapU.f / realU.f, 'auto') + ' ' + realU.sym + ' ' + T('على الطبيعة', 'on the ground');
+    return { r: r, uo: uo, steps: steps, formula: formula, N: N.v, ui: ui, p: p.v, m2r: m2r };
+  }
+
+  /* الميل: نسبة مئوية ↔ درجات ↔ نسبة 1:n */
+  function slopeCalc(sl) {
+    var p = parseNum(sl.v);
+    if (p.empty) return { empty: true };
+    if (p.err) return { err: T('أدخل رقمًا صحيحًا.', 'Enter a valid number.') };
+    var v = p.v, pct, deg, steps = [];
+    if (sl.t === 'pct') {
+      pct = v; deg = Math.atan(pct / 100) * 180 / Math.PI;
+      steps.push('θ = arctan(' + fmt(pct, 'auto') + ' ÷ 100) = ' + fmt(deg, 'auto') + '°');
+    } else if (sl.t === 'deg') {
+      if (Math.abs(v) >= 90) return { err: T('الزاوية لازم تكون بين −90° و90° (غير شاملة).', 'The angle must be between −90° and 90° (exclusive).') };
+      deg = v; pct = Math.tan(deg * Math.PI / 180) * 100;
+      steps.push(T('الميل % = tan(', 'Slope % = tan(') + fmt(deg, 'auto') + '°) × 100 = ' + fmt(pct, 'auto') + '%');
+    } else {
+      if (!(v > 0)) return { err: T('في النسبة 1:n لازم n يكون أكبر من صفر.', 'In the ratio 1:n, n must be greater than zero.') };
+      pct = 100 / v; deg = Math.atan(pct / 100) * 180 / Math.PI;
+      steps.push(T('الميل % = 100 ÷ ', 'Slope % = 100 ÷ ') + fmt(v, 'auto') + ' = ' + fmt(pct, 'auto') + '%');
+      steps.push('θ = arctan(' + fmt(pct, 'auto') + ' ÷ 100) = ' + fmt(deg, 'auto') + '°');
+    }
+    var ratio = pct === 0 ? '∞' : '1 : ' + fmt(100 / Math.abs(pct), sl.dec);
+    return { pct: pct, deg: deg, ratio: ratio, steps: steps };
+  }
+
+  /* ───────────── الحالة (بتفضل محفوظة لو الطالب بدّل اللغة أو خرج ورجع) ───────────── */
+  var S = {
+    cat: 'length', sub: 'scale', val: '', dec: 'auto', sel: {}, hist: [],
+    sc: { N: '50000', mode: 'm2r', v: '', inU: 'cm', outU: 'km' },
+    sl: { t: 'pct', v: '' }
+  };
+  try { if (!S.histLoaded) { S.histLoaded = true; var h = JSON.parse(sessionStorage.getItem('atl_uc_hist_v1') || '[]'); if (Array.isArray(h)) S.hist = h.slice(0, 12); } } catch (e) { /* ignore */ }
+  function saveHist() { try { sessionStorage.setItem('atl_uc_hist_v1', JSON.stringify(S.hist.slice(0, 12))); } catch (e) { /* ignore */ } }
+  function curCatId() { return S.cat === 'survey' ? (S.sub === 'dist' ? 'sv_dist' : S.sub === 'area' ? 'sv_area' : null) : S.cat; }
+  function selOf(catId) {
+    var s = S.sel[catId];
+    if (!s) { s = S.sel[catId] = { from: CATS[catId].def[0], to: CATS[catId].def[1] }; }
+    return s;
+  }
+  function label(u) { return isAR() ? u.ar + ' (' + u.sym + ')' : u.en + ' (' + u.sym + ')'; }
+  function opts(list, sel) { return list.map(function (u) { return '<option value="' + u.k + '"' + (u.k === sel ? ' selected' : '') + '>' + label(u) + '</option>'; }).join(''); }
+  function catName(id) { return isAR() ? CATS[id].ar : CATS[id].en; }
+  var DECS = ['auto', '0', '1', '2', '3', '4', '5', '6', '8', '10'];
+  function decOpts() { return DECS.map(function (d) { return '<option value="' + d + '"' + (String(S.dec) === d ? ' selected' : '') + '>' + (d === 'auto' ? T('تلقائي', 'Auto') : d) + '</option>'; }).join(''); }
+
+  /* ───────────── الواجهة ───────────── */
+  var timer = null, last = { plain: '', text: '' };
+
+  function render(area) {
+    var root = document.createElement('div');
+    root.className = 'uc-wrap'; root.id = 'ucRoot';
+    area.innerHTML = ''; area.appendChild(root);
+    root.innerHTML =
+      '<div class="uc-toprow"><button type="button" class="uc-pill" id="ucPill" data-act="fview"></button></div>' +
+      '<div class="page-header" id="ucHead"><h2>' + T('📏 محول الوحدات والقياسات', '📏 Unit Converter') + '</h2>' +
+      '<p>' + T('ATLASYA Unit Converter — مكان واحد لتحويل الأطوال والمساحات (بالفدان والقيراط والسهم) والأحجام والكتل والزمن والسرعة والحرارة والزوايا، مع أدوات خاصة بالمساحة.',
+        'ATLASYA Unit Converter — one place to convert length, area (incl. Egyptian Feddan/Qirat/Sahm), volume, mass, time, speed, temperature and angles, plus surveying tools.') + '</p></div>' +
+      '<div class="uc-cats" id="ucCats"></div><div id="ucBody"></div><div id="ucFView"></div>';
+    bind(root); drawCats(); drawBody(); applyView();
+  }
+
+  function applyView() {
+    var f = S.view === 'f';
+    ['ucHead', 'ucCats', 'ucBody'].forEach(function (id) { var e = $(id); if (e) e.style.display = f ? 'none' : ''; });
+    var fv = $('ucFView');
+    if (fv) { fv.style.display = f ? '' : 'none'; if (f) renderFormulas(fv); else fv.innerHTML = ''; }
+    var pill = $('ucPill');
+    if (pill) pill.innerHTML = f ? '<i class="fa-solid fa-calculator"></i> ' + T('العودة للمحول', 'Back to converter') : '<i class="fa-solid fa-square-root-variable"></i> ' + T('معادلات التحويل', 'Conversion formulas');
+  }
+
+  function drawCats() {
+    var h = ORDER.map(function (id) {
+      return '<button type="button" class="uc-cat' + (S.cat === id ? ' active' : '') + '" data-cat="' + id + '"><i class="fa-solid ' + CATS[id].icon + '"></i><span>' + catName(id) + '</span></button>';
+    }).join('');
+    h += '<button type="button" class="uc-cat' + (S.cat === 'survey' ? ' active' : '') + '" data-cat="survey"><i class="fa-solid fa-satellite-dish"></i><span>' + T('أدوات المساحة', 'Surveying Units') + '</span></button>';
+    $('ucCats').innerHTML = h;
+  }
+
+  function drawBody() {
+    var h = '';
+    if (S.cat === 'survey') {
+      h += '<div class="uc-subtabs">' + [['scale', 'fa-map', T('مقياس الخريطة', 'Map Scale')], ['slope', 'fa-chart-line', T('الميل (% ↔ °)', 'Slope (% ↔ °)')],
+        ['dist', 'fa-ruler-horizontal', T('المسافات', 'Distances')], ['area', 'fa-draw-polygon', T('المساحات', 'Areas')]].map(function (t) {
+          return '<button type="button" class="uc-sub' + (S.sub === t[0] ? ' active' : '') + '" data-sub="' + t[0] + '"><i class="fa-solid ' + t[1] + '"></i> ' + t[2] + '</button>';
+        }).join('') + '</div>';
+    }
+    if (S.cat === 'survey' && S.sub === 'scale') h += scalePanel();
+    else if (S.cat === 'survey' && S.sub === 'slope') h += slopePanel();
+    else h += genericPanel();
+    h += examplesHTML() + historyHTML();
+    $('ucBody').innerHTML = h;
+    updateAll();
+  }
+
+  function genericPanel() {
+    var id = curCatId(), sel = selOf(id), cat = CATS[id];
+    return '<div class="uc-card">' +
+      '<div class="uc-top"><div class="uc-field"><label>' + T('المنازل العشرية', 'Decimals') + '</label><select id="ucDec" class="uc-in">' + decOpts() + '</select></div></div>' +
+      '<div class="uc-field"><label>' + T('القيمة المراد تحويلها', 'Value to convert') + '</label>' +
+      '<input id="ucVal" class="uc-in uc-big" type="text" inputmode="decimal" dir="ltr" autocomplete="off" spellcheck="false" placeholder="0" value="' + atlEscSafe(S.val) + '"></div>' +
+      '<div class="uc-row"><div class="uc-field"><label>' + T('من', 'From') + '</label><select id="ucFrom" class="uc-in">' + opts(cat.units, sel.from) + '</select></div>' +
+      '<button type="button" class="uc-swap" data-act="swap" title="' + T('تبديل الوحدتين', 'Swap units') + '" aria-label="' + T('تبديل الوحدتين', 'Swap units') + '"><i class="fa-solid fa-right-left"></i></button>' +
+      '<div class="uc-field"><label>' + T('إلى', 'To') + '</label><select id="ucTo" class="uc-in">' + opts(cat.units, sel.to) + '</select></div></div>' +
+      '<div class="uc-resbox"><div class="uc-result" id="ucRes"></div>' +
+      '<div class="uc-ricons"><button type="button" class="uc-ic" data-act="copy" title="' + T('نسخ النتيجة', 'Copy result') + '" aria-label="' + T('نسخ النتيجة', 'Copy result') + '"><i class="fa-regular fa-copy"></i></button>' +
+      '<button type="button" class="uc-ic" data-act="clear" title="' + T('مسح والبدء من جديد', 'Clear & restart') + '" aria-label="' + T('مسح والبدء من جديد', 'Clear & restart') + '"><i class="fa-solid fa-eraser"></i></button></div></div>' +
+      '<div id="ucInfo"></div></div>';
+  }
+
+  function scalePanel() {
+    var sc = S.sc, m2r = sc.mode === 'm2r';
+    var presets = ['1000', '5000', '10000', '25000', '50000', '100000', '250000'];
+    return '<div class="uc-card">' +
+      '<div class="uc-top"><div class="uc-field uc-grow"><label>' + T('مقياس الخريطة', 'Map scale') + '</label>' +
+      '<div class="uc-scalebox" dir="ltr"><span>1 :</span><input id="ucScaleN" class="uc-in" type="text" inputmode="decimal" autocomplete="off" placeholder="50000" value="' + atlEscSafe(sc.N) + '"></div></div>' +
+      '<div class="uc-field"><label>' + T('المنازل العشرية', 'Decimals') + '</label><select id="ucDec" class="uc-in">' + decOpts() + '</select></div></div>' +
+      '<div class="uc-chips">' + presets.map(function (p) { return '<button type="button" class="uc-chip" data-act="preset" data-n="' + p + '" dir="ltr">1:' + group(p) + '</button>'; }).join('') + '</div>' +
+      '<div class="uc-seg"><button type="button" class="' + (m2r ? 'active' : '') + '" data-act="mode" data-m="m2r">' + T('من الخريطة ← للطبيعة', 'Map → Ground') + '</button>' +
+      '<button type="button" class="' + (!m2r ? 'active' : '') + '" data-act="mode" data-m="r2m">' + T('من الطبيعة ← للخريطة', 'Ground → Map') + '</button></div>' +
+      '<div class="uc-field"><label>' + (m2r ? T('المسافة المقاسة على الخريطة', 'Distance measured on the map') : T('المسافة الحقيقية', 'Real (ground) distance')) + '</label>' +
+      '<input id="ucScaleV" class="uc-in uc-big" type="text" inputmode="decimal" dir="ltr" autocomplete="off" placeholder="0" value="' + atlEscSafe(sc.v) + '"></div>' +
+      '<div class="uc-row"><div class="uc-field"><label>' + (m2r ? T('وحدة المسافة على الخريطة', 'Map distance unit') : T('وحدة المسافة الحقيقية', 'Ground distance unit')) + '</label><select id="ucScaleIn" class="uc-in">' + opts(MAP_LEN, sc.inU) + '</select></div>' +
+      '<button type="button" class="uc-swap" data-act="swap" title="' + T('تبديل الوحدتين', 'Swap units') + '"><i class="fa-solid fa-right-left"></i></button>' +
+      '<div class="uc-field"><label>' + (m2r ? T('وحدة المسافة الحقيقية المطلوبة', 'Required ground unit') : T('وحدة المسافة على الخريطة المطلوبة', 'Required map unit')) + '</label><select id="ucScaleOut" class="uc-in">' + opts(MAP_LEN, sc.outU) + '</select></div></div>' +
+      '<div class="uc-resbox"><div class="uc-result" id="ucRes"></div>' +
+      '<div class="uc-ricons"><button type="button" class="uc-ic" data-act="copy" title="' + T('نسخ النتيجة', 'Copy result') + '" aria-label="' + T('نسخ النتيجة', 'Copy result') + '"><i class="fa-regular fa-copy"></i></button>' +
+      '<button type="button" class="uc-ic" data-act="clear" title="' + T('مسح والبدء من جديد', 'Clear & restart') + '" aria-label="' + T('مسح والبدء من جديد', 'Clear & restart') + '"><i class="fa-solid fa-eraser"></i></button></div></div>' +
+      '<div id="ucInfo"></div></div>';
+  }
+
+  function slopePanel() {
+    var sl = S.sl, ph = sl.t === 'pct' ? '10' : sl.t === 'deg' ? '5.71' : '10';
+    return '<div class="uc-card">' +
+      '<div class="uc-top"><div class="uc-field uc-grow"><label>' + T('نوع القيمة المُدخلة', 'Input type') + '</label><select id="ucSlopeT" class="uc-in">' +
+      '<option value="pct"' + (sl.t === 'pct' ? ' selected' : '') + '>' + T('نسبة مئوية (%)', 'Percent (%)') + '</option>' +
+      '<option value="deg"' + (sl.t === 'deg' ? ' selected' : '') + '>' + T('درجات (°)', 'Degrees (°)') + '</option>' +
+      '<option value="ratio"' + (sl.t === 'ratio' ? ' selected' : '') + '>' + T('نسبة 1 : n (رأسي : أفقي)', 'Ratio 1 : n (rise : run)') + '</option></select></div>' +
+      '<div class="uc-field"><label>' + T('المنازل العشرية', 'Decimals') + '</label><select id="ucDec" class="uc-in">' + decOpts() + '</select></div></div>' +
+      '<div class="uc-field"><label>' + (sl.t === 'ratio' ? T('قيمة n', 'Value of n') : T('القيمة', 'Value')) + '</label>' +
+      '<input id="ucSlopeV" class="uc-in uc-big" type="text" inputmode="decimal" dir="ltr" autocomplete="off" placeholder="' + ph + '" value="' + atlEscSafe(sl.v) + '"></div>' +
+      '<div class="uc-resbox"><div class="uc-result uc-result3" id="ucRes"></div>' +
+      '<div class="uc-ricons"><button type="button" class="uc-ic" data-act="copy" title="' + T('نسخ النتيجة', 'Copy result') + '" aria-label="' + T('نسخ النتيجة', 'Copy result') + '"><i class="fa-regular fa-copy"></i></button>' +
+      '<button type="button" class="uc-ic" data-act="clear" title="' + T('مسح والبدء من جديد', 'Clear & restart') + '" aria-label="' + T('مسح والبدء من جديد', 'Clear & restart') + '"><i class="fa-solid fa-eraser"></i></button></div></div>' +
+      '<div id="ucInfo"></div></div>';
+  }
+
+  function atlEscSafe(s) { return String(s == null ? '' : s).replace(/[&<>"'`]/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
+
+  function examplesHTML() {
+    var items = [];
+    if (S.cat === 'survey' && S.sub === 'scale') {
+      items = [['sc', { N: '50000', mode: 'm2r', v: '5', inU: 'cm', outU: 'km' }, T('5 سم على 1:50000 ← كم', '5 cm on 1:50,000 → km')],
+        ['sc', { N: '25000', mode: 'm2r', v: '12', inU: 'cm', outU: 'm' }, T('12 سم على 1:25000 ← م', '12 cm on 1:25,000 → m')],
+        ['sc', { N: '10000', mode: 'r2m', v: '2.5', inU: 'km', outU: 'cm' }, T('2.5 كم حقيقي على 1:10000 ← سم', '2.5 km on 1:10,000 → cm')]];
+    } else if (S.cat === 'survey' && S.sub === 'slope') {
+      items = [['sl', { t: 'pct', v: '10' }, '10 %'], ['sl', { t: 'deg', v: '45' }, '45°'], ['sl', { t: 'ratio', v: '20' }, '1 : 20'], ['sl', { t: 'pct', v: '-5' }, '−5 %']];
+    } else {
+      var id = curCatId();
+      items = CATS[id].ex.map(function (e) {
+        return ['g', { cat: id, v: e[0], from: e[1], to: e[2] }, e[0] + ' ' + unitOf(id, e[1]).sym + ' → ' + unitOf(id, e[2]).sym];
+      });
+    }
+    return '<div class="uc-card uc-sec"><div class="uc-sec-title"><i class="fa-solid fa-wand-magic-sparkles"></i> ' + T('أمثلة جاهزة — اضغط للتجربة', 'Quick examples — tap to try') + '</div>' +
+      '<div class="uc-chips">' + items.map(function (it, i) { return '<button type="button" class="uc-chip" data-act="ex" data-i="' + i + '">' + atlEscSafe(it[2]) + '</button>'; }).join('') + '</div></div>';
+  }
+
+  function historyHTML() {
+    var h = S.hist;
+    return '<div class="uc-card uc-sec" id="ucHistBox"><div class="uc-sec-title"><i class="fa-solid fa-clock-rotate-left"></i> ' + T('آخر عمليات التحويل (في هذه الجلسة)', 'Recent conversions (this session)') +
+      (h.length ? '<button type="button" class="uc-link" data-act="histclear">' + T('مسح السجل', 'Clear history') + '</button>' : '') + '</div>' +
+      (h.length ? '<div class="uc-hist">' + h.map(function (x, i) { return '<button type="button" class="uc-hrow" data-act="hist" data-i="' + i + '" dir="ltr">' + atlEscSafe(x.txt) + '</button>'; }).join('') + '</div>'
+        : '<div class="uc-empty">' + T('لسه مفيش عمليات — ابدأ بإدخال قيمة.', 'No conversions yet — enter a value to start.') + '</div>') + '</div>';
+  }
+  function redrawHist() { var b = $('ucHistBox'); if (b) { var tmp = document.createElement('div'); tmp.innerHTML = historyHTML(); b.replaceWith(tmp.firstChild); } }
+
+  /* ───────────── التحديث الفوري للنتيجة ───────────── */
+  function noteHTML(catId, keys) {
+    var out = '';
+    NOTES.forEach(function (n) {
+      if (n.cats.indexOf(catId) > -1 && keys.some(function (k) { return n.keys.indexOf(k) > -1; })) out += '<div class="uc-note"><i class="fa-solid fa-circle-info"></i> ' + (isAR() ? n.ar : n.en) + '</div>';
+    });
+    return out;
+  }
+  function stepsHTML(steps) {
+    if (!steps || !steps.length) return '';
+    return '<details class="uc-det"><summary>' + T('خطوات الحساب', 'Calculation steps') + '</summary><ol>' + steps.map(function (s) { return '<li dir="ltr">' + atlEscSafe(s) + '</li>'; }).join('') + '</ol></details>';
+  }
+  function setRes(html, cls) { var r = $('ucRes'); if (r) { r.className = 'uc-result' + (S.cat === 'survey' && S.sub === 'slope' ? ' uc-result3' : '') + (cls ? ' ' + cls : ''); r.innerHTML = html; } }
+  function setInfo(html) { var i = $('ucInfo'); if (i) i.innerHTML = html; }
+  var PLACE = '<div class="uc-ph">' + T('النتيجة هتظهر هنا فورًا بمجرد إدخال القيمة', 'The result will appear here instantly') + '</div>';
+
+  function updateAll() {
+    last = { plain: '', text: '', hist: null };
+    if (S.cat === 'survey' && S.sub === 'scale') return updScale();
+    if (S.cat === 'survey' && S.sub === 'slope') return updSlope();
+    updGeneric();
+  }
+
+  function updGeneric() {
+    var id = curCatId(), sel = selOf(id), p = parseNum(S.val);
+    if (p.empty) { setRes(PLACE); setInfo(''); return; }
+    if (p.err) { setRes('<div class="uc-err"><i class="fa-solid fa-triangle-exclamation"></i> ' + (p.err === 'big' ? T('الرقم كبير جدًا.', 'The number is too large.') : T('أدخل رقمًا صحيحًا (مثال: 12.5 أو ١٢٫٥).', 'Enter a valid number (e.g. 12.5).')) + '</div>', 'uc-bad'); setInfo(''); return; }
+    var c = convert(id, p.v, sel.from, sel.to, S.dec);
+    if (c.err) { setRes('<div class="uc-err"><i class="fa-solid fa-triangle-exclamation"></i> ' + c.err + '</div>', 'uc-bad'); setInfo(''); return; }
+    var txt = fmt(c.r, S.dec);
+    setRes('<div class="uc-resval" dir="ltr">' + txt + ' <span class="uc-resunit">' + c.ut.sym + '</span></div>' +
+      '<div class="uc-resname">' + (isAR() ? c.ut.ar : c.ut.en) + '</div>');
+    last.plain = fmt(c.r, S.dec, true); last.text = fmt(p.v, S.dec) + ' ' + c.uf.sym + ' = ' + txt + ' ' + c.ut.sym;
+    last.hist = { t: 'g', cat: id, val: S.val, from: sel.from, to: sel.to, txt: last.text };
+    setInfo('<div class="uc-formula" dir="ltr"><i class="fa-solid fa-square-root-variable"></i> ' + atlEscSafe(c.formula) + '</div>' +
+      (c.extra ? '<div class="uc-extra" dir="ltr">' + atlEscSafe(c.extra) + '</div>' : '') + stepsHTML(c.steps) + noteHTML(id, [sel.from, sel.to]));
+    queueHist();
+  }
+
+  function updScale() {
+    var r = scaleCalc(Object.assign({ dec: S.dec }, S.sc));
+    if (r.empty) { setRes(PLACE); setInfo(''); return; }
+    if (r.err) { setRes('<div class="uc-err"><i class="fa-solid fa-triangle-exclamation"></i> ' + r.err + '</div>', 'uc-bad'); setInfo(''); return; }
+    var txt = fmt(r.r, S.dec);
+    setRes('<div class="uc-resval" dir="ltr">' + txt + ' <span class="uc-resunit">' + r.uo.sym + '</span></div>' +
+      '<div class="uc-resname">' + (r.m2r ? T('المسافة الحقيقية على الطبيعة', 'Real distance on the ground') : T('الطول المتوقع على الخريطة', 'Expected length on the map')) + '</div>');
+    last.plain = fmt(r.r, S.dec, true);
+    last.text = '1:' + group(String(r.N)) + ' | ' + fmt(r.p, S.dec) + ' ' + r.ui.sym + ' = ' + txt + ' ' + r.uo.sym;
+    last.hist = { t: 'sc', st: Object.assign({}, S.sc), txt: last.text };
+    setInfo('<div class="uc-formula" dir="ltr"><i class="fa-solid fa-square-root-variable"></i> ' + atlEscSafe(r.formula) + '</div>' + stepsHTML(r.steps));
+    queueHist();
+  }
+
+  function updSlope() {
+    var r = slopeCalc({ t: S.sl.t, v: S.sl.v, dec: S.dec });
+    if (r.empty) { setRes(PLACE); setInfo(''); return; }
+    if (r.err) { setRes('<div class="uc-err"><i class="fa-solid fa-triangle-exclamation"></i> ' + r.err + '</div>', 'uc-bad'); setInfo(''); return; }
+    var pt = fmt(r.pct, S.dec), dg = fmt(r.deg, S.dec);
+    setRes('<div class="uc-r3"><div class="uc-r3l">' + T('نسبة مئوية', 'Percent') + '</div><div class="uc-resval" dir="ltr">' + pt + ' <span class="uc-resunit">%</span></div></div>' +
+      '<div class="uc-r3"><div class="uc-r3l">' + T('درجات', 'Degrees') + '</div><div class="uc-resval" dir="ltr">' + dg + ' <span class="uc-resunit">°</span></div></div>' +
+      '<div class="uc-r3"><div class="uc-r3l">' + T('نسبة', 'Ratio') + '</div><div class="uc-resval" dir="ltr">' + r.ratio + '</div></div>');
+    last.text = pt + '% = ' + dg + '° = ' + r.ratio;
+    last.plain = fmt(r.pct, S.dec, true) + '% = ' + fmt(r.deg, S.dec, true) + '° = ' + r.ratio;
+    last.hist = { t: 'sl', st: Object.assign({}, S.sl), txt: last.text };
+    setInfo('<div class="uc-extra" dir="ltr">DMS: ' + dms(r.deg) + '</div>' + stepsHTML(r.steps) +
+      '<div class="uc-note"><i class="fa-solid fa-circle-info"></i> ' + T('الميل % = (الفرق الرأسي ÷ المسافة الأفقية) × 100. والنسبة 1:n معناها ارتفاع 1 لكل n مسافة أفقية.', 'Slope % = (rise ÷ run) × 100. A 1:n ratio means 1 unit of rise per n units of run.') + '</div>');
+    queueHist();
+  }
+
+  /* السجل: بنسجّل بعد ما الطالب يبطّل كتابة لحظة صغيرة (مش مع كل حرف) */
+  function queueHist() {
+    clearTimeout(timer);
+    var entry = last.hist;
+    if (!entry) return;
+    timer = setTimeout(function () { pushHist(entry); }, 1100);
+  }
+  function pushHist(entry) {
+    if (!entry) return;
+    if (S.hist.length && S.hist[0].txt === entry.txt) return;
+    S.hist.unshift(entry); S.hist = S.hist.slice(0, 12); saveHist(); redrawHist();
+  }
+
+  /* ───────────── الأحداث ───────────── */
+  function copyText(t) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+    return new Promise(function (res, rej) {
+      try { var ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0'; document.body.appendChild(ta); ta.select(); var ok = document.execCommand('copy'); ta.remove(); ok ? res() : rej(); } catch (e) { rej(e); }
+    });
+  }
+
+  function bind(root) {
+    root.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cat],[data-sub],[data-act]');
+      if (!b || !root.contains(b)) return;
+      if (b.dataset.cat) { S.cat = b.dataset.cat; drawCats(); drawBody(); return; }
+      if (b.dataset.sub) { S.sub = b.dataset.sub; drawBody(); return; }
+      var act = b.dataset.act;
+      if (act === 'fview') { S.view = S.view === 'f' ? 'c' : 'f'; applyView(); return; }
+      if (act === 'swap') {
+        if (S.cat === 'survey' && S.sub === 'scale') { var a = S.sc.inU; S.sc.inU = S.sc.outU; S.sc.outU = a; S.sc.mode = S.sc.mode === 'm2r' ? 'r2m' : 'm2r'; drawBody(); return; }
+        var id = curCatId(), s = selOf(id), t = s.from; s.from = s.to; s.to = t;
+        /* لو فيه نتيجة، نخلي النتيجة هي القيمة الجديدة (زي الآلات الحاسبة) */
+        if (last.plain && /^-?[\d.]+(e[+-]\d+)?$/i.test(last.plain)) S.val = last.plain;
+        drawBody(); pushHist(last.hist); return;
+      }
+      if (act === 'mode') { if (S.sc.mode !== b.dataset.m) { var x = S.sc.inU; S.sc.inU = S.sc.outU; S.sc.outU = x; S.sc.mode = b.dataset.m; drawBody(); } return; }
+      if (act === 'preset') { S.sc.N = b.dataset.n; var n = $('ucScaleN'); if (n) n.value = b.dataset.n; updateAll(); return; }
+      if (act === 'copy') {
+        if (!last.plain) { toast(T('مفيش نتيجة للنسخ لسه.', 'No result to copy yet.'), true); return; }
+        copyText(last.plain).then(function () { toast(T('✓ تم نسخ النتيجة', '✓ Result copied')); pushHist(last.hist); }, function () { toast(T('تعذّر النسخ', 'Copy failed'), true); });
+        return;
+      }
+      if (act === 'clear') {
+        S.val = ''; S.sc.v = ''; S.sl.v = ''; drawBody();
+        var f = $('ucVal') || $('ucScaleV') || $('ucSlopeV'); if (f) f.focus();
+        return;
+      }
+      if (act === 'ex') {
+        var it = exItems()[+b.dataset.i]; if (!it) return;
+        if (it[0] === 'g') { S.cat = (it[1].cat === 'sv_dist' || it[1].cat === 'sv_area') ? 'survey' : it[1].cat; if (S.cat === 'survey') S.sub = it[1].cat === 'sv_dist' ? 'dist' : 'area'; S.val = it[1].v; var ss = selOf(it[1].cat); ss.from = it[1].from; ss.to = it[1].to; }
+        else if (it[0] === 'sc') { S.cat = 'survey'; S.sub = 'scale'; S.sc = Object.assign({}, it[1]); }
+        else { S.cat = 'survey'; S.sub = 'slope'; S.sl = Object.assign({}, it[1]); }
+        drawCats(); drawBody(); pushHist(last.hist); return;
+      }
+      if (act === 'hist') {
+        var h = S.hist[+b.dataset.i]; if (!h) return;
+        if (h.t === 'g') { S.cat = (h.cat === 'sv_dist' || h.cat === 'sv_area') ? 'survey' : h.cat; if (S.cat === 'survey') S.sub = h.cat === 'sv_dist' ? 'dist' : 'area'; S.val = h.val; var s2 = selOf(h.cat); s2.from = h.from; s2.to = h.to; }
+        else if (h.t === 'sc') { S.cat = 'survey'; S.sub = 'scale'; S.sc = Object.assign({}, h.st); }
+        else { S.cat = 'survey'; S.sub = 'slope'; S.sl = Object.assign({}, h.st); }
+        drawCats(); drawBody(); return;
+      }
+      if (act === 'histclear') { S.hist = []; saveHist(); redrawHist(); return; }
+    });
+    root.addEventListener('input', function (e) {
+      var id = e.target.id;
+      if (id === 'ucVal') S.val = e.target.value;
+      else if (id === 'ucScaleN') S.sc.N = e.target.value;
+      else if (id === 'ucScaleV') S.sc.v = e.target.value;
+      else if (id === 'ucSlopeV') S.sl.v = e.target.value;
+      else return;
+      updateAll();
+    });
+    root.addEventListener('change', function (e) {
+      var id = e.target.id, v = e.target.value;
+      if (id === 'ucType') { S.cat = v; drawCats(); drawBody(); }
+      else if (id === 'ucDec') { S.dec = v; updateAll(); }
+      else if (id === 'ucFrom') { selOf(curCatId()).from = v; updateAll(); }
+      else if (id === 'ucTo') { selOf(curCatId()).to = v; updateAll(); }
+      else if (id === 'ucScaleIn') { S.sc.inU = v; updateAll(); }
+      else if (id === 'ucScaleOut') { S.sc.outU = v; updateAll(); }
+      else if (id === 'ucSlopeT') { S.sl.t = v; S.sl.v = ''; drawBody(); }
+    });
+    root.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { clearTimeout(timer); pushHist(last.hist); e.target.blur(); } });
+  }
+  function exItems() {
+    if (S.cat === 'survey' && S.sub === 'scale') return [['sc', { N: '50000', mode: 'm2r', v: '5', inU: 'cm', outU: 'km' }], ['sc', { N: '25000', mode: 'm2r', v: '12', inU: 'cm', outU: 'm' }], ['sc', { N: '10000', mode: 'r2m', v: '2.5', inU: 'km', outU: 'cm' }]];
+    if (S.cat === 'survey' && S.sub === 'slope') return [['sl', { t: 'pct', v: '10' }], ['sl', { t: 'deg', v: '45' }], ['sl', { t: 'ratio', v: '20' }], ['sl', { t: 'pct', v: '-5' }]];
+    var id = curCatId();
+    return CATS[id].ex.map(function (e) { return ['g', { cat: id, v: e[0], from: e[1], to: e[2] }]; });
+  }
+
+  /* ───────────── صفحة المعادلات (للمراجعة) — مولّدة من نفس بيانات الأداة بالظبط ───────────── */
+  var BASE = { length: 'm', area: 'm²', volume: 'm³', mass: 'kg', time: 's', speed: 'm/s', angle: '°' };
+  var DEFN = {
+    length: { km: '1000 m', m: '—', dm: '0.1 m', cm: '0.01 m', mm: '0.001 m', um: '10⁻⁶ m', nm: '10⁻⁹ m', mi: '5280 ft = 1609.344 m', yd: '3 ft = 0.9144 m', ft: '12 in = 0.3048 m', 'in': '0.0254 m', nmi: '1852 m' },
+    area: { km2: '(1000 m)²', ha: '(100 m)² = 10⁴ m²', are: '(10 m)² = 100 m²', m2: '—', dm2: '(0.1 m)²', cm2: '(0.01 m)²', mm2: '(0.001 m)²',
+      feddan: '333⅓ × (3.55 m)² = 4200.8333… m²', qirat: 'feddan ÷ 24', sahm: 'qirat ÷ 24 = feddan ÷ 576',
+      mi2: '(1609.344 m)²', yd2: '(0.9144 m)²', ft2: '(0.3048 m)²', in2: '(0.0254 m)²', acre: '43,560 ft² = 4840 yd²' },
+    volume: { km3: '(1000 m)³', m3: '—', dm3: '(0.1 m)³ = 10⁻³ m³', L: '1 dm³', mL: '1 cm³', cm3: '(0.01 m)³', mm3: '(0.001 m)³',
+      galus: '231 in³ = 3.785411784 L', galuk: '4.54609 L', ft3: '(0.3048 m)³', in3: '(0.0254 m)³' },
+    mass: { t: '1000 kg', kg: '—', g: '10⁻³ kg', mg: '10⁻⁶ kg', ug: '10⁻⁹ kg', lb: '0.45359237 kg', oz: 'lb ÷ 16' },
+    time: { s: '—', min: '60 s', h: '60 min', d: '24 h', wk: '7 d', mo: '30 d (' + 'convention' + ')', yr: '365 d (' + 'convention' + ')' },
+    speed: { ms: '—', kmh: '1000 m ÷ 3600 s', mph: '1609.344 m ÷ 3600 s', kn: '1852 m ÷ 3600 s' },
+    angle: { deg: '—', rad: '180/π °', gon: '0.9°  (400 gon = 360°)', arcmin: '1/60 °', arcsec: '1/3600 °' }
+  };
+
+  function fTable(id) {
+    var cat = CATS[id], base = BASE[id], rows = cat.units.map(function (u) {
+      return '<tr><td>' + (isAR() ? u.ar : u.en) + '</td><td dir="ltr">' + atlEscSafe(u.sym) + '</td><td dir="ltr">' + (u.f === 1 && DEFN[id][u.k] === '—' ? T('الوحدة الأساسية', 'base unit') : '1 ' + atlEscSafe(u.sym) + ' = ' + fmt(u.f, 'auto') + ' ' + base) + '</td><td dir="ltr">' + atlEscSafe(DEFN[id][u.k] || '') + '</td></tr>';
+    }).join('');
+    return '<div class="uc-tblwrap"><table class="uc-tbl"><thead><tr><th>' + T('الوحدة', 'Unit') + '</th><th>' + T('الرمز', 'Symbol') + '</th><th>' + T('القيمة بالوحدة الأساسية', 'Value in base unit') + ' (' + base + ')</th><th>' + T('التعريف', 'Definition') + '</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+  function fMatrix(id) {
+    var L = CATS[id].units;
+    var head = '<tr><th>1 ↓ / →</th>' + L.map(function (u) { return '<th dir="ltr">' + atlEscSafe(u.sym) + '</th>'; }).join('') + '</tr>';
+    var body = L.map(function (a) {
+      return '<tr><th dir="ltr">1 ' + atlEscSafe(a.sym) + '</th>' + L.map(function (b) { return '<td dir="ltr"' + (a.k === b.k ? ' class="uc-diag"' : '') + '>' + fmt(a.f / b.f, 'auto') + '</td>'; }).join('') + '</tr>';
+    }).join('');
+    return '<details class="uc-det"><summary>' + T('جدول التحويل الكامل (1 وحدة من الصف = كام وحدة من العمود)', 'Full conversion matrix (1 row unit = how many column units)') + '</summary><div class="uc-tblwrap"><table class="uc-tbl uc-mx"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div></details>';
+  }
+  function fExamples(id) {
+    var out = CATS[id].ex.slice(0, 3).map(function (e) {
+      var c = convert(id, parseNum(e[0]).v, e[1], e[2], 'auto');
+      return c.err ? '' : '<li dir="ltr">' + fmt(parseNum(e[0]).v, 'auto') + ' ' + atlEscSafe(c.uf.sym) + ' = ' + fmt(c.r, 'auto') + ' ' + atlEscSafe(c.ut.sym) + '</li>';
+    }).join('');
+    return '<div class="uc-sec-title" style="margin-top:12px">' + T('أمثلة محسوبة', 'Computed examples') + '</div><ul class="uc-ex">' + out + '</ul>';
+  }
+  function fCard(icon, title, inner) {
+    return '<div class="uc-card"><div class="uc-sec-title uc-ftitle"><i class="fa-solid ' + icon + '"></i> ' + title + '</div>' + inner + '</div>';
+  }
+  var GEN = T('النتيجة = القيمة × (عامل الوحدة الأصلية ÷ عامل الوحدة المطلوبة)', 'Result = value × (source-unit factor ÷ target-unit factor)');
+
+  function glossaryCard() {
+    var cats = ORDER.concat(['sv_dist']), seen = {};
+    var blocks = cats.map(function (id) {
+      var chips = CATS[id].units.filter(function (u) { var key = id === 'sv_dist' ? (u.k === 'usft' ? 1 : 0) : 1; return key; }).map(function (u) {
+        return '<span class="uc-symchip"><b dir="ltr">' + atlEscSafe(u.sym) + '</b><span>' + u.ar + ' <em dir="ltr">' + u.en + '</em></span></span>';
+      }).join('');
+      var title = id === 'sv_dist' ? T('أدوات المساحة', 'Surveying') : catName(id);
+      return '<div class="uc-symgrp"><div class="uc-symtitle"><i class="fa-solid ' + (id === 'sv_dist' ? 'fa-satellite-dish' : CATS[id].icon) + '"></i> ' + title + '</div><div class="uc-syms">' + chips + '</div></div>';
+    }).join('');
+    var pre = [['k', 'كيلو', 'kilo', '10³ = 1000'], ['d', 'ديسي', 'deci', '10⁻¹ = 0.1'], ['c', 'سنتي', 'centi', '10⁻² = 0.01'], ['m', 'ملي', 'milli', '10⁻³ = 0.001'], ['µ', 'ميكرو', 'micro', '10⁻⁶'], ['n', 'نانو', 'nano', '10⁻⁹']].map(function (p) {
+      return '<span class="uc-symchip"><b dir="ltr">' + p[0] + '</b><span>' + p[1] + ' <em dir="ltr">' + p[2] + ' = ' + p[3] + '</em></span></span>';
+    }).join('');
+    var math = [['θ', 'زاوية الميل (ثيتا)', 'Slope angle (theta)'], ['π', 'باي ≈ 3.14159265', 'Pi ≈ 3.14159265'], ['N', 'مقام مقياس الخريطة (في 1:N)', 'Map-scale denominator (in 1:N)'],
+      ['n', 'في نسبة الميل 1:n: عدد الوحدات الأفقية لكل وحدة رأسية', 'In slope ratio 1:n: horizontal units per 1 vertical unit'], ['%', 'نسبة مئوية', 'Percent'],
+      ['⌊x⌋', 'الجزء الصحيح من x', 'Integer part (floor) of x'], ['d  m  s', 'درجات ودقائق وثواني (في DMS)', 'degrees, minutes, seconds (in DMS)'], ['× ÷', 'ضرب وقسمة', 'multiply / divide'],
+      ['² ³', 'تربيع وتكعيب', 'squared / cubed'], ['10⁻³', 'عشرة أس سالب 3 = 0.001', '10 to the power −3 = 0.001'], ['…', 'أرقام عشرية مستمرة (مثل 4200.8333…)', 'repeating decimals'], ['≈', 'تقريبًا', 'approximately']].map(function (p) {
+      return '<span class="uc-symchip"><b dir="ltr">' + p[0] + '</b><span>' + T(p[1], p[2]) + '</span></span>';
+    }).join('');
+    return '<div class="uc-card"><div class="uc-sec-title uc-ftitle"><i class="fa-solid fa-language"></i> ' + T('الرموز ومعناها', 'Symbols & meanings') + '</div>' + blocks +
+      '<div class="uc-symgrp"><div class="uc-symtitle"><i class="fa-solid fa-hashtag"></i> ' + T('بادئات الوحدات (SI)', 'SI prefixes') + '</div><div class="uc-syms">' + pre + '</div></div>' +
+      '<div class="uc-symgrp"><div class="uc-symtitle"><i class="fa-solid fa-square-root-variable"></i> ' + T('رموز رياضية مستخدمة في المعادلات', 'Math symbols used in formulas') + '</div><div class="uc-syms">' + math + '</div></div>' +
+      '<div class="uc-note"><i class="fa-solid fa-circle-info"></i> ' + T('انتبه: الرمز m لوحده = متر، أما الدقيقة فرمزها min، والشهر mo، والرمز a = آر، والهكتار ha.', 'Note: a lone m = meter; minute is min, month is mo; a = are, hectare is ha.') + '</div></div>';
+  }
+
+  function renderFormulas(area) {
+    var root = document.createElement('div'); root.className = 'uc-wrap'; root.id = 'ucFormulas';
+    var h = '<div class="page-header"><h2>' + T('🧮 معادلات التحويل', '🧮 Conversion Formulas') + '</h2>' +
+      '<p>' + T('كل المعادلات وعوامل التحويل المستخدمة في محول الوحدات للمراجعة. الصفحة دي بتتولّد من نفس بيانات الأداة، فأي قيمة هنا هي نفس القيمة اللي بيحسب بيها المحول.',
+        'All formulas and factors used by the Unit Converter, for review. This page is generated from the same data the converter uses, so every value here is exactly what the tool calculates with.') + '</p></div>';
+    h += '<div class="uc-card"><div class="uc-sec-title uc-ftitle"><i class="fa-solid fa-square-root-variable"></i> ' + T('القاعدة العامة', 'General rule') + '</div>' +
+      '<div class="uc-formula" dir="ltr">' + atlEscSafe(GEN) + '</div>' +
+      '<div class="uc-note"><i class="fa-solid fa-circle-info"></i> ' + T('كل وحدة ليها عامل نسبةً لوحدة أساسية (متر، م²، م³، كجم، ثانية، م/ث، درجة). الحساب بيتم بدقة كاملة والتقريب بيحصل عند العرض بس. القيم المعرّفة (البوصة، القدم، الياردة، الميل، الرطل، الجالون...) دقيقة بالتعريف.',
+        'Every unit has a factor relative to a base unit (m, m², m³, kg, s, m/s, degree). Calculation uses full precision; rounding happens only at display. Defined values (inch, foot, yard, mile, pound, gallon…) are exact by definition.') + '</div></div>';
+    h += glossaryCard();
+    ORDER.forEach(function (id) {
+      var cat = CATS[id], inner;
+      if (cat.kind === 'temp') {
+        inner = '<div class="uc-tblwrap"><table class="uc-tbl"><thead><tr><th>' + T('من ← إلى', 'From → To') + '</th><th>' + T('المعادلة', 'Formula') + '</th></tr></thead><tbody>' +
+          ['C>F', 'F>C', 'C>K', 'K>C', 'F>K', 'K>F'].map(function (k) { return '<tr><td dir="ltr">' + k.replace('>', ' → ').replace(/([CFK])/g, function (m) { return m === 'K' ? 'K' : '°' + m; }) + '</td><td dir="ltr">' + TEMP_FORMULA[k] + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+          '<div class="uc-note"><i class="fa-solid fa-circle-info"></i> ' + T('الحرارة مش بتتحول بمعامل ضرب ثابت لأن فيها إزاحة (offset). الأداة بتحوّل دايمًا عن طريق سيلسيوس. الصفر المطلق = −273.15 °C = 0 K = −459.67 °F، وأي قيمة أقل منه بتترفض.',
+            'Temperature is not a pure multiplication (it has an offset). The tool always converts via Celsius. Absolute zero = −273.15 °C = 0 K = −459.67 °F; lower values are rejected.') + '</div>' + fExamples(id);
+      } else {
+        inner = fTable(id) + fMatrix(id) + fExamples(id) + noteHTML(id, cat.units.map(function (u) { return u.k; }));
+        if (id === 'angle') inner += '<div class="uc-formula" dir="ltr" style="margin-top:10px">DMS: d = ⌊x⌋ ; m = ⌊(x − d) × 60⌋ ; s = ((x − d) × 60 − m) × 60</div>';
+      }
+      h += fCard(cat.icon, catName(id), inner);
+    });
+    /* أدوات المساحة */
+    var sv = '<div class="uc-formula" dir="ltr">' + T('مقياس الخريطة 1:N', 'Map scale 1:N') + '<br>' + T('المسافة الحقيقية = المسافة على الخريطة × N', 'Real distance = map distance × N') + '<br>' + T('المسافة على الخريطة = المسافة الحقيقية ÷ N', 'Map distance = real distance ÷ N') + '</div>' +
+      '<div class="uc-formula" dir="ltr" style="margin-top:10px">' + T('الميل', 'Slope') + '<br>% = tan(θ) × 100 &nbsp;|&nbsp; θ = arctan(% ÷ 100) &nbsp;|&nbsp; 1 : n ⇒ % = 100 ÷ n</div>' +
+      '<ul class="uc-ex"><li dir="ltr">1:50,000 — 5 cm = 2.5 km</li><li dir="ltr">10 % = ' + fmt(Math.atan(0.1) * 180 / Math.PI, 'auto') + '° = 1 : 10</li><li dir="ltr">45° = ' + fmt(Math.tan(Math.PI / 4) * 100, 'auto') + ' % = 1 : 1</li></ul>' +
+      '<div class="uc-note"><i class="fa-solid fa-circle-info"></i> ' + T('المسافات والمساحات في "أدوات المساحة" بتستخدم نفس عوامل الأطوال والمساحات فوق (مع القدم المساحي الأمريكي = 1200/3937 م).', 'Distances and areas in "Surveying Units" use the same length/area factors above (plus the US survey foot = 1200/3937 m).') + '</div>';
+    h += fCard('fa-satellite-dish', T('أدوات المساحة', 'Surveying Units'), sv);
+    root.innerHTML = h; area.innerHTML = ''; area.appendChild(root);
+  }
+  window.renderUnitConverter = render;
+})();
 </script>
 </body>
     </html>
