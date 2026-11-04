@@ -21811,6 +21811,9 @@ html[dir="ltr"] .lv-flip, [dir="ltr"] .lv-flip { transform: none; }
   .lv-stat-big { grid-column: 1 / -1; }
   .lv-table td.lv-rl { grid-column: 1 / -1; }
 }
+
+.lv-tip { cursor: help; }
+.lv-table th.lv-tip { text-decoration: underline dotted rgba(127,127,127,.55); text-underline-offset: 4px; }
 </style>
 <script id="atl-leveling-js">
 /* ATLASYA Leveling Calculator — حاسبة الميزانية المساحية (دفتر ميزانية إلكتروني)
@@ -22100,6 +22103,27 @@ html[dir="ltr"] .lv-flip, [dir="ltr"] .lv-flip { transform: none; }
   function dateTxt(ms) { try { return new Date(ms).toLocaleString(isAR() ? 'ar-EG-u-nu-latn' : 'en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } }
   function methodName(m) { return m === 'rf' ? 'Rise and Fall' : 'Height of Instrument (H.I)'; }
   function userName() { try { var u = window._userData || {}; return ((u.firstName || '') + ' ' + (u.lastName || '')).trim(); } catch (e) { return ''; } }
+  /* شرح الرموز — بيظهر عند الوقوف بالماوس (title) */
+  var TIPS = {
+    n: ['م — رقم تسلسلي للصف', '# — Row number'],
+    station: ['Station — اسم أو رقم النقطة', 'Station — point name or number'],
+    bs: ['B.S = Back Sight — القراءة الخلفية (على نقطة معلومة المنسوب)', 'B.S = Back Sight — reading on a point of known level'],
+    is: ['I.S = Intermediate Sight — القراءة المتوسطة (نقطة بين الخلفية والأمامية)', 'I.S = Intermediate Sight — reading on a point between B.S and F.S'],
+    fs: ['F.S = Fore Sight — القراءة الأمامية (آخر قراءة قبل نقل الجهاز)', 'F.S = Fore Sight — last reading before the instrument is moved'],
+    hi: ['H.I = Height of Instrument — منسوب خط النظر = R.L + B.S', 'H.I = Height of Instrument — line-of-sight level = R.L + B.S'],
+    rise: ['Rise — الارتفاع: القراءة السابقة أكبر من التالية (الأرض أعلى)', 'Rise — previous reading greater than next (ground goes up)'],
+    fall: ['Fall — الانخفاض: القراءة السابقة أصغر من التالية (الأرض أوطى)', 'Fall — previous reading smaller than next (ground goes down)'],
+    rl: ['R.L = Reduced Level — المنسوب المختزل للنقطة', 'R.L = Reduced Level — level of the point'],
+    remarks: ['Remarks — الملاحظات', 'Remarks — notes'],
+    cp: ['C.P = Change Point — نقطة تغيير الجهاز (F.S من الوضع الأول + B.S من الوضع التالي)', 'C.P = Change Point — instrument move point (F.S from old setup + B.S from new)'],
+    sbs: ['ΣB.S — مجموع القراءات الخلفية', 'ΣB.S — sum of back sights'],
+    sfs: ['ΣF.S — مجموع القراءات الأمامية', 'ΣF.S — sum of fore sights'],
+    srise: ['ΣRise — إجمالي الارتفاعات', 'ΣRise — total rises'],
+    sfall: ['ΣFall — إجمالي الانخفاضات', 'ΣFall — total falls'],
+    last: ['Last R.L — منسوب آخر نقطة', 'Last R.L — level of the last point'],
+    first: ['First R.L — منسوب نقطة البداية', 'First R.L — level of the starting point']
+  };
+  function tip(k) { var t = TIPS[k]; return t ? esc(T(t[0], t[1])) : ''; }
   function issueText(i) { return isAR() ? i.ar : i.en; }
 
   /* ═══════════════════════════ نوافذ صغيرة ═══════════════════════════ */
@@ -22236,10 +22260,10 @@ html[dir="ltr"] .lv-flip, [dir="ltr"] .lv-flip { transform: none; }
       '<button type="button" class="lv-btn" data-act="print"><i class="fa-solid fa-print"></i> ' + esc(T('طباعة', 'Print')) + '</button></div>';
 
     h += '<div class="lv-tablewrap"><table class="lv-table" dir="ltr"><thead><tr>' +
-      '<th class="lv-th-n">' + esc(T('م', '#')) + '</th><th class="lv-th-st">Station<small>' + esc(T('النقطة', 'Point')) + '</small></th>' +
-      '<th>B.S<small>' + esc(T('خلفية', 'Back')) + '</small></th><th>I.S<small>' + esc(T('متوسطة', 'Inter.')) + '</small></th><th>F.S<small>' + esc(T('أمامية', 'Fore')) + '</small></th>' +
-      '<th class="lv-th-o">H.I<small>' + esc(T('خط النظر', 'Inst. ht')) + '</small></th><th class="lv-th-o">Rise<small>' + esc(T('ارتفاع', 'Rise')) + '</small></th><th class="lv-th-o">Fall<small>' + esc(T('انخفاض', 'Fall')) + '</small></th><th class="lv-th-o lv-th-rl">R.L<small>' + esc(T('المنسوب', 'Level')) + '</small></th>' +
-      '<th class="lv-th-rm">Remarks<small>' + esc(T('ملاحظات', 'Notes')) + '</small></th><th class="lv-th-a"></th></tr></thead><tbody id="lvBody"></tbody></table></div>' +
+      '<th class="lv-th-n lv-tip" title="' + tip('n') + '">' + esc(T('م', '#')) + '</th><th class="lv-th-st lv-tip" title="' + tip('station') + '">Station<small>' + esc(T('النقطة', 'Point')) + '</small></th>' +
+      '<th class="lv-tip" title="' + tip('bs') + '">B.S<small>' + esc(T('خلفية', 'Back')) + '</small></th><th class="lv-tip" title="' + tip('is') + '">I.S<small>' + esc(T('متوسطة', 'Inter.')) + '</small></th><th class="lv-tip" title="' + tip('fs') + '">F.S<small>' + esc(T('أمامية', 'Fore')) + '</small></th>' +
+      '<th class="lv-th-o lv-tip" title="' + tip('hi') + '">H.I<small>' + esc(T('خط النظر', 'Inst. ht')) + '</small></th><th class="lv-th-o lv-tip" title="' + tip('rise') + '">Rise<small>' + esc(T('ارتفاع', 'Rise')) + '</small></th><th class="lv-th-o lv-tip" title="' + tip('fall') + '">Fall<small>' + esc(T('انخفاض', 'Fall')) + '</small></th><th class="lv-th-o lv-th-rl lv-tip" title="' + tip('rl') + '">R.L<small>' + esc(T('المنسوب', 'Level')) + '</small></th>' +
+      '<th class="lv-th-rm lv-tip" title="' + tip('remarks') + '">Remarks<small>' + esc(T('ملاحظات', 'Notes')) + '</small></th><th class="lv-th-a"></th></tr></thead><tbody id="lvBody"></tbody></table></div>' +
       '<div class="lv-hint"><i class="fa-solid fa-keyboard"></i> ' + esc(T('Enter = الصف التالي • ↑ ↓ للتنقل • Tab للخانة التالية • الصق من Excel مباشرة في أي خانة • الوحدات: متر (m)', 'Enter = next row • ↑ ↓ to move • Tab = next cell • paste straight from Excel into any cell • Units: meters (m)')) + '</div>' +
       '<div id="lvResults"></div>';
     root.innerHTML = h;
@@ -22252,12 +22276,12 @@ html[dir="ltr"] .lv-flip, [dir="ltr"] .lv-flip { transform: none; }
     var cp = r.cp;
     function inp(c, extra) { return '<input class="lv-cell' + (extra || '') + '" data-c="' + c + '" value="' + esc(r[c]) + '" autocomplete="off" spellcheck="false"' + (c === 'bs' || c === 'is' || c === 'fs' ? ' inputmode="decimal" dir="ltr"' : ' dir="auto"') + '>'; }
     return '<tr class="lv-tr' + (cp ? ' lv-cp' : '') + '" data-id="' + esc(r.id) + '">' +
-      '<td class="lv-n" data-label="#"><span class="lv-num">' + (i + 1) + '</span><span class="lv-cpbadge">C.P</span></td>' +
+      '<td class="lv-n" data-label="#"><span class="lv-num">' + (i + 1) + '</span><span class="lv-cpbadge" title="' + tip('cp') + '">C.P</span></td>' +
       '<td class="lv-td-st" data-label="Station">' + inp('station') + '<div class="lv-rowmsg"></div></td>' +
       '<td data-label="B.S">' + inp('bs') + '</td><td data-label="I.S">' + inp('is') + '</td><td data-label="F.S">' + inp('fs') + '</td>' +
       '<td class="lv-o" data-o="hi" data-label="H.I"></td><td class="lv-o lv-rise" data-o="rise" data-label="Rise"></td><td class="lv-o lv-fall" data-o="fall" data-label="Fall"></td><td class="lv-o lv-rl" data-o="rl" data-label="R.L"></td>' +
       '<td class="lv-td-rm" data-label="Remarks">' + inp('remarks') + '</td>' +
-      '<td class="lv-act"><button type="button" class="lv-rb lv-rb-cp' + (cp ? ' on' : '') + '" data-act="cp" title="' + esc(T('تحديد/إلغاء نقطة تغيير C.P', 'Toggle change point (C.P)')) + '">C.P</button>' +
+      '<td class="lv-act"><button type="button" class="lv-rb lv-rb-cp' + (cp ? ' on' : '') + '" data-act="cp" title="' + esc(T('تحديد/إلغاء نقطة تغيير — ', 'Toggle change point — ')) + tip('cp') + '">C.P</button>' +
       '<button type="button" class="lv-rb" data-act="ins" title="' + esc(T('إدراج صف بعده', 'Insert row below')) + '"><i class="fa-solid fa-plus"></i></button>' +
       '<button type="button" class="lv-rb lv-rb-del" data-act="delrow" title="' + esc(T('حذف الصف', 'Delete row')) + '"><i class="fa-solid fa-xmark"></i></button></td></tr>';
   }
@@ -22297,13 +22321,13 @@ html[dir="ltr"] .lv-flip, [dir="ltr"] .lv-flip { transform: none; }
   function paintResults(an) {
     var el = $('lvResults'); if (!el) return;
     var b = S.book, dec = b.dec, h = '';
-    function stat(ic, lab, val, cls) { return '<div class="lv-stat ' + (cls || '') + '"><i class="fa-solid ' + ic + '"></i><div><div class="lv-stat-v" dir="ltr">' + val + '</div><div class="lv-stat-l">' + esc(lab) + '</div></div></div>'; }
+    function stat(ic, lab, val, cls, tk) { return '<div class="lv-stat lv-tip ' + (cls || '') + '" title="' + (tk ? tip(tk) : '') + '"><i class="fa-solid ' + ic + '"></i><div><div class="lv-stat-v" dir="ltr">' + val + '</div><div class="lv-stat-l">' + esc(lab) + '</div></div></div>'; }
     var lastShown = an.lastRL === null ? '—' : fmt(b.method === 'rf' ? lastRl2(an) : an.lastRL, dec);
     h += '<div class="lv-card"><div class="lv-card-t"><i class="fa-solid fa-chart-column"></i> ' + esc(T('لوحة النتائج', 'Results')) + '</div><div class="lv-stats">' +
       stat('fa-location-dot', T('عدد النقاط', 'Points'), an.points) + stat('fa-tower-observation', T('عدد المحطات (أوضاع الجهاز)', 'Instrument setups'), an.setups) +
-      stat('fa-arrow-left-long', 'ΣB.S', fmt(an.sumBS, dec)) + stat('fa-arrow-right-long', 'ΣF.S', fmt(an.sumFS, dec)) +
-      stat('fa-arrow-trend-up', T('إجمالي Rise', 'ΣRise'), fmt(an.sumRise, dec), 'lv-stat-up') + stat('fa-arrow-trend-down', T('إجمالي Fall', 'ΣFall'), fmt(an.sumFall, dec), 'lv-stat-down') +
-      stat('fa-flag-checkered', T('منسوب آخر نقطة', 'Last R.L'), lastShown, 'lv-stat-big') + '</div>';
+      stat('fa-arrow-left-long', 'ΣB.S', fmt(an.sumBS, dec), '', 'sbs') + stat('fa-arrow-right-long', 'ΣF.S', fmt(an.sumFS, dec), '', 'sfs') +
+      stat('fa-arrow-trend-up', T('إجمالي Rise', 'ΣRise'), fmt(an.sumRise, dec), 'lv-stat-up', 'srise') + stat('fa-arrow-trend-down', T('إجمالي Fall', 'ΣFall'), fmt(an.sumFall, dec), 'lv-stat-down', 'sfall') +
+      stat('fa-flag-checkered', T('منسوب آخر نقطة', 'Last R.L'), lastShown, 'lv-stat-big', 'last') + '</div>';
 
     /* خطأ القفل */
     if (an.closing) {
@@ -22318,8 +22342,8 @@ html[dir="ltr"] .lv-flip, [dir="ltr"] .lv-flip { transform: none; }
       (st === 'ok' ? '<i class="fa-solid fa-circle-check"></i> ' + esc(T('الحسابات متطابقة', 'Calculations agree')) : st === 'bad' ? '<i class="fa-solid fa-circle-xmark"></i> ' + esc(T('يوجد خطأ حسابي أو عدم تطابق', 'Arithmetic error or mismatch found')) : '<i class="fa-solid fa-triangle-exclamation"></i> ' + esc(T('بيانات ناقصة أو غير صالحة — لا يمكن إجراء التحقق', 'Incomplete or invalid data — verification not possible'))) + '</div>';
     if (an.checks) {
       var c = an.checks;
-      h += '<div class="lv-chk-row" dir="ltr"><span>ΣB.S − ΣF.S = <b>' + fmt(c.c1, dec) + '</b></span><span>Last R.L − First R.L = <b>' + fmt(c.diff, dec) + '</b></span><span class="' + (c.ok1 ? 'lv-ok' : 'lv-no') + '">' + (c.ok1 ? '✓' : '✗') + '</span></div>' +
-        '<div class="lv-chk-row" dir="ltr"><span>ΣRise − ΣFall = <b>' + fmt(c.c2, dec) + '</b></span><span>Last R.L − First R.L = <b>' + fmt(c.diff, dec) + '</b></span><span class="' + (c.ok2 ? 'lv-ok' : 'lv-no') + '">' + (c.ok2 ? '✓' : '✗') + '</span></div>' +
+      h += '<div class="lv-chk-row" dir="ltr"><span title="' + tip('sbs') + ' / ' + tip('sfs') + '">ΣB.S − ΣF.S = <b>' + fmt(c.c1, dec) + '</b></span><span title="' + tip('last') + ' / ' + tip('first') + '">Last R.L − First R.L = <b>' + fmt(c.diff, dec) + '</b></span><span class="' + (c.ok1 ? 'lv-ok' : 'lv-no') + '">' + (c.ok1 ? '✓' : '✗') + '</span></div>' +
+        '<div class="lv-chk-row" dir="ltr"><span title="' + tip('srise') + ' / ' + tip('sfall') + '">ΣRise − ΣFall = <b>' + fmt(c.c2, dec) + '</b></span><span title="' + tip('last') + ' / ' + tip('first') + '">Last R.L − First R.L = <b>' + fmt(c.diff, dec) + '</b></span><span class="' + (c.ok2 ? 'lv-ok' : 'lv-no') + '">' + (c.ok2 ? '✓' : '✗') + '</span></div>' +
         '<div class="lv-chk-row"><span>' + esc(T('تطابق طريقتي H.I وRise & Fall في كل المناسيب', 'H.I and Rise & Fall give identical levels for every point')) + '</span><span class="' + (c.agree ? 'lv-ok' : 'lv-no') + '">' + (c.agree ? '✓' : '✗') + '</span></div>';
     } else {
       var rs = an.reasons.map(function (r) { return '<li>' + esc(isAR() ? r.ar : r.en) + '</li>'; }).join('');
