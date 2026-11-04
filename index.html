@@ -4425,9 +4425,7 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                         <i class="fa-solid fa-chevron-down nav-group-chevron"></i>
                     </button>
                     <div class="nav-group-items">
-                        <button class="nav-item" id="menuUnitConv" onclick="navigate('unitconverter', this)">
-                            <i class="fa-solid fa-ruler-combined"></i> <span id="menuUnitConvTxt">محوّل وحدات القياس</span>
-                        </button>
+                        <div class="nav-soon" style="padding:12px 16px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);cursor:default;"><i class="fa-solid fa-hourglass-half" style="color:var(--gold3);"></i> <span id="navSoonTxt">قريباً</span></div>
                     </div>
                 </div>
 
@@ -7759,7 +7757,6 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuDailyChallengeTxt: 'التحديات',
                 menuWheelTxt: 'عجلة الحظ',
                 menuLeaderboardTxt: 'لوحة المتصدرين',
-                menuUnitConvTxt: 'محوّل وحدات القياس',
                 txtTopbarLogout: 'خروج',
                 txtTopbarLogoutDesk: 'خروج',
                 sideUserRole: 'عضو',
@@ -7793,7 +7790,6 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuDailyChallengeTxt: 'Challenges',
                 menuWheelTxt: 'Fortune Wheel',
                 menuLeaderboardTxt: 'Leaderboard',
-                menuUnitConvTxt: 'Unit Converter',
                 txtTopbarLogout: 'Logout',
                 txtTopbarLogoutDesk: 'Logout',
                 sideUserRole: 'Member',
@@ -8421,7 +8417,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             account: 'menuAccount', achievements: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
             adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro',
             adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
-            dailychallenge: 'menuDailyChallenge', wheel: 'menuWheel', leaderboard: 'menuLeaderboard', profile: 'menuAccount', unitconverter: 'menuUnitConv'
+            dailychallenge: 'menuDailyChallenge', wheel: 'menuWheel', leaderboard: 'menuLeaderboard', profile: 'menuAccount'
         };
 
         /* Reflects the current page in the URL as #/page-name so every page has
@@ -8487,7 +8483,6 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 achievements: lang==='AR'?'إنجازاتي':'My Achievements',
                 leaderboard: lang==='AR'?'لوحة المتصدرين':'Leaderboard',
                 profile: lang==='AR'?'ملفي الشخصي':'My Profile',
-                unitconverter: lang==='AR'?'محوّل وحدات القياس':'Unit Converter',
             };
             document.getElementById('breadcrumbTitle').textContent = titles[page] || titles[String(page).split('/')[0]] || page;
             const area = document.getElementById('contentArea');
@@ -8534,7 +8529,6 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             else if (page === 'dailychallenge') renderDailyChallenge(area);
             else if (page === 'wheel') renderWheel(area);
             else if (page === 'achievements' && window.renderAchievements) window.renderAchievements(area);
-            else if (page === 'unitconverter' && window.renderUnitConverter) window.renderUnitConverter(area);
             else if (page === 'leaderboard' && window.renderLeaderboard) window.renderLeaderboard(area);
             else if ((page === 'profile' || page.indexOf('profile/') === 0) && window.renderProfilePage) window.renderProfilePage(area, page);
             else renderSoon(area, page, titles[page]);
@@ -14488,7 +14482,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.4.1';
+        window.ATL_APP_VERSION = '2026.11.4.2';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
@@ -20837,120 +20831,6 @@ async function csAdmShowLink(id, btn) {
         if ((window._currentPage || '').indexOf('profile') === 0) { navigate('profile', document.getElementById('menuAccount') || undefined, false, true); }
       } catch (e) { console.warn(e); err.textContent = errTxt(e) || T('تعذّر الحفظ، حاول تاني', 'Could not save'); b.disabled = false; b.textContent = T('حفظ', 'Save'); }
     };
-  }
-})();
-
-</script>
-<script>
-/* ═══ محوّل وحدات القياس (قسم الأدوات) ═══ */
-(function () {
-  'use strict';
-  const isAR = () => (typeof lang !== 'undefined' ? lang : 'AR') === 'AR';
-  const T = (a, e) => (isAR() ? a : e);
-  const CATS = {
-    length: { ar: 'الطول', en: 'Length', icon: 'fa-ruler', base: 'm', units: {
-      m: ['متر', 'Meter', 1], km: ['كيلومتر', 'Kilometer', 1000], cm: ['سنتيمتر', 'Centimeter', 0.01], mm: ['ملليمتر', 'Millimeter', 0.001],
-      mi: ['ميل', 'Mile', 1609.344], nmi: ['ميل بحري', 'Nautical mile', 1852], yd: ['ياردة', 'Yard', 0.9144], ft: ['قدم', 'Foot', 0.3048], in: ['بوصة', 'Inch', 0.0254] } },
-    area: { ar: 'المساحة', en: 'Area', icon: 'fa-vector-square', base: 'm²', units: {
-      'm2': ['متر مربع', 'Square meter', 1], km2: ['كيلومتر مربع', 'Square km', 1e6], ha: ['هكتار', 'Hectare', 1e4], fed: ['فدان', 'Feddan', 4200.833],
-      qir: ['قيراط', 'Qirat', 175.0347], sah: ['سهم', 'Sahm', 7.2931], ac: ['إيكر', 'Acre', 4046.8564224], ft2: ['قدم مربع', 'Square foot', 0.09290304], mi2: ['ميل مربع', 'Square mile', 2589988.110336] } },
-    angle: { ar: 'الزاوية', en: 'Angle', icon: 'fa-angle-right', base: '°', units: {
-      deg: ['درجة', 'Degree', 1], rad: ['راديان', 'Radian', 180 / Math.PI], grad: ['جراد', 'Gradian', 0.9], min: ['دقيقة قوسية', 'Arc-minute', 1 / 60], sec: ['ثانية قوسية', 'Arc-second', 1 / 3600] } },
-    coord: { ar: 'الإحداثيات', en: 'Coordinates', icon: 'fa-location-crosshairs' },
-    scale: { ar: 'مقياس الرسم', en: 'Map scale', icon: 'fa-map' }
-  };
-  const S = { cat: 'length', from: null, to: null, val: '1' };
-  const fmt = (n) => {
-    if (!isFinite(n)) return '—';
-    const a = Math.abs(n);
-    if (a !== 0 && (a >= 1e12 || a < 1e-6)) return n.toExponential(6);
-    return Number(n.toPrecision(12)).toLocaleString('en-US', { maximumFractionDigits: 10 });
-  };
-  const css = document.createElement('style');
-  css.textContent = `.uc-wrap{max-width:860px;margin:0 auto}.uc-chips{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
-  .uc-chip{border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;font-size:13px;font-weight:800;padding:9px 15px;border-radius:99px;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
-  .uc-chip.on{background:linear-gradient(135deg,var(--gold3),#d4a017);color:#0a0a0e;border-color:transparent}
-  .uc-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px}
-  .uc-row{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:end}
-  .uc-card label{display:block;font-size:12px;font-weight:800;color:var(--muted);margin:0 0 5px}
-  .uc-card input,.uc-card select{width:100%;box-sizing:border-box;background:rgba(128,128,128,.1);border:1px solid var(--border);border-radius:11px;padding:11px 12px;color:var(--text);font:inherit;font-size:14px}
-  .uc-swap{width:42px;height:42px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--gold3);cursor:pointer;font-size:15px}
-  .uc-res{margin-top:16px;padding:16px;border-radius:14px;background:linear-gradient(135deg,rgba(212,160,23,.14),rgba(39,163,70,.08));text-align:center}
-  .uc-res b{font-size:clamp(22px,5vw,32px);font-weight:900;color:var(--gold3);word-break:break-all;direction:ltr;display:block}
-  .uc-res span{font-size:12.5px;color:var(--muted)}
-  .uc-table{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
-  .uc-table div{padding:10px 12px;border:1px solid var(--border);border-radius:12px;font-size:12.5px;cursor:pointer}
-  .uc-table div b{display:block;direction:ltr;font-size:14px;margin-top:2px;word-break:break-all}
-  .uc-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media(max-width:560px){.uc-row{grid-template-columns:1fr;}.uc-swap{margin:0 auto;transform:rotate(90deg)}.uc-grid2{grid-template-columns:1fr}}`;
-  document.head.appendChild(css);
-
-  window.renderUnitConverter = function (area) {
-    area = area || document.getElementById('contentArea');
-    area.innerHTML = `<div class="uc-wrap"><div class="page-header"><h2>${T('محوّل وحدات القياس', 'Unit Converter')}</h2><p>${T('حوّل الأطوال والمساحات والزوايا والإحداثيات، واحسب المسافة الحقيقية من مقياس الرسم.', 'Convert lengths, areas, angles and coordinates, and compute ground distance from a map scale.')}</p></div>
-      <div class="uc-chips">${Object.keys(CATS).map(k => `<button class="uc-chip${S.cat === k ? ' on' : ''}" onclick="ucCat('${k}')"><i class="fa-solid ${CATS[k].icon}"></i> ${isAR() ? CATS[k].ar : CATS[k].en}</button>`).join('')}</div>
-      <div class="uc-card" id="ucBody"></div></div>`;
-    draw();
-  };
-  window.ucCat = function (k) { S.cat = k; S.from = S.to = null; S.val = '1'; window.renderUnitConverter(); };
-
-  function draw() {
-    const b = document.getElementById('ucBody'); if (!b) return;
-    if (S.cat === 'coord') return drawCoord(b);
-    if (S.cat === 'scale') return drawScale(b);
-    const c = CATS[S.cat], keys = Object.keys(c.units);
-    if (!S.from) { S.from = keys[0]; S.to = keys[1]; }
-    const opts = (sel) => keys.map(k => `<option value="${k}" ${k === sel ? 'selected' : ''}>${isAR() ? c.units[k][0] : c.units[k][1]}</option>`).join('');
-    b.innerHTML = `<div class="uc-row"><div><label>${T('من', 'From')}</label><select id="ucFrom">${opts(S.from)}</select></div>
-      <button class="uc-swap" onclick="ucSwap()" title="swap"><i class="fa-solid fa-right-left"></i></button>
-      <div><label>${T('إلى', 'To')}</label><select id="ucTo">${opts(S.to)}</select></div></div>
-      <label style="margin-top:14px">${T('القيمة', 'Value')}</label><input id="ucVal" type="text" inputmode="decimal" dir="ltr" value="${S.val}">
-      <div class="uc-res"><b id="ucOut">—</b><span id="ucOutSub"></span></div><div class="uc-table" id="ucAll"></div>`;
-    ['ucFrom', 'ucTo'].forEach(id => document.getElementById(id).onchange = () => { S.from = document.getElementById('ucFrom').value; S.to = document.getElementById('ucTo').value; calc(); });
-    document.getElementById('ucVal').oninput = (e) => { S.val = e.target.value; calc(); };
-    calc();
-  }
-  window.ucSwap = function () { const t = S.from; S.from = S.to; S.to = t; draw(); };
-  function calc() {
-    const c = CATS[S.cat], v = parseFloat(String(S.val).replace(/,/g, '').replace(/٫/g, '.')), out = document.getElementById('ucOut'); if (!out) return;
-    if (isNaN(v)) { out.textContent = '—'; document.getElementById('ucAll').innerHTML = ''; return; }
-    const base = v * c.units[S.from][2], name = (k) => isAR() ? c.units[k][0] : c.units[k][1];
-    out.textContent = fmt(base / c.units[S.to][2]);
-    document.getElementById('ucOutSub').textContent = `${fmt(v)} ${name(S.from)} = ${name(S.to)}`;
-    document.getElementById('ucAll').innerHTML = Object.keys(c.units).filter(k => k !== S.from).map(k => `<div onclick="document.getElementById('ucTo').value='${k}';S_ucTo('${k}')">${name(k)}<b>${fmt(base / c.units[k][2])}</b></div>`).join('');
-  }
-  window.S_ucTo = function (k) { S.to = k; calc(); };
-
-  /* إحداثيات: درجات عشرية ↔ درجات/دقائق/ثواني */
-  function drawCoord(b) {
-    b.innerHTML = `<div class="uc-grid2"><div><div style="font-weight:800;margin-bottom:10px">${T('من عشرية إلى DMS', 'Decimal → DMS')}</div>
-        <label>${T('الدرجات العشرية', 'Decimal degrees')}</label><input id="ucDD" dir="ltr" inputmode="decimal" value="30.0444">
-        <div class="uc-res" style="margin-top:12px"><b id="ucDMSout" style="font-size:20px">—</b></div></div>
-      <div><div style="font-weight:800;margin-bottom:10px">${T('من DMS إلى عشرية', 'DMS → Decimal')}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 70px;gap:6px"><div><label>°</label><input id="ucD" dir="ltr" inputmode="decimal" value="30"></div><div><label>′</label><input id="ucM" dir="ltr" inputmode="decimal" value="2"></div><div><label>″</label><input id="ucS" dir="ltr" inputmode="decimal" value="39.84"></div>
-        <div><label>&nbsp;</label><select id="ucH"><option value="1">N/E</option><option value="-1">S/W</option></select></div></div>
-        <div class="uc-res" style="margin-top:12px"><b id="ucDDout" style="font-size:20px">—</b></div></div></div>`;
-    const a = () => {
-      const dd = parseFloat(document.getElementById('ucDD').value);
-      document.getElementById('ucDMSout').textContent = isNaN(dd) ? '—' : (() => { const s = Math.abs(dd), d = Math.floor(s), m = Math.floor((s - d) * 60), sec = ((s - d) * 60 - m) * 60; return `${dd < 0 ? '-' : ''}${d}° ${m}′ ${sec.toFixed(4)}″`; })();
-      const d = parseFloat(ucD.value) || 0, m = parseFloat(ucM.value) || 0, s = parseFloat(ucS.value) || 0, h = +ucH.value;
-      document.getElementById('ucDDout').textContent = (h * (Math.abs(d) + m / 60 + s / 3600)).toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
-    };
-    ['ucDD', 'ucD', 'ucM', 'ucS', 'ucH'].forEach(id => document.getElementById(id).oninput = document.getElementById(id).onchange = a); a();
-  }
-  /* مقياس الرسم */
-  function drawScale(b) {
-    b.innerHTML = `<div class="uc-grid2"><div><label>${T('المسافة على الخريطة (سم)', 'Map distance (cm)')}</label><input id="ucMap" dir="ltr" inputmode="decimal" value="5"></div>
-      <div><label>${T('مقياس الرسم 1 :', 'Scale 1 :')}</label><input id="ucSc" dir="ltr" inputmode="numeric" value="50000"></div></div>
-      <div class="uc-res"><b id="ucGround">—</b><span id="ucGroundSub"></span></div>`;
-    const a = () => {
-      const m = parseFloat(ucMap.value), s = parseFloat(ucSc.value);
-      if (isNaN(m) || isNaN(s) || s <= 0) { ucGround.textContent = '—'; ucGroundSub.textContent = ''; return; }
-      const meters = m * s / 100;
-      ucGround.textContent = fmt(meters >= 1000 ? meters / 1000 : meters) + (meters >= 1000 ? ' km' : ' m');
-      ucGroundSub.textContent = `= ${fmt(meters)} m = ${fmt(meters / 1609.344)} mi`;
-    };
-    ['ucMap', 'ucSc'].forEach(id => document.getElementById(id).oninput = a); a();
   }
 })();
 
