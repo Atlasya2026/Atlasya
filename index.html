@@ -4431,6 +4431,9 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                         <button class="nav-item" id="menuLevel" onclick="navigate('levelingcalc', this)">
                             <i class="fa-solid fa-ruler-vertical"></i> <span id="menuLevelTxt">حاسبة الميزانية المساحية</span>
                         </button>
+                        <button class="nav-item" id="menuTraverse" onclick="navigate('traverse', this)">
+                            <i class="fa-solid fa-draw-polygon"></i> <span id="menuTraverseTxt">حاسبة الترافيرس المساحي</span>
+                        </button>
                         <div class="nav-soon" style="padding:12px 16px;display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);cursor:default;"><i class="fa-solid fa-hourglass-half" style="color:var(--gold3);"></i> <span id="navSoonTxt">قريباً</span></div>
                     </div>
                 </div>
@@ -5246,6 +5249,26 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             if (!currentUid) throw new Error('غير مسجل الدخول');
             const id = String(bookId || '').replace(/[^\w-]/g, '').slice(0, 48);
             if (id) await deleteDoc(doc(db, 'leveling_books', currentUid + '_' + id));
+        };
+
+        /* ─── حاسبة الترافيرس: المشاريع (traverse_projects — شوف traverse-projects.sql) ─── */
+        window._tvLoad = async () => {
+            if (!currentUid) throw new Error('غير مسجل الدخول');
+            const snap = await getDocs(query(collection(db, 'traverse_projects'), where('uid', '==', currentUid)));
+            return snap.docs.map(d => d.data()).filter(x => x && x.uid === currentUid && typeof x.payload === 'string');
+        };
+        window._tvSave = async (book) => {
+            if (!currentUid) throw new Error('غير مسجل الدخول');
+            const id = String(book.id || '').replace(/[^\w-]/g, '').slice(0, 48);
+            if (!id) throw new Error('bad id');
+            const payload = JSON.stringify(book);
+            if (payload.length > 900000) throw new Error('المشروع كبير جدًا');
+            await setDoc(doc(db, 'traverse_projects', currentUid + '_' + id), { uid: currentUid, projectId: id, name: String(book.name || '').slice(0, 120), updatedAt: Number(book.updatedAt) || Date.now(), payload });
+        };
+        window._tvDelete = async (projectId) => {
+            if (!currentUid) throw new Error('غير مسجل الدخول');
+            const id = String(projectId || '').replace(/[^\w-]/g, '').slice(0, 48);
+            if (id) await deleteDoc(doc(db, 'traverse_projects', currentUid + '_' + id));
         };
 
         /* ─── DIGITAL LIBRARY (ATLASYA) — student-facing ─── */
@@ -7770,6 +7793,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuToolTxt: 'أدوات البرامج',
                 menuUnitsTxt: 'محول وحدات القياس',
                 menuLevelTxt: 'حاسبة الميزانية المساحية',
+                menuTraverseTxt: 'حاسبة الترافيرس المساحي',
                 menuJobTxt: 'لوحة الوظائف',
                 menuCourseTxt: 'الكورسات',
                 menuConnectTxt: 'سوشيال ميديا',
@@ -7805,6 +7829,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 menuToolTxt: 'GIS Software',
                 menuUnitsTxt: 'Unit Converter',
                 menuLevelTxt: 'Leveling Calculator',
+                menuTraverseTxt: 'Traverse Calculator',
                 menuJobTxt: 'Job Board',
                 menuCourseTxt: 'Courses',
                 menuConnectTxt: 'Social Media',
@@ -8443,7 +8468,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
            or browser back/forward), where no click event/element is available. */
         const PAGE_NAV_ID_MAP = {
             dashboard: 'menuDash', playlists: 'menuPlay', library: 'menuLib',
-            insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool', unitconverter: 'menuUnits', levelingcalc: 'menuLevel',
+            insights: 'menuInsight', datasets: 'menuData', tools: 'menuTool', unitconverter: 'menuUnits', levelingcalc: 'menuLevel', traverse: 'menuTraverse',
             jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
             community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
             account: 'menuAccount', achievements: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
@@ -8498,6 +8523,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 tools:     lang==='AR'?'أدوات البرامج':'GIS Software Tools',
                 unitconverter: lang==='AR'?'محول الوحدات والقياسات':'Unit Converter',
                 levelingcalc: lang==='AR'?'حاسبة الميزانية المساحية':'Leveling Calculator',
+                traverse: lang==='AR'?'حاسبة الترافيرس المساحي':'Traverse Calculator',
                 jobs:      lang==='AR'?'لوحة الوظائف':'Job Board',
                 courses:   lang==='AR'?'الكورسات':'Courses',
                 expert:    lang==='AR'?'الدعم الفني':'Technical Support',
@@ -8550,6 +8576,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             else if (page === 'tools') renderTools(area);
             else if (page === 'unitconverter' && window.renderUnitConverter) window.renderUnitConverter(area);
             else if (page === 'levelingcalc' && window.renderLevelingCalc) window.renderLevelingCalc(area);
+            else if (page === 'traverse' && window.renderTraverseCalc) window.renderTraverseCalc(area);
             else if (page === 'community') renderCommunity(area);
             else if (page === 'jobs') renderJobs(area);
             else if (page === 'cvbuilder') renderCVBuilder(area);
@@ -14518,7 +14545,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.5.1';
+        window.ATL_APP_VERSION = '2026.11.5.2';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
@@ -19618,6 +19645,7 @@ async function csAdmShowLink(id, btn) {
         { key:'tools',          ar:'أدوات البرامج',       en:'Software Tools' },
         { key:'unitconverter',  ar:'محوّل وحدات القياس',  en:'Unit Converter' },
         { key:'levelingcalc',   ar:'حاسبة الميزانية المساحية', en:'Leveling Calculator' },
+        { key:'traverse',       ar:'حاسبة الترافيرس المساحي', en:'Traverse Calculator' },
         { key:'jobs',           ar:'الوظائف',             en:'Job Board' },
         { key:'courses',        ar:'الكورسات',            en:'Courses' },
         { key:'community',      ar:'مجتمع الطلاب',        en:'Community' },
@@ -22710,6 +22738,775 @@ html[dir="ltr"] .lv-flip, [dir="ltr"] .lv-flip { transform: none; }
 
   window.ATL_LEVELING = { analyze: analyze, parseNum: parseNum, examples: EXAMPLES, cleanBook: cleanBook };
   window.renderLevelingCalc = render;
+})();
+</script>
+<style id="atl-traverse-css">
+/* ATLASYA Traverse Calculator — كل الكلاسات بتبدأ بـ tv- */
+.tv-wrap{max-width:1180px;margin:0 auto}
+.tv-hero{display:flex;align-items:center;gap:14px;padding:18px;margin-bottom:14px;border-radius:16px;background:linear-gradient(135deg,rgba(var(--brand-rgb,30,122,52),.22),rgba(var(--brand-rgb,30,122,52),.06));border:1px solid var(--border)}
+.tv-hero-ic{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--g3),var(--g2));color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;flex:none}
+.tv-hero-t{font-weight:800;font-size:17px;color:var(--text)}.tv-hero-s{font-size:12.5px;color:var(--muted);margin-top:3px;direction:ltr;text-align:start}
+.tv-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r,14px);padding:18px;margin-bottom:14px}
+.tv-card-t{font-weight:800;font-size:15px;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tv-card-t i{color:var(--g4)}
+.tv-count{background:rgba(var(--brand-rgb,30,122,52),.18);color:var(--gold3);border-radius:999px;padding:1px 10px;font-size:12px}
+.tv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.tv-field{display:flex;flex-direction:column;gap:6px;min-width:0}.tv-field>label{font-size:12.5px;font-weight:700;color:var(--muted)}
+.tv-in{width:100%;box-sizing:border-box;padding:10px 12px;background:rgba(127,127,127,.09);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;outline:none}
+.tv-in:focus,.tv-cell:focus{border-color:var(--g4);box-shadow:0 0 0 3px rgba(var(--brand-rgb,30,122,52),.18)}
+.tv-in option{background:var(--bg2);color:var(--text)}
+.tv-hint{font-size:12px;color:var(--muted);line-height:1.7}
+.tv-chk{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);cursor:pointer;margin-top:12px}.tv-chk input{accent-color:var(--g4)}
+.tv-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 15px;background:var(--card);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:.15s}
+.tv-btn:hover:not(:disabled){border-color:var(--g4);transform:translateY(-1px)}.tv-btn:disabled{opacity:.4;cursor:not-allowed}
+.tv-btn-pri{background:linear-gradient(135deg,var(--g3),var(--g2));border-color:transparent;color:#fff}
+.tv-flip{transform:scaleX(-1)}[dir="ltr"] .tv-flip{transform:none}
+.tv-actions{display:flex;flex-wrap:wrap;gap:8px}
+.tv-note{padding:11px 14px;border-radius:12px;font-size:13px;line-height:1.7;margin-bottom:12px;display:flex;gap:9px;align-items:flex-start;border:1px solid var(--border);background:rgba(127,127,127,.06);color:var(--text)}.tv-note i{margin-top:3px}
+.tv-note-warn{background:rgba(212,160,23,.1);border-color:rgba(212,160,23,.35)}.tv-note-warn i{color:var(--gold3)}
+.tv-note-err{background:rgba(231,76,60,.1);border-color:rgba(231,76,60,.4)}.tv-note-err i{color:#e74c3c}
+.tv-note-ok{background:rgba(39,174,96,.12);border-color:rgba(39,174,96,.4)}.tv-note-ok i{color:#27ae60}
+.tv-empty{padding:26px 10px;text-align:center;color:var(--muted);font-size:13.5px}
+.tv-ex{margin:6px 0 16px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}.tv-ex-l{font-size:12.5px;color:var(--muted);font-weight:700}.tv-ex-l i{color:var(--gold3)}
+.tv-chip{padding:7px 13px;background:rgba(var(--brand-rgb,30,122,52),.1);border:1px solid var(--border2);border-radius:999px;color:var(--text);font-family:inherit;font-size:12.5px;cursor:pointer}.tv-chip:hover,.tv-chip.on{background:rgba(var(--brand-rgb,30,122,52),.28)}
+.tv-books{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.tv-book{display:flex;background:rgba(127,127,127,.06);border:1px solid var(--border);border-radius:14px;overflow:hidden}.tv-book:hover{border-color:var(--g4)}
+.tv-book-main{flex:1;min-width:0;text-align:start;background:none;border:none;padding:14px;color:var(--text);font-family:inherit;cursor:pointer}
+.tv-book-name{font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tv-book-sub{font-size:12.5px;color:var(--muted);margin:3px 0 9px}.tv-book-date{font-size:11.5px;color:var(--muted);margin-top:8px}
+.tv-bs{font-weight:800;font-size:12.5px}.tv-bs-ok{color:#27ae60}.tv-bs-bad{color:#e74c3c}.tv-bs-incomplete{color:var(--gold3)}
+.tv-book-btns{display:flex;flex-direction:column;border-inline-start:1px solid var(--border)}
+.tv-ibtn{flex:1;width:42px;background:none;border:none;border-bottom:1px solid var(--border);color:var(--muted);cursor:pointer}.tv-ibtn:last-child{border-bottom:none}.tv-ibtn:hover{background:rgba(var(--brand-rgb,30,122,52),.15);color:var(--text)}.tv-ibtn-del:hover{background:rgba(231,76,60,.18);color:#e74c3c}
+.tv-topbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}.tv-name{flex:1 1 220px;width:auto;font-weight:800;font-size:16px}.tv-state{font-size:12px;color:var(--muted)}
+.tv-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.tv-tab{flex:none;display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:10px;background:var(--card);border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.tv-tab.on{background:linear-gradient(135deg,var(--g3),var(--g2));color:#fff;border-color:transparent}
+.tv-tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px}
+.tv-tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:520px}
+.tv-tbl th{background:rgba(var(--brand-rgb,30,122,52),.18);color:var(--text);padding:9px 8px;font-size:12px;font-weight:800;white-space:nowrap;border-bottom:1px solid var(--border)}
+.tv-tbl td{padding:4px 6px;border-bottom:1px solid var(--border);text-align:center;color:var(--text)}
+.tv-res td{padding:7px 8px;white-space:nowrap;font-variant-numeric:tabular-nums}.tv-res td.l{text-align:start;font-weight:700}
+.tv-tbl .tv-n{color:var(--muted);width:34px}.tv-calc{color:var(--g4);font-weight:700;direction:ltr;white-space:nowrap}
+.tv-cell{width:100%;min-width:90px;box-sizing:border-box;padding:8px;text-align:center;background:rgba(127,127,127,.07);border:1px solid transparent;border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;outline:none;direction:ltr}
+.tv-cell:disabled{opacity:.35}.tv-cell.tv-bad{border-color:#e74c3c;background:rgba(231,76,60,.1)}
+.tv-act{white-space:nowrap;width:70px}.tv-ibtn2{background:none;border:none;color:var(--muted);cursor:pointer;padding:6px}.tv-ibtn2:hover{color:var(--g4)}.tv-del:hover{color:#e74c3c}
+.tv-sum td{background:rgba(var(--brand-rgb,30,122,52),.12);font-weight:800}.tv-start td{background:rgba(127,127,127,.06)}.tv-corr{color:var(--gold3)}
+.tv-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin:12px 0}
+.tv-kpi{padding:12px;border-radius:12px;background:rgba(127,127,127,.07);border:1px solid var(--border)}.tv-kpi-l{font-size:11.5px;color:var(--muted);font-weight:700}.tv-kpi-v{font-size:16px;font-weight:800;margin-top:4px;color:var(--text)}
+.tv-g-excellent,.tv-g-good{border-color:rgba(39,174,96,.5)}.tv-g-excellent .tv-kpi-v,.tv-g-good .tv-kpi-v{color:#27ae60}.tv-g-ok{border-color:rgba(212,160,23,.5)}.tv-g-ok .tv-kpi-v{color:var(--gold3)}.tv-g-poor{border-color:rgba(231,76,60,.5)}.tv-g-poor .tv-kpi-v{color:#e74c3c}
+.tv-eq{direction:ltr;text-align:left;font-family:'Cambria Math','Times New Roman',serif;font-size:14.5px;line-height:2;padding:10px 14px;margin:8px 0;border-radius:10px;background:rgba(127,127,127,.07);border-inline-start:3px solid var(--g4);overflow-x:auto}
+.tv-methods{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.tv-method{display:flex;flex-direction:column;gap:6px;text-align:start;padding:14px;border-radius:12px;background:rgba(127,127,127,.06);border:1.5px solid var(--border);color:var(--text);font-family:inherit;cursor:pointer}.tv-method span{font-size:12px;color:var(--muted);line-height:1.6}.tv-method.on{border-color:var(--g4);background:rgba(var(--brand-rgb,30,122,52),.16)}
+.tv-verify{padding:12px 14px;border-radius:12px;margin-top:6px;border:1px solid var(--border)}.tv-verify.ok{background:rgba(39,174,96,.1);border-color:rgba(39,174,96,.4)}.tv-verify.bad{background:rgba(231,76,60,.08);border-color:rgba(231,76,60,.4)}
+.tv-verify ul{margin:8px 0 0;padding:0;list-style:none;font-size:13px;line-height:1.9}.tv-verify li.ok{color:#27ae60}.tv-verify li.bad{color:#e74c3c}
+.tv-svg{width:100%;max-height:440px;height:auto;display:block}
+.tv-step{display:flex;gap:12px;margin-bottom:14px}.tv-step-n{flex:none;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--g3),var(--g2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+.tv-step-b{flex:1;min-width:0}.tv-step-t{font-weight:800;margin-bottom:4px}.tv-why{font-size:12.5px;color:var(--muted);line-height:1.7;margin-top:4px}.tv-why i{color:var(--gold3)}.tv-p{font-size:13.5px;line-height:1.8;margin:6px 0}
+.tv-gl dt{font-weight:800;margin-top:10px;color:var(--g4)}.tv-gl dd{margin:2px 0 0;font-size:13px;line-height:1.7;color:var(--text)}.tv-ml{font-size:13px;line-height:1.9;padding-inline-start:20px}
+.tv-exk{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.tv-exrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+@media(max-width:640px){.tv-card{padding:14px}.tv-tab span{display:inline}.tv-hero-t{font-size:15px}}
+</style>
+<script id="atl-traverse-js">
+/* ATLASYA Traverse Calculator — حاسبة الترافيرس المساحي. بتتسجّل كـ window.renderTraverseCalc وبتتنادى من navigate('traverse'). */
+(function () {
+  'use strict';
+  /* ═════════ محرك الحساب (دوال نقية بدون DOM) ═════════ */
+  var D2R = Math.PI / 180;
+  function norm360(x) { x = x % 360; return x < 0 ? x + 360 : x; }
+  function norm180(x) { x = norm360(x); return x > 180 ? x - 360 : x; }
+  function digits(s) { return String(s == null ? '' : s).replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }).replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }).replace(/٫/g, '.').replace(/٬/g, ''); }
+  function parseNum(v) {
+    if (v === null || v === undefined) return NaN;
+    var s = digits(v).trim().replace(/,/g, '.'); if (s === '') return NaN;
+    return /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s) ? parseFloat(s) : NaN;
+  }
+  /* زاوية: عشرية أو DMS (30°15'20" أو 30 15 20 أو 30-15-20). بالدرجات دايمًا في الناتج (الجراد بيتحوّل ×0.9) */
+  function parseAngle(v, unit) {
+    var s = digits(v).trim().replace(/,/g, '.'); if (s === '') return NaN;
+    var plain = parseNum(s);
+    if (isFinite(plain)) return unit === 'gon' ? plain * 0.9 : plain;
+    if (unit === 'gon') return NaN;
+    s = s.replace(/(\d)-(?=\d)/g, '$1 ').replace(/[°'"′″:]+/g, ' ').replace(/\s+/g, ' ').trim();
+    var parts = s.split(' '); if (parts.length < 2 || parts.length > 3) return NaN;
+    var nums = parts.map(parseNum); if (nums.some(function (x) { return !isFinite(x); })) return NaN;
+    var sign = (parts[0].charAt(0) === '-') ? -1 : 1, d = Math.abs(nums[0]), mi = nums[1], se = nums[2] || 0;
+    if (mi < 0 || mi >= 60 || se < 0 || se >= 60) return NaN;
+    return sign * (d + mi / 60 + se / 3600);
+  }
+  function fmtNum(x, dec) { return (x === null || x === undefined || !isFinite(x)) ? '' : (Math.abs(x) < Math.pow(10, -dec) / 2 ? 0 : x).toFixed(dec); }
+  function fmtDMS(deg, secDec) {
+    if (!isFinite(deg)) return ''; secDec = secDec === undefined ? 1 : secDec;
+    var sign = deg < 0 ? '-' : '', a = Math.abs(deg), d = Math.floor(a), rem = (a - d) * 60, mi = Math.floor(rem), se = +((rem - mi) * 60).toFixed(secDec);
+    if (se >= 60) { se = 0; mi += 1; } if (mi >= 60) { mi = 0; d += 1; }
+    return sign + d + '°' + ('0' + mi).slice(-2) + '′' + (se < 10 ? '0' : '') + se.toFixed(secDec) + '″';
+  }
+  function fmtAngle(deg, unit, dec) { return unit === 'gon' ? fmtNum(deg / 0.9, 4) + ' g' : fmtDMS(deg, dec === undefined ? 1 : dec); }
+  function precisionText(P, e) {
+    if (!isFinite(P) || P <= 0) return '—';
+    if (e < 1e-9) return '∞';
+    return '1 : ' + Math.round(P / e).toLocaleString('en-US');
+  }
+  function angleRule(type, dir) {
+    /* az_next = az_prev + base + s·θ  (θ = الزاوية المقاسة عند المحطة) */
+    if (type === 'right') return { base: 180, s: 1 };
+    if (type === 'left') return { base: 180, s: -1 };
+    if (type === 'defR') return { base: 0, s: 1 };
+    if (type === 'defL') return { base: 0, s: -1 };
+    return { base: 180, s: dir === 'ccw' ? 1 : -1 };            /* interior */
+  }
+
+  function analyze(b) {
+    var rows = b.rows || [], n = rows.length, closed = b.type !== 'open', m = closed ? n : n - 1;
+    var res = { n: n, m: m, closed: closed, errors: [], warnings: [], rowErr: {}, complete: false, az: [], L: [], lines: [], pts: [], ptsAdj: [], useAngles: b.mode === 'angles', method: b.adjust || 'bowditch' };
+    var unit = b.angleUnit === 'gon' ? 'gon' : 'deg';
+    if (n < (closed ? 3 : 2)) { res.errors.push(closed ? { ar: 'الترافيرس المقفل يحتاج 3 نقاط على الأقل', en: 'A closed traverse needs at least 3 stations' } : { ar: 'الترافيرس المفتوح يحتاج نقطتين على الأقل', en: 'An open traverse needs at least 2 stations' }); return res; }
+    var E0 = parseNum(b.startE), N0 = parseNum(b.startN);
+    if (!isFinite(E0) || !isFinite(N0)) { res.errors.push({ ar: 'أدخل إحداثيات نقطة البداية (E, N)', en: 'Enter the start coordinates (E, N)' }); }
+    var i, bad = false;
+    for (i = 0; i < m; i++) {
+      var Lv = parseNum(rows[i].dist);
+      if (!isFinite(Lv)) { bad = true; res.rowErr[i] = res.rowErr[i] || {}; res.rowErr[i].dist = 'missing'; }
+      else if (Lv <= 0) { bad = true; res.rowErr[i] = res.rowErr[i] || {}; res.rowErr[i].dist = 'neg'; }
+      res.L.push(Lv);
+    }
+    var az = [], thetas = [], rule = angleRule(b.angleType, b.dir);
+    res.angular = null;
+    if (b.mode === 'azimuths') {
+      for (i = 0; i < m; i++) {
+        var a = parseAngle(rows[i].az, unit);
+        if (!isFinite(a)) { bad = true; res.rowErr[i] = res.rowErr[i] || {}; res.rowErr[i].az = 'missing'; }
+        else if (a < 0 || a > 360) { bad = true; res.rowErr[i] = res.rowErr[i] || {}; res.rowErr[i].az = 'range'; }
+        az.push(isFinite(a) ? norm360(a) : NaN);
+      }
+    } else {
+      var az0 = parseAngle(b.az0, unit);
+      if (!isFinite(az0) || az0 < 0 || az0 > 360) { bad = true; res.errors.push({ ar: 'أدخل الأزيموث الابتدائي للضلع الأول (0–360°)', en: 'Enter the initial azimuth of the first line (0–360°)' }); }
+      var needFrom = closed ? 0 : 1, needTo = m - 1, allAng = true;
+      for (i = 0; i < n; i++) {
+        var th = parseAngle(rows[i].ang, unit);
+        var needed = closed ? true : (i >= 1 && i <= m - 1);
+        if (needed) {
+          if (!isFinite(th)) { allAng = false; bad = true; res.rowErr[i] = res.rowErr[i] || {}; res.rowErr[i].ang = 'missing'; }
+          else if (th < 0 || th > 360) { allAng = false; bad = true; res.rowErr[i] = res.rowErr[i] || {}; res.rowErr[i].ang = 'range'; }
+        }
+        thetas.push(th);
+      }
+      res.thetas = thetas.slice();
+      if (isFinite(az0) && allAng) {
+        var corr = 0, eps = 0;
+        if (closed) {
+          /* انحراف الزوايا: نمشي بالزوايا الخام ونشوف الأزيموث الراجع للضلع الأول */
+          var cur = az0, k;
+          for (k = 1; k < n; k++) cur = norm360(cur + rule.base + rule.s * thetas[k]);
+          var back = norm360(cur + rule.base + rule.s * thetas[0]);
+          eps = norm180(back - norm360(az0));
+          var sumTh = thetas.reduce(function (p, c) { return p + c; }, 0);
+          res.angular = { eps: eps, sum: sumTh, expected: b.angleType === 'interior' ? (n - 2) * 180 : null, adjusted: !!b.adjAngles, perAngle: b.adjAngles ? -rule.s * eps / n : 0, allowable: 60 * Math.sqrt(n) / 3600 };
+          corr = b.adjAngles ? -rule.s * eps / n : 0;
+          if (Math.abs(eps) * 3600 > res.angular.allowable * 3600 * 3) res.warnings.push({ ar: 'خطأ الزوايا كبير (' + fmtDMS(Math.abs(eps), 0) + ') مقارنة بالمسموح التقريبي 1′√n — راجع القراءات الزاوية', en: 'Angular misclosure is large (' + fmtDMS(Math.abs(eps), 0) + ') vs ≈1′√n — recheck the angles' });
+        }
+        res.thetasAdj = thetas.map(function (t) { return t + corr; });
+        az[0] = norm360(az0);
+        for (i = 1; i < m; i++) az[i] = norm360(az[i - 1] + rule.base + rule.s * res.thetasAdj[i]);
+        res.az0 = az0;
+      } else { for (i = 0; i < m; i++) az.push(NaN); }
+    }
+    res.az = az;
+    if (bad || res.errors.length) {
+      if (bad && !res.errors.length) res.errors.push({ ar: 'في قراءات ناقصة أو غير صالحة (موضّحة بالأحمر في الجدول)', en: 'Some readings are missing or invalid (highlighted in red)' });
+      return res;
+    }
+    /* حسابات الأضلاع */
+    var sumL = 0, sumE = 0, sumN = 0, sumAE = 0, sumAN = 0;
+    for (i = 0; i < m; i++) {
+      var r = az[i] * D2R, dE = res.L[i] * Math.sin(r), dN = res.L[i] * Math.cos(r);
+      res.lines.push({ i: i, from: i, to: (i + 1) % n, L: res.L[i], az: az[i], dE: dE, dN: dN });
+      sumL += res.L[i]; sumE += dE; sumN += dN; sumAE += Math.abs(dE); sumAN += Math.abs(dN);
+    }
+    var Et = null, Nt = null;
+    if (closed) { Et = E0; Nt = N0; }
+    else { var ee = parseNum(b.endE), nn = parseNum(b.endN); if (isFinite(ee) && isFinite(nn)) { Et = ee; Nt = nn; } }
+    var haveEnd = Et !== null;
+    var eE = haveEnd ? sumE - (Et - E0) : 0, eN = haveEnd ? sumN - (Nt - N0) : 0, e = Math.hypot(eE, eN);
+    res.sums = { L: sumL, dE: sumE, dN: sumN, aE: sumAE, aN: sumAN };
+    res.closure = { have: haveEnd, eE: eE, eN: eN, e: e, precision: e > 1e-9 ? sumL / e : Infinity, bearing: e > 1e-9 ? norm360(Math.atan2(eE, eN) / D2R) : null };
+    function adjust(method) {
+      var out = [], cx = E0, cy = N0, pts = [{ E: E0, N: N0 }];
+      for (var k = 0; k < m; k++) {
+        var ln = res.lines[k], cE = 0, cN = 0;
+        if (haveEnd && method === 'bowditch') { cE = -eE * ln.L / sumL; cN = -eN * ln.L / sumL; }
+        else if (haveEnd && method === 'transit') { cE = sumAE > 0 ? -eE * Math.abs(ln.dE) / sumAE : 0; cN = sumAN > 0 ? -eN * Math.abs(ln.dN) / sumAN : 0; }
+        var aE = ln.dE + cE, aN = ln.dN + cN; cx += aE; cy += aN;
+        out.push({ cE: cE, cN: cN, dE: aE, dN: aN, L: Math.hypot(aE, aN), az: norm360(Math.atan2(aE, aN) / D2R), E: cx, N: cy });
+        pts.push({ E: cx, N: cy });
+      }
+      return { adj: out, pts: pts };
+    }
+    var A = adjust(res.method);
+    res.adj = A.adj; res.ptsAdj = A.pts;
+    var cx = E0, cy = N0; res.pts = [{ E: E0, N: N0 }];
+    for (i = 0; i < m; i++) { cx += res.lines[i].dE; cy += res.lines[i].dN; res.lines[i].E = cx; res.lines[i].N = cy; res.pts.push({ E: cx, N: cy }); }
+    res.compare = { bowditch: adjust('bowditch').pts, transit: adjust('transit').pts };
+    if (closed) {
+      var ar = 0, P = res.ptsAdj.slice(0, n);
+      for (i = 0; i < n; i++) { var q = P[(i + 1) % n]; ar += P[i].E * q.N - q.E * P[i].N; }
+      res.area = Math.abs(ar) / 2;
+    }
+    var last = res.ptsAdj[res.ptsAdj.length - 1];
+    res.closedOk = haveEnd ? (Math.abs(last.E - Et) < 1e-7 && Math.abs(last.N - Nt) < 1e-7) : null;
+    if (haveEnd && res.method === 'none') res.closedOk = e < 1e-9;
+    res.target = haveEnd ? { E: Et, N: Nt } : null;
+    if (haveEnd) {
+      var pr = res.closure.precision;
+      res.grade = pr >= 10000 ? 'excellent' : pr >= 5000 ? 'good' : pr >= 3000 ? 'ok' : 'poor';
+      if (res.grade === 'poor') res.warnings.push({ ar: 'الدقة النسبية ضعيفة (أقل من 1:3000) — راجع الأطوال والزوايا قبل التصحيح', en: 'Relative precision is poor (below 1:3000) — recheck distances/angles before adjusting' });
+    }
+    if (!haveEnd && !closed) res.warnings.push({ ar: 'ترافيرس مفتوح بدون نقطة نهاية معلومة: مفيش خطأ إقفال أو تصحيح', en: 'Open traverse without a known end point: no closure error or adjustment' });
+    res.complete = true;
+    return res;
+  }
+  /* ═════════ أدوات عامة + حالة الأداة ═════════ */
+  function isAR() { try { return lang === 'AR'; } catch (e) { return true; } }
+  function T(a, e) { return isAR() ? a : e; }
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"'`]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]; }); }
+  function toast(m, err) { try { showToast(m, !!err); } catch (e) { /* no-op */ } }
+  function uid() { try { return window._currentUid || 'guest'; } catch (e) { return 'guest'; } }
+  function newId() { return 'tv' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function msg(o) { return isAR() ? o.ar : o.en; }
+
+  var S = { view: 'list', book: null, an: null, tab: 'field', dirty: false, books: [], cloud: null, undo: [], redo: [], pending: false, lastSnap: null, saveT: null, ex: null, status: '' };
+
+  function blankRows(n) { var r = []; for (var i = 0; i < n; i++) r.push({ st: 'P' + (i + 1), ang: '', dist: '', az: '' }); return r; }
+  function newBook(over) {
+    var b = { id: newId(), name: '', type: 'closed', mode: 'azimuths', angleType: 'interior', dir: 'cw', angleUnit: 'deg', distUnit: 'm', startE: '1000', startN: '1000', endE: '', endN: '', az0: '', adjust: 'bowditch', adjAngles: true, dec: 3, rows: blankRows(4), createdAt: Date.now(), updatedAt: Date.now() };
+    if (over) for (var k in over) b[k] = over[k];
+    return b;
+  }
+  function cleanBook(x) {
+    var d = newBook(), b = {};
+    for (var k in d) b[k] = (x && x[k] !== undefined && x[k] !== null) ? x[k] : d[k];
+    b.id = String(b.id || newId()).replace(/[^\w-]/g, '').slice(0, 48) || newId();
+    b.type = b.type === 'open' ? 'open' : 'closed'; b.mode = b.mode === 'angles' ? 'angles' : 'azimuths';
+    b.adjust = ['bowditch', 'transit', 'none'].indexOf(b.adjust) >= 0 ? b.adjust : 'bowditch';
+    b.angleType = ['interior', 'right', 'left', 'defR', 'defL'].indexOf(b.angleType) >= 0 ? b.angleType : 'interior';
+    b.dir = b.dir === 'ccw' ? 'ccw' : 'cw'; b.angleUnit = b.angleUnit === 'gon' ? 'gon' : 'deg'; b.distUnit = b.distUnit === 'ft' ? 'ft' : 'm';
+    b.dec = [2, 3, 4].indexOf(+b.dec) >= 0 ? +b.dec : 3; b.adjAngles = b.adjAngles !== false;
+    b.name = String(b.name || '').slice(0, 120);
+    ['startE', 'startN', 'endE', 'endN', 'az0'].forEach(function (f) { b[f] = String(b[f] == null ? '' : b[f]).slice(0, 40); });
+    b.rows = (Array.isArray(b.rows) ? b.rows : []).slice(0, 400).map(function (r, i) { r = r || {}; return { st: String(r.st != null ? r.st : 'P' + (i + 1)).slice(0, 30), ang: String(r.ang == null ? '' : r.ang).slice(0, 30), dist: String(r.dist == null ? '' : r.dist).slice(0, 30), az: String(r.az == null ? '' : r.az).slice(0, 30) }; });
+    if (!b.rows.length) b.rows = blankRows(4);
+    b.createdAt = +b.createdAt || Date.now(); b.updatedAt = +b.updatedAt || Date.now();
+    return b;
+  }
+
+  /* ───────── أمثلة جاهزة ───────── */
+  var EXAMPLES = [
+    { key: 'ex_az', ar: 'مثال 1: ترافيرس مقفول بأزيموث ومسافات (4 أضلاع)', en: 'Example 1: closed traverse with azimuths & distances (4 sides)',
+      book: { name: 'Example 1 — Closed (azimuths)', type: 'closed', mode: 'azimuths', startE: '1000', startN: '1000', adjust: 'bowditch',
+        rows: [{ st: 'A', dist: '128.09', az: '51°20′35″' }, { st: 'B', dist: '152.62', az: '31°36′20″' }, { st: 'C', dist: '161.29', az: '262°52′44″' }, { st: 'D', dist: '191.00', az: '186°00′36″' }] } },
+    { key: 'ex_ang', ar: 'مثال 2: ترافيرس مقفول بالزوايا الداخلية (5 نقاط) + تصحيح الزوايا', en: 'Example 2: closed traverse with interior angles (5 stations) + angle adjustment',
+      book: { name: 'Example 2 — Closed (interior angles)', type: 'closed', mode: 'angles', angleType: 'interior', dir: 'cw', adjAngles: true, az0: '0°00′00″', startE: '500000', startN: '3300000', adjust: 'bowditch',
+        rows: [{ st: 'P1', ang: '100°18′27″', dist: '100.02' }, { st: 'P2', ang: '123°41′18″', dist: '108.14' }, { st: 'P3', ang: '105°07′34″', dist: '106.32' }, { st: 'P4', ang: '102°34′20″', dist: '125.34' }, { st: 'P5', ang: '108°18′24″', dist: '111.78' }] } },
+    { key: 'ex_open', ar: 'مثال 3: ترافيرس مفتوح بنقطة نهاية معلومة', en: 'Example 3: open traverse with a known end point',
+      book: { name: 'Example 3 — Open (known end)', type: 'open', mode: 'azimuths', startE: '1000', startN: '1000', endE: '1300', endN: '1000', adjust: 'bowditch',
+        rows: [{ st: 'T1', dist: '92.22', az: '40°36′12″' }, { st: 'T2', dist: '94.84', az: '71°33′58″' }, { st: 'T3', dist: '98.51', az: '113°57′34″' }, { st: 'T4', dist: '84.89', az: '135°00′07″' }, { st: 'T5', dist: '', az: '' }] } }
+  ];
+
+  /* ───────── الحفظ: نسخة محلية لكل مستخدم + مزامنة مع حساب المستخدم ───────── */
+  function lsKey() { return 'atl_tv_books_' + uid(); }
+  function lsRead() { try { var a = JSON.parse(localStorage.getItem(lsKey()) || '[]'); return Array.isArray(a) ? a.map(cleanBook) : []; } catch (e) { return []; } }
+  function lsWrite(list) { try { localStorage.setItem(lsKey(), JSON.stringify(list)); } catch (e) { /* ممتلئ/ممنوع */ } }
+  function cloudOn() { return typeof window._tvLoad === 'function' && uid() !== 'guest'; }
+  function loadBooks() {
+    var local = lsRead();
+    if (!cloudOn()) { S.cloud = false; return Promise.resolve(local); }
+    return window._tvLoad().then(function (arr) {
+      S.cloud = true;
+      var map = {}; local.forEach(function (b) { map[b.id] = b; });
+      var remote = (arr || []).map(function (x) { try { return cleanBook(JSON.parse(x.payload)); } catch (e) { return null; } }).filter(Boolean);
+      remote.forEach(function (b) { if (!map[b.id] || b.updatedAt >= map[b.id].updatedAt) map[b.id] = b; });
+      var remoteIds = {}; remote.forEach(function (b) { remoteIds[b.id] = b.updatedAt; });
+      var merged = Object.keys(map).map(function (k) { return map[k]; });
+      merged.forEach(function (b) { if (!(b.id in remoteIds) || remoteIds[b.id] < b.updatedAt) window._tvSave(b).catch(function () {}); });
+      lsWrite(merged); return merged;
+    }).catch(function (e) { console.warn('[traverse] cloud load:', e); S.cloud = false; return local; });
+  }
+  function saveBookNow() {
+    clearTimeout(S.saveT); if (!S.book) return Promise.resolve();
+    S.book.updatedAt = Date.now();
+    var list = lsRead().filter(function (b) { return b.id !== S.book.id; }); list.push(cleanBook(S.book)); lsWrite(list);
+    S.dirty = false; setStatus(T('تم الحفظ على الجهاز', 'Saved on this device'));
+    if (!cloudOn()) { setStatus(T('محفوظ على الجهاز فقط', 'Saved on this device only')); return Promise.resolve(); }
+    return window._tvSave(cleanBook(S.book)).then(function () { setStatus(T('✓ تم الحفظ في حسابك', '✓ Saved to your account')); })
+      .catch(function (e) { console.warn('[traverse] cloud save:', e); setStatus(T('محفوظ على الجهاز (تعذّر الحفظ في الحساب)', 'Saved locally (account sync failed)')); });
+  }
+  function setStatus(t) { S.status = t; var e = $('tvSaveSt'); if (e) e.textContent = t; }
+  function touch() { S.dirty = true; S.book.updatedAt = Date.now(); setStatus(T('جارٍ الحفظ…', 'Saving…')); clearTimeout(S.saveT); S.saveT = setTimeout(saveBookNow, 900); }
+  function snapshotBefore() { if (S.pending) return; S.pending = true; S.undo.push(S.lastSnap || JSON.stringify(S.book)); if (S.undo.length > 60) S.undo.shift(); S.redo = []; updUndoBtns(); }
+  function commitSnap() { S.pending = false; S.lastSnap = JSON.stringify(S.book); }
+  function updUndoBtns() { var u = $('tvUndo'), r = $('tvRedo'); if (u) u.disabled = !S.undo.length; if (r) r.disabled = !S.redo.length; }
+  function doUndo() { if (!S.undo.length) return; S.redo.push(JSON.stringify(S.book)); S.book = cleanBook(JSON.parse(S.undo.pop())); S.lastSnap = JSON.stringify(S.book); S.pending = false; touch(); recalc(true); renderEditor(); }
+  function doRedo() { if (!S.redo.length) return; S.undo.push(JSON.stringify(S.book)); S.book = cleanBook(JSON.parse(S.redo.pop())); S.lastSnap = JSON.stringify(S.book); S.pending = false; touch(); recalc(true); renderEditor(); }
+  function recalc() { S.an = analyze(S.book); }
+
+  var AR_ANGLE_TYPES = { interior: ['زاوية داخلية', 'Interior angle'], right: ['زاوية لليمين (مع عقارب الساعة من الخلف للأمام)', 'Angle to the right (clockwise, back → fore)'], left: ['زاوية لليسار (عكس عقارب الساعة)', 'Angle to the left (counter-clockwise)'], defR: ['زاوية انحراف يمين', 'Deflection angle right'], defL: ['زاوية انحراف يسار', 'Deflection angle left'] };
+  function methodName(m) { return m === 'transit' ? 'Transit Rule' : m === 'none' ? T('بدون تصحيح', 'No adjustment') : 'Bowditch (Compass Rule)'; }
+  function stName(b, i) { var r = b.rows[((i % b.rows.length) + b.rows.length) % b.rows.length]; return (r && r.st) || ('P' + (i + 1)); }
+  function lineName(b, i) { return stName(b, i) + ' → ' + stName(b, i + 1); }
+  function dc(b) { return b.dec || 3; }
+  /* ═════════ الواجهة: القائمة + المحرر ═════════ */
+  var AREA = null;
+  function fmt(x, d) { return fmtNum(x, d === undefined ? dc(S.book) : d); }
+  function fmtS(x, d) { var s = fmt(x, d); return (x > 0 && s !== '' && +s !== 0 ? '+' : '') + s; }
+  function angOut(deg) { return S.book && S.book.angleUnit === 'gon' ? fmtNum(deg / 0.9, 4) : fmtDMS(deg, 1); }
+
+  function render(area) {
+    AREA = area; S.view = 'list';
+    area.innerHTML = '<div class="tv-wrap"><div class="tv-card"><div class="tv-empty"><i class="fa-solid fa-circle-notch fa-spin"></i></div></div></div>';
+    loadBooks().then(function (list) { S.books = list.sort(function (a, b) { return b.updatedAt - a.updatedAt; }); if (S.view === 'list') renderList(); });
+  }
+  function bookStatus(b) {
+    var an = analyze(b);
+    if (!an.complete) return { c: 'incomplete', t: T('بيانات ناقصة', 'Incomplete') };
+    if (an.closure.have) return { c: an.grade === 'poor' ? 'bad' : 'ok', t: T('الدقة ', 'Precision ') + precisionText(an.sums.L, an.closure.e) };
+    return { c: 'incomplete', t: T('بدون نقطة نهاية', 'No end point') };
+  }
+  function renderList() {
+    S.view = 'list'; S.book = null;
+    var h = '<div class="tv-wrap">' +
+      '<div class="tv-hero"><div class="tv-hero-ic"><i class="fa-solid fa-draw-polygon"></i></div><div><div class="tv-hero-t">' + T('حاسبة الترافيرس المساحي وتصحيح الإحداثيات', 'Traverse Calculator & Coordinate Adjustment') + '</div><div class="tv-hero-s">Surveying • Coordinate Computation • Adjustment</div></div></div>' +
+      '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-folder-open"></i> ' + T('مشاريعي', 'My projects') + ' <span class="tv-count">' + S.books.length + '</span>' +
+      '<button class="tv-btn tv-btn-pri" style="margin-inline-start:auto" id="tvNew"><i class="fa-solid fa-plus"></i> ' + T('مشروع جديد', 'New project') + '</button></div>';
+    if (S.cloud === false && uid() !== 'guest') h += '<div class="tv-note"><i class="fa-solid fa-circle-info"></i><span>' + T('المشاريع محفوظة على جهازك فقط حاليًا.', 'Projects are stored on this device only for now.') + '</span></div>';
+    if (!S.books.length) h += '<div class="tv-empty">' + T('لسه معندكش مشاريع. ابدأ بمشروع جديد أو جرّب مثال جاهز.', 'No projects yet. Start a new one or try a ready example.') + '</div>';
+    else h += '<div class="tv-books">' + S.books.map(function (b) {
+      var st = bookStatus(b);
+      return '<div class="tv-book"><button class="tv-book-main" data-open="' + esc(b.id) + '"><div class="tv-book-name">' + esc(b.name || T('مشروع بدون اسم', 'Untitled')) + '</div>' +
+        '<div class="tv-book-sub">' + (b.type === 'open' ? T('ترافيرس مفتوح', 'Open traverse') : T('ترافيرس مقفول', 'Closed traverse')) + ' · ' + b.rows.length + ' ' + T('نقطة', 'stations') + ' · ' + esc(methodName(b.adjust)) + '</div>' +
+        '<div class="tv-book-meta"><span class="tv-bs tv-bs-' + st.c + '">' + esc(st.t) + '</span></div><div class="tv-book-date">' + new Date(b.updatedAt).toLocaleString(isAR() ? 'ar-EG' : 'en-GB') + '</div></button>' +
+        '<div class="tv-book-btns"><button class="tv-ibtn" data-dup="' + esc(b.id) + '" title="' + T('نسخ', 'Duplicate') + '"><i class="fa-regular fa-copy"></i></button><button class="tv-ibtn tv-ibtn-del" data-del="' + esc(b.id) + '" title="' + T('حذف', 'Delete') + '"><i class="fa-regular fa-trash-can"></i></button></div></div>';
+    }).join('') + '</div>';
+    h += '<div class="tv-ex"><span class="tv-ex-l"><i class="fa-solid fa-lightbulb"></i> ' + T('جرّب مثال جاهز:', 'Try an example:') + '</span>' + EXAMPLES.map(function (x, i) { return '<button class="tv-chip" data-ex="' + i + '">' + esc(isAR() ? x.ar : x.en) + '</button>'; }).join('') + '</div></div></div>';
+    AREA.innerHTML = h;
+    $('tvNew').onclick = function () { openBook(newBook({ name: T('مشروع ترافيرس', 'Traverse project') })); };
+    AREA.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { var x = S.books.filter(function (k) { return k.id === b.dataset.open; })[0]; if (x) openBook(cleanBook(x)); }; });
+    AREA.querySelectorAll('[data-dup]').forEach(function (b) { b.onclick = function () { var x = S.books.filter(function (k) { return k.id === b.dataset.dup; })[0]; if (!x) return; var c = cleanBook(JSON.parse(JSON.stringify(x))); c.id = newId(); c.name = (c.name || '') + T(' (نسخة)', ' (copy)'); c.createdAt = c.updatedAt = Date.now(); S.book = c; saveBookNow().then(function () { S.books.unshift(c); renderList(); }); }; });
+    AREA.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = function () { askConfirm(T('حذف المشروع نهائيًا؟', 'Delete this project permanently?'), function () { var id = b.dataset.del; lsWrite(lsRead().filter(function (k) { return k.id !== id; })); S.books = S.books.filter(function (k) { return k.id !== id; }); if (cloudOn() && window._tvDelete) window._tvDelete(id).catch(function () { toast(T('تعذّر الحذف من الحساب', 'Could not delete from account'), true); }); renderList(); }); }; });
+    AREA.querySelectorAll('[data-ex]').forEach(function (b) { b.onclick = function () { loadExample(+b.dataset.ex); }; });
+  }
+  function askConfirm(text, yes) { if (window.confirm(text)) yes(); }
+  function loadExample(i) { var x = EXAMPLES[i]; var b = newBook(JSON.parse(JSON.stringify(x.book))); b.name = isAR() ? x.ar.replace(/^مثال \d+: /, 'مثال: ') : x.en.replace(/^Example \d+: /, 'Example: '); b = cleanBook(b); b.id = newId(); S.ex = i; openBook(b); }
+  function openBook(b) { S.book = cleanBook(b); S.view = 'editor'; S.tab = 'field'; S.undo = []; S.redo = []; S.pending = false; S.lastSnap = JSON.stringify(S.book); S.lnSel = 0; S.exQ = null; recalc(); saveBookNow().then(function () { }); renderEditor(); }
+
+  var TABS = [['field', 'fa-table-cells', 'إدخال القراءات', 'Field Data'], ['calc', 'fa-calculator', 'الحسابات', 'Calculations'], ['adjust', 'fa-scale-balanced', 'تصحيح الإقفال', 'Adjustment'], ['learn', 'fa-graduation-cap', 'التعلّم خطوة بخطوة', 'Learning Mode'], ['results', 'fa-file-lines', 'النتائج والتقارير', 'Results']];
+  function renderEditor() {
+    var b = S.book;
+    var h = '<div class="tv-wrap"><div class="tv-topbar"><button class="tv-btn" id="tvBack"><i class="fa-solid fa-arrow-right tv-flip"></i> ' + T('المشاريع', 'Projects') + '</button>' +
+      '<input class="tv-in tv-name" id="tvName" maxlength="120" value="' + esc(b.name) + '" placeholder="' + T('اسم المشروع', 'Project name') + '">' +
+      '<span class="tv-state" id="tvSaveSt">' + esc(S.status) + '</span>' +
+      '<button class="tv-btn" id="tvUndo" title="Undo"><i class="fa-solid fa-rotate-left"></i></button><button class="tv-btn" id="tvRedo" title="Redo"><i class="fa-solid fa-rotate-right"></i></button></div>' +
+      '<div class="tv-tabs">' + TABS.map(function (t) { return '<button class="tv-tab' + (S.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '"><i class="fa-solid ' + t[1] + '"></i> <span>' + (isAR() ? t[2] : t[3]) + '</span></button>'; }).join('') + '</div>' +
+      '<div id="tvBody"></div></div>';
+    AREA.innerHTML = h; updUndoBtns();
+    $('tvBack').onclick = function () { saveBookNow().then(function () { return loadBooks(); }).then(function (l) { S.books = l.sort(function (a, c) { return c.updatedAt - a.updatedAt; }); renderList(); }); };
+    $('tvName').oninput = function () { snapshotBefore(); S.book.name = this.value; touch(); clearTimeout(S._snapT); S._snapT = setTimeout(commitSnap, 600); };
+    $('tvUndo').onclick = doUndo; $('tvRedo').onclick = doRedo;
+    AREA.querySelectorAll('[data-tab]').forEach(function (t) { t.onclick = function () { S.tab = t.dataset.tab; AREA.querySelectorAll('.tv-tab').forEach(function (x) { x.classList.toggle('on', x === t); }); renderTab(); }; });
+    renderTab();
+  }
+  function renderTab() { recalc(); var el = $('tvBody'); if (!el) return; el.innerHTML = ''; ({ field: tabField, calc: tabCalc, adjust: tabAdjust, learn: tabLearn, results: tabResults })[S.tab](el); }
+
+  /* ───────── مساعدات الواجهة ───────── */
+  function msgs(an) {
+    var h = '';
+    an.errors.forEach(function (e) { h += '<div class="tv-note tv-note-err"><i class="fa-solid fa-circle-exclamation"></i><span>' + esc(msg(e)) + '</span></div>'; });
+    an.warnings.forEach(function (e) { h += '<div class="tv-note tv-note-warn"><i class="fa-solid fa-triangle-exclamation"></i><span>' + esc(msg(e)) + '</span></div>'; });
+    return h;
+  }
+  function selHtml(id, val, opts) { return '<select class="tv-in" id="' + id + '">' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'; }
+  function fld(label, inner, hint) { return '<div class="tv-field"><label>' + label + '</label>' + inner + (hint ? '<div class="tv-hint">' + hint + '</div>' : '') + '</div>'; }
+  function inp(id, val, ph, extra) { return '<input class="tv-in" id="' + id + '" value="' + esc(val) + '" placeholder="' + esc(ph || '') + '" inputmode="decimal" autocomplete="off" dir="ltr" ' + (extra || '') + '>'; }
+  function setF(field, v, rerender) { snapshotBefore(); S.book[field] = v; commitSnap(); touch(); if (rerender) renderTab(); else liveUpdate(); }
+  function bindF(id, field, rerender) { var e = $(id); if (!e) return; var ev = e.tagName === 'SELECT' ? 'onchange' : 'oninput'; e[ev] = function () { var v = e.type === 'checkbox' ? e.checked : e.value; if (field === 'dec') v = +v; setF(field, v, rerender); }; }
+
+  /* ───────── تبويب إدخال القراءات ───────── */
+  function colsOf(b) { return b.mode === 'angles' ? ['st', 'ang', 'dist', 'az'] : ['st', 'dist', 'az']; }
+  function tabField(el) {
+    var b = S.book, ar = isAR();
+    var h = '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-gear"></i> ' + T('إعدادات المشروع', 'Project settings') + '</div><div class="tv-grid">' +
+      fld(T('نوع الترافيرس', 'Traverse type'), selHtml('tvType', b.type, [['closed', T('مقفول Closed', 'Closed')], ['open', T('مفتوح Open', 'Open')]])) +
+      fld(T('طريقة الإدخال', 'Input method'), selHtml('tvMode', b.mode, [['azimuths', T('أزيموث لكل ضلع', 'Azimuth of each line')], ['angles', T('زوايا أفقية + أزيموث ابتدائي', 'Horizontal angles + initial azimuth')]])) +
+      (b.mode === 'angles' ? fld(T('نوع الزاوية', 'Angle type'), selHtml('tvAT', b.angleType, Object.keys(AR_ANGLE_TYPES).map(function (k) { return [k, AR_ANGLE_TYPES[k][ar ? 0 : 1]]; }))) : '') +
+      (b.mode === 'angles' && b.angleType === 'interior' ? fld(T('اتجاه المسير', 'Traverse direction'), selHtml('tvDir', b.dir, [['cw', T('مع عقارب الساعة', 'Clockwise')], ['ccw', T('عكس عقارب الساعة', 'Counter-clockwise')]])) : '') +
+      (b.mode === 'angles' ? fld(T('الأزيموث الابتدائي (الضلع الأول)', 'Initial azimuth (first line)'), inp('tvAz0', b.az0, '45°30′15″')) : '') +
+      fld(T('وحدة الزوايا', 'Angle unit'), selHtml('tvAU', b.angleUnit, [['deg', T('درجات (°′″ أو عشري)', 'Degrees (DMS or decimal)')], ['gon', T('جراد (gon)', 'Gradians (gon)')]])) +
+      fld(T('وحدة الأطوال', 'Length unit'), selHtml('tvDU', b.distUnit, [['m', T('متر (m)', 'Meters (m)')], ['ft', T('قدم (ft)', 'Feet (ft)')]])) +
+      fld(T('عدد الخانات العشرية', 'Decimals'), selHtml('tvDec', b.dec, [[2, '2'], [3, '3'], [4, '4']])) +
+      fld(T('إحداثي البداية E', 'Start Easting E'), inp('tvSE', b.startE, '1000.000')) + fld(T('إحداثي البداية N', 'Start Northing N'), inp('tvSN', b.startN, '1000.000')) +
+      (b.type === 'open' ? fld(T('نقطة النهاية/التحكم E', 'End / control E'), inp('tvEE', b.endE, T('اختياري', 'optional'))) + fld(T('نقطة النهاية/التحكم N', 'End / control N'), inp('tvEN', b.endN, T('اختياري', 'optional'))) : '') +
+      '</div>' +
+      (b.mode === 'angles' && b.type === 'closed' ? '<label class="tv-chk"><input type="checkbox" id="tvAdjAng"' + (b.adjAngles ? ' checked' : '') + '> ' + T('توزيع خطأ الزوايا بالتساوي قبل حساب الأزيموثات', 'Distribute the angular misclosure equally before computing azimuths') + '</label>' : '') +
+      '<div class="tv-hint" style="margin-top:8px">' + T('الزوايا تُكتب بأي صيغة: 45.5075 أو 45°30′27″ أو 45 30 27 أو 45-30-27. لصق جدول من Excel مدعوم.', 'Angles accept 45.5075, 45°30′27″, 45 30 27 or 45-30-27. Pasting a table from Excel is supported.') + '</div></div>';
+    h += '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-table-cells"></i> ' + T('جدول القراءات', 'Observations') + ' <span class="tv-count" id="tvCnt"></span>' +
+      '<span style="margin-inline-start:auto;display:flex;gap:6px;flex-wrap:wrap"><button class="tv-btn" id="tvAddRow"><i class="fa-solid fa-plus"></i> ' + T('نقطة', 'Station') + '</button></span></div>' +
+      '<div class="tv-tbl-wrap"><table class="tv-tbl" dir="ltr" id="tvTbl"></table></div><div id="tvLive"></div></div>';
+    h += '<div class="tv-ex"><span class="tv-ex-l"><i class="fa-solid fa-lightbulb"></i> ' + T('أمثلة:', 'Examples:') + '</span>' + EXAMPLES.map(function (x, i) { return '<button class="tv-chip" data-ex2="' + i + '">' + esc(ar ? x.ar : x.en) + '</button>'; }).join('') + '</div>';
+    el.innerHTML = h;
+    [['tvType', 'type'], ['tvMode', 'mode'], ['tvAT', 'angleType'], ['tvDir', 'dir'], ['tvAU', 'angleUnit'], ['tvDU', 'distUnit']].forEach(function (p) { bindF(p[0], p[1], true); });
+    bindF('tvDec', 'dec', true); bindF('tvAz0', 'az0'); bindF('tvSE', 'startE'); bindF('tvSN', 'startN'); bindF('tvEE', 'endE'); bindF('tvEN', 'endN'); bindF('tvAdjAng', 'adjAngles', false);
+    $('tvType').onchange = function () { snapshotBefore(); S.book.type = this.value; if (this.value === 'open' && S.book.rows.length < 2) S.book.rows = blankRows(3); commitSnap(); touch(); renderTab(); };
+    $('tvAddRow').onclick = function () { addRow(S.book.rows.length); };
+    el.querySelectorAll('[data-ex2]').forEach(function (x) { x.onclick = function () { if (window.confirm(T('هيتم فتح المثال كمشروع جديد. متابعة؟', 'This opens the example as a new project. Continue?'))) { saveBookNow(); loadExample(+x.dataset.ex2); } }; });
+    drawTable(); liveUpdate();
+  }
+  function addRow(at) { snapshotBefore(); var r = S.book.rows; r.splice(at, 0, { st: '', ang: '', dist: '', az: '' }); r.forEach(function (x, i) { if (!x.st || /^P\d+$/.test(x.st)) x.st = 'P' + (i + 1); }); commitSnap(); touch(); drawTable(); liveUpdate(); var f = document.querySelector('#tvTbl tr[data-i="' + at + '"] input'); if (f) f.focus(); }
+  function delRow(i) { if (S.book.rows.length <= 2) { toast(T('لازم يفضل نقطتين على الأقل', 'At least two stations are required'), true); return; } snapshotBefore(); S.book.rows.splice(i, 1); S.book.rows.forEach(function (x, k) { if (/^P\d+$/.test(x.st)) x.st = 'P' + (k + 1); }); commitSnap(); touch(); drawTable(); liveUpdate(); }
+
+  function drawTable() {
+    var b = S.book, t = $('tvTbl'); if (!t) return; recalc(); var an = S.an, n = b.rows.length, m = an.m, cols = colsOf(b), closed = b.type !== 'open', ang = b.mode === 'angles';
+    var head = { st: 'Station', ang: T('الزاوية الأفقية', 'Horizontal Angle'), dist: T('المسافة', 'Distance') + ' (' + b.distUnit + ')', az: 'Azimuth' };
+    var h = '<thead><tr><th>#</th>' + cols.map(function (c) { return '<th>' + head[c] + '</th>'; }).join('') + '<th></th></tr></thead><tbody>';
+    b.rows.forEach(function (r, i) {
+      var hasLine = i < m, needAng = ang && (closed || (i >= 1 && i <= m - 1));
+      h += '<tr data-i="' + i + '"><td class="tv-n">' + (i + 1) + '</td>';
+      cols.forEach(function (c) {
+        if (c === 'az' && ang) { h += '<td class="tv-calc" data-az="' + i + '">' + (hasLine && isFinite(an.az[i]) ? esc(angOut(an.az[i])) : '—') + '</td>'; return; }
+        var dis = (c === 'ang' && !needAng) || ((c === 'dist' || c === 'az') && !hasLine);
+        h += '<td><input class="tv-cell" data-f="' + c + '" data-i="' + i + '" value="' + esc(dis ? '' : r[c]) + '"' + (dis ? ' disabled placeholder="—"' : '') + ' autocomplete="off" ' + (c === 'st' ? '' : 'inputmode="decimal"') + '></td>';
+      });
+      h += '<td class="tv-act"><button class="tv-ibtn2" data-ins="' + (i + 1) + '" title="' + T('إضافة بعدها', 'Insert after') + '"><i class="fa-solid fa-plus"></i></button><button class="tv-ibtn2 tv-del" data-rm="' + i + '" title="' + T('حذف', 'Delete') + '"><i class="fa-regular fa-trash-can"></i></button></td></tr>';
+    });
+    t.innerHTML = h + '</tbody>';
+    var cnt = $('tvCnt'); if (cnt) cnt.textContent = n;
+    t.querySelectorAll('[data-ins]').forEach(function (x) { x.onclick = function () { addRow(+x.dataset.ins); }; });
+    t.querySelectorAll('[data-rm]').forEach(function (x) { x.onclick = function () { delRow(+x.dataset.rm); }; });
+    t.querySelectorAll('.tv-cell').forEach(function (c) {
+      c.oninput = function () { snapshotBefore(); S.book.rows[+c.dataset.i][c.dataset.f] = c.value; clearTimeout(S._snapT); S._snapT = setTimeout(commitSnap, 700); touch(); liveUpdate(); };
+      c.onkeydown = function (e) {
+        var i = +c.dataset.i, f = c.dataset.f, to = null;
+        if (e.key === 'Enter' || e.key === 'ArrowDown') to = i + 1; else if (e.key === 'ArrowUp') to = i - 1; else return;
+        e.preventDefault();
+        if (to >= S.book.rows.length) { if (e.key === 'Enter') { addRow(to); } return; }
+        var nx = t.querySelector('.tv-cell[data-i="' + to + '"][data-f="' + f + '"]:not([disabled])'); if (nx) { nx.focus(); nx.select(); }
+      };
+      c.onpaste = function (e) {
+        var txt = (e.clipboardData || window.clipboardData).getData('text'); if (!txt || !/[\t\n]/.test(txt)) return;
+        e.preventDefault(); var grid = txt.replace(/\r/g, '').replace(/\n+$/, '').split('\n').map(function (l) { return l.split('\t'); });
+        snapshotBefore(); var start = +c.dataset.i, cs = colsOf(S.book).filter(function (k) { return !(k === 'az' && S.book.mode === 'angles'); }), c0 = cs.indexOf(c.dataset.f);
+        grid.forEach(function (row, ri) { var idx = start + ri; while (idx >= S.book.rows.length) S.book.rows.push({ st: 'P' + (S.book.rows.length + 1), ang: '', dist: '', az: '' }); row.forEach(function (v, ci) { var f = cs[c0 + ci]; if (f) S.book.rows[idx][f] = v.trim(); }); });
+        commitSnap(); touch(); drawTable(); liveUpdate(); toast(T('تم لصق البيانات', 'Data pasted'));
+      };
+    });
+    paintRowErr();
+  }
+  function paintRowErr() {
+    var an = S.an; document.querySelectorAll('#tvTbl .tv-cell').forEach(function (c) {
+      var er = an.rowErr[+c.dataset.i]; var bad = er && er[c.dataset.f]; c.classList.toggle('tv-bad', !!bad);
+      c.title = bad ? (bad === 'range' ? T('خارج النطاق المسموح', 'Out of range') : bad === 'neg' ? T('المسافة لازم تكون أكبر من صفر', 'Distance must be > 0') : T('قيمة ناقصة أو غير صالحة', 'Missing or invalid')) : '';
+    });
+  }
+  function liveUpdate() {
+    recalc(); var an = S.an, b = S.book;
+    document.querySelectorAll('#tvTbl [data-az]').forEach(function (td) { var i = +td.dataset.az; td.textContent = (i < an.m && isFinite(an.az[i])) ? angOut(an.az[i]) : '—'; });
+    paintRowErr();
+    var live = $('tvLive'); if (!live) return;
+    var h = msgs(an);
+    if (an.complete) {
+      var c = an.closure;
+      h += '<div class="tv-kpis">' + kpi(T('محيط الترافيرس', 'Perimeter'), fmt(an.sums.L) + ' ' + b.distUnit) + (c.have ? kpi(T('خطأ الإقفال الخطي', 'Linear misclosure'), fmt(c.e, 4) + ' ' + b.distUnit) + kpi(T('الدقة النسبية', 'Relative precision'), precisionText(an.sums.L, c.e), an.grade) : '') + (an.angular ? kpi(T('خطأ الزوايا', 'Angular misclosure'), fmtDMS(Math.abs(an.angular.eps), 1)) : '') + '</div>';
+    }
+    live.innerHTML = h;
+  }
+  function kpi(l, v, g) { return '<div class="tv-kpi' + (g ? ' tv-g-' + g : '') + '"><div class="tv-kpi-l">' + esc(l) + '</div><div class="tv-kpi-v" dir="ltr">' + esc(v) + '</div></div>'; }
+  function gradeText(g) { return { excellent: T('ممتازة', 'Excellent'), good: T('جيدة', 'Good'), ok: T('مقبولة', 'Acceptable'), poor: T('ضعيفة', 'Poor') }[g] || ''; }
+  /* ───────── تبويب الحسابات ───────── */
+  function needComplete(el, an) { if (an.complete) return false; el.innerHTML = '<div class="tv-card">' + msgs(an) + '<div class="tv-empty">' + T('كمّل إدخال القراءات في أول تبويب عشان تظهر الحسابات.', 'Finish the field data in the first tab to see the calculations.') + '</div></div>'; return true; }
+  function eq(s) { return '<div class="tv-eq" dir="ltr">' + s + '</div>'; }
+  function tabCalc(el) {
+    var an = S.an, b = S.book; if (needComplete(el, an)) return;
+    var d = dc(b), h = '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-calculator"></i> ' + T('حساب الأزيموث والإحداثيات (قبل التصحيح)', 'Azimuths & coordinates (before adjustment)') + '</div>';
+    h += eq('ΔE = L · sin(Az) &nbsp;&nbsp; ΔN = L · cos(Az)<br>E<sub>next</sub> = E<sub>prev</sub> + ΔE &nbsp;&nbsp; N<sub>next</sub> = N<sub>prev</sub> + ΔN');
+    if (b.mode === 'angles') {
+      h += '<div class="tv-tbl-wrap"><table class="tv-tbl tv-res" dir="ltr"><thead><tr><th>Station</th><th>' + T('الزاوية المقاسة', 'Measured angle') + '</th><th>' + T('التصحيح', 'Correction') + '</th><th>' + T('الزاوية المصححة', 'Adjusted angle') + '</th></tr></thead><tbody>';
+      for (var i = 0; i < an.n; i++) { var th = an.thetas[i], ta = an.thetasAdj ? an.thetasAdj[i] : th; if (!isFinite(th)) { h += '<tr><td class="l">' + esc(stName(b, i)) + '</td><td colspan="3">—</td></tr>'; continue; } h += '<tr><td class="l">' + esc(stName(b, i)) + '</td><td>' + angOut(th) + '</td><td>' + (ta - th ? (ta - th > 0 ? '+' : '−') + fmtDMS(Math.abs(ta - th), 1) : '0') + '</td><td>' + angOut(ta) + '</td></tr>'; }
+      h += '</tbody></table></div>';
+      if (an.angular) h += '<div class="tv-hint" style="margin:8px 0">' + T('مجموع الزوايا = ', 'Σ angles = ') + angOut(an.angular.sum) + (an.angular.expected != null ? T(' — المفروض ', ' — expected ') + angOut(an.angular.expected) : '') + ' · ' + T('خطأ الزوايا = ', 'angular misclosure = ') + '<b>' + (an.angular.eps >= 0 ? '+' : '−') + fmtDMS(Math.abs(an.angular.eps), 1) + '</b> · ' + T('المسموح التقريبي ≈ ', 'allowable ≈ ') + fmtDMS(an.angular.allowable, 0) + '</div>';
+    }
+    h += '<div class="tv-tbl-wrap"><table class="tv-tbl tv-res" dir="ltr"><thead><tr><th>' + T('الضلع', 'Line') + '</th><th>L (' + b.distUnit + ')</th><th>Azimuth</th><th>ΔE</th><th>ΔN</th><th>E</th><th>N</th></tr></thead><tbody>';
+    h += '<tr class="tv-start"><td class="l">' + esc(stName(b, 0)) + '</td><td></td><td></td><td></td><td></td><td>' + fmt(an.pts[0].E) + '</td><td>' + fmt(an.pts[0].N) + '</td></tr>';
+    an.lines.forEach(function (l) { h += '<tr><td class="l">' + esc(lineName(b, l.i)) + '</td><td>' + fmt(l.L) + '</td><td>' + angOut(l.az) + '</td><td>' + fmtS(l.dE) + '</td><td>' + fmtS(l.dN) + '</td><td>' + fmt(l.E) + '</td><td>' + fmt(l.N) + '</td></tr>'; });
+    h += '<tr class="tv-sum"><td class="l">Σ</td><td>' + fmt(an.sums.L) + '</td><td></td><td>' + fmtS(an.sums.dE) + '</td><td>' + fmtS(an.sums.dN) + '</td><td></td><td></td></tr></tbody></table></div></div>';
+    h += '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-bullseye"></i> ' + T('خطأ الإقفال', 'Closure error') + '</div>' + closureHtml(an, b) + '</div>';
+    el.innerHTML = msgs(an) + h;
+  }
+  function closureHtml(an, b) {
+    var c = an.closure, d = dc(b);
+    if (!c.have) return '<div class="tv-note tv-note-warn"><i class="fa-solid fa-triangle-exclamation"></i><span>' + T('أدخل إحداثيات نقطة النهاية/التحكم عشان يتحسب خطأ الإقفال.', 'Enter the end/control coordinates to compute the closure error.') + '</span></div>';
+    var h = '<div class="tv-kpis">' + kpi(T('ΣΔE − (E_end − E_start)', 'ΣΔE − (E_end − E_start)'), fmtS(c.eE, 4) + ' ' + b.distUnit) + kpi(T('ΣΔN − (N_end − N_start)', 'ΣΔN − (N_end − N_start)'), fmtS(c.eN, 4) + ' ' + b.distUnit) + kpi(T('الخطأ الخطي e', 'Linear misclosure e'), fmt(c.e, 4) + ' ' + b.distUnit) + kpi(T('محيط/طول الترافيرس', 'Perimeter / length'), fmt(an.sums.L) + ' ' + b.distUnit) + kpi(T('الدقة النسبية', 'Relative precision'), precisionText(an.sums.L, c.e), an.grade) + '</div>';
+    h += eq('e = √[(ΣΔE)² + (ΣΔN)²] = √[(' + fmtS(c.eE, 4) + ')² + (' + fmtS(c.eN, 4) + ')²] = ' + fmt(c.e, 4) + '<br>Precision = Perimeter / e = ' + fmt(an.sums.L) + ' / ' + fmt(c.e, 4) + ' = ' + precisionText(an.sums.L, c.e));
+    h += '<div class="tv-hint">' + T('التقييم: ', 'Grade: ') + '<b>' + gradeText(an.grade) + '</b> — ' + T('(≥ 1:10000 ممتازة، ≥ 1:5000 جيدة، ≥ 1:3000 مقبولة للأعمال العادية)', '(≥ 1:10000 excellent, ≥ 1:5000 good, ≥ 1:3000 acceptable for ordinary work)') + '</div>';
+    return h;
+  }
+
+  /* ───────── تبويب التصحيح ───────── */
+  function tabAdjust(el) {
+    var an = S.an, b = S.book; if (needComplete(el, an)) return;
+    var d = dc(b), M = [['bowditch', 'Bowditch (Compass Rule)', T('توزيع التصحيح بنسبة طول الضلع إلى المحيط — الأشهر والأنسب لو الزوايا والأطوال بنفس الدقة.', 'Corrections proportional to line length / perimeter — the most common; suits angles and distances of similar precision.')], ['transit', 'Transit Rule', T('توزيع بنسبة |ΔE| و|ΔN| لكل ضلع — مناسبة لو الزوايا أدق من الأطوال.', 'Corrections proportional to |ΔE| and |ΔN| — suits angles measured more precisely than distances.')], ['none', T('بدون تصحيح', 'No adjustment'), T('عرض النتائج الخام قبل التصحيح.', 'Show the raw results before adjustment.')]];
+    var h = '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-scale-balanced"></i> ' + T('طريقة التصحيح', 'Adjustment method') + '</div><div class="tv-methods">' + M.map(function (m) { return '<button class="tv-method' + (b.adjust === m[0] ? ' on' : '') + '" data-m="' + m[0] + '"><b>' + esc(m[1]) + '</b><span>' + esc(m[2]) + '</span></button>'; }).join('') + '</div></div>';
+    h += '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-bullseye"></i> ' + T('خطأ الإقفال', 'Closure error') + '</div>' + closureHtml(an, b) + '</div>';
+    if (an.closure.have) {
+      var m = b.adjust;
+      h += '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-table"></i> ' + T('التصحيحات الموزعة والإحداثيات بعد التصحيح', 'Distributed corrections & adjusted coordinates') + '</div>';
+      h += m === 'bowditch' ? eq('c<sub>E</sub> = −e<sub>E</sub> · (L / ΣL) &nbsp;&nbsp; c<sub>N</sub> = −e<sub>N</sub> · (L / ΣL)') : m === 'transit' ? eq('c<sub>E</sub> = −e<sub>E</sub> · (|ΔE| / Σ|ΔE|) &nbsp;&nbsp; c<sub>N</sub> = −e<sub>N</sub> · (|ΔN| / Σ|ΔN|)') : '';
+      h += '<div class="tv-tbl-wrap"><table class="tv-tbl tv-res" dir="ltr"><thead><tr><th>' + T('الضلع', 'Line') + '</th><th>ΔE</th><th>c<sub>E</sub></th><th>ΔE adj</th><th>ΔN</th><th>c<sub>N</sub></th><th>ΔN adj</th><th>E adj</th><th>N adj</th></tr></thead><tbody>';
+      h += '<tr class="tv-start"><td class="l">' + esc(stName(b, 0)) + '</td><td colspan="6"></td><td>' + fmt(an.ptsAdj[0].E) + '</td><td>' + fmt(an.ptsAdj[0].N) + '</td></tr>';
+      an.lines.forEach(function (l, i) { var a = an.adj[i]; h += '<tr><td class="l">' + esc(lineName(b, i)) + '</td><td>' + fmtS(l.dE) + '</td><td class="tv-corr">' + fmtS(a.cE, 4) + '</td><td>' + fmtS(a.dE) + '</td><td>' + fmtS(l.dN) + '</td><td class="tv-corr">' + fmtS(a.cN, 4) + '</td><td>' + fmtS(a.dN) + '</td><td>' + fmt(a.E) + '</td><td>' + fmt(a.N) + '</td></tr>'; });
+      var sc = an.adj.reduce(function (p, a) { return [p[0] + a.cE, p[1] + a.cN, p[2] + a.dE, p[3] + a.dN]; }, [0, 0, 0, 0]);
+      h += '<tr class="tv-sum"><td class="l">Σ</td><td>' + fmtS(an.sums.dE) + '</td><td>' + fmtS(sc[0], 4) + '</td><td>' + fmtS(sc[2]) + '</td><td>' + fmtS(an.sums.dN) + '</td><td>' + fmtS(sc[1], 4) + '</td><td>' + fmtS(sc[3]) + '</td><td></td><td></td></tr></tbody></table></div>';
+      h += '<div class="tv-hint">' + T('مجموع التصحيحات لازم يساوي −e بالظبط، ومجموع ΔE/ΔN المصححة لازم يساوي فرق إحداثيات النهاية والبداية.', 'The corrections must sum to exactly −e, and the adjusted ΣΔE/ΣΔN must equal the end − start difference.') + '</div></div>';
+      var cmpH = compareHtml(an, b); h += cmpH;
+    }
+    el.innerHTML = msgs(an) + h;
+    el.querySelectorAll('[data-m]').forEach(function (x) { x.onclick = function () { setF('adjust', x.dataset.m, true); }; });
+  }
+  function compareHtml(an, b) {
+    var A = an.compare.bowditch, B = an.compare.transit, n = an.n, mx = 0, h = '';
+    for (var i = 0; i < n; i++) mx = Math.max(mx, Math.hypot(A[i].E - B[i].E, A[i].N - B[i].N));
+    h += '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-code-compare"></i> ' + T('مقارنة Bowditch و Transit', 'Bowditch vs Transit') + '</div><div class="tv-tbl-wrap"><table class="tv-tbl tv-res" dir="ltr"><thead><tr><th>Station</th><th>E (Bowditch)</th><th>N (Bowditch)</th><th>E (Transit)</th><th>N (Transit)</th><th>Δ (' + b.distUnit + ')</th></tr></thead><tbody>';
+    for (i = 0; i < n; i++) h += '<tr><td class="l">' + esc(stName(b, i)) + '</td><td>' + fmt(A[i].E) + '</td><td>' + fmt(A[i].N) + '</td><td>' + fmt(B[i].E) + '</td><td>' + fmt(B[i].N) + '</td><td>' + fmt(Math.hypot(A[i].E - B[i].E, A[i].N - B[i].N), 4) + '</td></tr>';
+    return h + '</tbody></table></div><div class="tv-hint">' + T('أكبر فرق بين الطريقتين: ', 'Largest difference between the methods: ') + '<b dir="ltr">' + fmt(mx, 4) + ' ' + b.distUnit + '</b></div></div>';
+  }
+
+  /* ───────── الرسم التوضيحي ───────── */
+  function svgDiagram(an, b, o) {
+    o = o || {}; var W = o.w || 640, H = o.h || 420, pad = 46, pts = an.ptsAdj, raw = an.pts, n = an.n;
+    var all = pts.concat(raw), minE = Math.min.apply(0, all.map(function (p) { return p.E; })), maxE = Math.max.apply(0, all.map(function (p) { return p.E; })), minN = Math.min.apply(0, all.map(function (p) { return p.N; })), maxN = Math.max.apply(0, all.map(function (p) { return p.N; }));
+    var dx = Math.max(maxE - minE, 1e-6), dy = Math.max(maxN - minN, 1e-6), s = Math.min((W - 2 * pad) / dx, (H - 2 * pad) / dy);
+    var ox = (W - dx * s) / 2, oy = (H - dy * s) / 2;
+    function X(e) { return ox + (e - minE) * s; } function Y(nn) { return H - oy - (nn - minN) * s; }
+    var tx = o.print ? '#111' : 'currentColor', c1 = o.print ? '#1e7a34' : 'var(--g4,#2ea44f)', c2 = o.print ? '#c0392b' : '#e67e22';
+    var path = function (P) { return P.map(function (p, i) { return (i ? 'L' : 'M') + X(p.E).toFixed(1) + ' ' + Y(p.N).toFixed(1); }).join(' '); };
+    var g = '<svg class="tv-svg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="traverse diagram" style="color:' + (o.print ? '#111' : 'var(--text)') + '">';
+    g += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="' + (o.print ? '#fff' : 'transparent') + '"/>';
+    g += '<g transform="translate(' + (W - 26) + ',30)"><path d="M0 14 L0 -12 M0 -12 L-5 -2 M0 -12 L5 -2" stroke="' + tx + '" stroke-width="1.6" fill="none"/><text y="-16" text-anchor="middle" font-size="12" font-weight="700" fill="' + tx + '">N</text></g>';
+    if (an.closure.e > 1e-9) g += '<path d="' + path(raw) + '" fill="none" stroke="' + c2 + '" stroke-width="1.4" stroke-dasharray="5 4" opacity=".85"/>';
+    g += '<path d="' + path(pts) + '" fill="' + (an.closed ? (o.print ? 'rgba(30,122,52,.08)' : 'rgba(46,164,79,.10)') : 'none') + '" stroke="' + c1 + '" stroke-width="2.2" stroke-linejoin="round"/>';
+    for (var i = 0; i < n; i++) {
+      var p = pts[i], cx = X(p.E), cy = Y(p.N);
+      g += '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + (i === 0 ? 6 : 4.5) + '" fill="' + (i === 0 ? c1 : (o.print ? '#fff' : 'var(--bg,#fff)')) + '" stroke="' + c1 + '" stroke-width="2"/>';
+      var cxm = X((minE + maxE) / 2), cym = Y((minN + maxN) / 2), vx = cx - cxm, vy = cy - cym, vl = Math.hypot(vx, vy) || 1;
+      g += '<text x="' + (cx + vx / vl * 15).toFixed(1) + '" y="' + (cy + vy / vl * 15 + 4).toFixed(1) + '" text-anchor="middle" font-size="12.5" font-weight="700" fill="' + tx + '">' + esc(stName(b, i)) + '</text>';
+    }
+    g += '<g font-size="11" fill="' + tx + '" opacity=".85"><line x1="14" y1="' + (H - 18) + '" x2="34" y2="' + (H - 18) + '" stroke="' + c1 + '" stroke-width="2.2"/><text x="40" y="' + (H - 14) + '">' + (an.method === 'none' ? T('الشكل', 'Shape') : T('بعد التصحيح', 'Adjusted')) + '</text>';
+    if (an.closure.e > 1e-9) g += '<line x1="130" y1="' + (H - 18) + '" x2="150" y2="' + (H - 18) + '" stroke="' + c2 + '" stroke-width="1.4" stroke-dasharray="5 4"/><text x="156" y="' + (H - 14) + '">' + T('قبل التصحيح', 'Before') + '</text>';
+    return g + '</g></svg>';
+  }
+
+  /* ───────── تبويب النتائج ───────── */
+  function checks(an, b) {
+    var L = [], tol = 1e-6;
+    L.push([an.complete, T('كل القراءات المدخلة صالحة', 'All observations are valid')]);
+    if (!an.complete) return L;
+    if (an.closure.have) {
+      var sa = an.adj.reduce(function (p, a) { return [p[0] + a.dE, p[1] + a.dN]; }, [0, 0]), tE = an.target.E - an.pts[0].E, tN = an.target.N - an.pts[0].N;
+      var sc = an.adj.reduce(function (p, a) { return [p[0] + a.cE, p[1] + a.cN]; }, [0, 0]);
+      if (b.adjust !== 'none') { L.push([Math.abs(sc[0] + an.closure.eE) < tol && Math.abs(sc[1] + an.closure.eN) < tol, T('مجموع التصحيحات = −خطأ الإقفال', 'Σ corrections = −misclosure')]); L.push([Math.abs(sa[0] - tE) < tol && Math.abs(sa[1] - tN) < tol, T('مجموع ΔE/ΔN المصححة = فرق الإحداثيات', 'Adjusted ΣΔE/ΣΔN = coordinate difference')]); L.push([an.closedOk === true, an.closed ? T('الترافيرس بعد التصحيح يقفل على نقطة البداية', 'The adjusted traverse closes on the start point') : T('الترافيرس بعد التصحيح ينتهي عند نقطة التحكم', 'The adjusted traverse ends on the control point')]); }
+      L.push([an.grade !== 'poor', T('الدقة النسبية ≥ 1:3000', 'Relative precision ≥ 1:3000')]);
+    }
+    if (an.angular) L.push([Math.abs(an.angular.eps) <= an.angular.allowable * 3, T('خطأ الزوايا في حدود المعقول', 'Angular misclosure within a reasonable limit')]);
+    if (an.area != null) L.push([an.area > 0, T('المساحة المحسوبة: ', 'Computed area: ') + fmt(an.area, 2) + ' ' + b.distUnit + '²']);
+    return L;
+  }
+  function tabResults(el) {
+    var an = S.an, b = S.book; if (needComplete(el, an)) return;
+    var cs = checks(an, b), allOk = cs.every(function (c) { return c[0]; });
+    var h = '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-flag-checkered"></i> ' + T('ملخص النتائج', 'Results summary') + '</div><div class="tv-kpis">' +
+      kpi(T('النوع', 'Type'), b.type === 'open' ? 'Open' : 'Closed') + kpi(T('الطريقة', 'Method'), b.adjust === 'bowditch' ? 'Bowditch' : b.adjust === 'transit' ? 'Transit' : T('بدون', 'None')) + kpi(T('الطول/المحيط', 'Length'), fmt(an.sums.L) + ' ' + b.distUnit) +
+      (an.closure.have ? kpi(T('خطأ الإقفال', 'Misclosure'), fmt(an.closure.e, 4) + ' ' + b.distUnit) + kpi(T('الدقة النسبية', 'Precision'), precisionText(an.sums.L, an.closure.e), an.grade) : '') +
+      (an.area != null ? kpi(T('المساحة', 'Area'), fmt(an.area, 2) + ' ' + b.distUnit + '²') : '') + '</div>' +
+      '<div class="tv-verify ' + (allOk ? 'ok' : 'bad') + '"><b>' + (allOk ? '✓ ' + T('الحسابات متطابقة ومتحقق منها', 'Calculations verified') : '⚠ ' + T('في بنود تحتاج مراجعة', 'Some checks need attention')) + '</b><ul>' + cs.map(function (c) { return '<li class="' + (c[0] ? 'ok' : 'bad') + '">' + (c[0] ? '✓' : '✗') + ' ' + esc(c[1]) + '</li>'; }).join('') + '</ul></div></div>';
+    h += '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-draw-polygon"></i> ' + T('رسم الترافيرس', 'Traverse diagram') + '</div>' + svgDiagram(an, b) + '</div>';
+    h += '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-location-dot"></i> ' + T('الإحداثيات قبل وبعد التصحيح', 'Coordinates before & after adjustment') + '</div><div class="tv-tbl-wrap"><table class="tv-tbl tv-res" dir="ltr"><thead><tr><th>Station</th><th>E (before)</th><th>N (before)</th><th>E (adjusted)</th><th>N (adjusted)</th></tr></thead><tbody>';
+    for (var i = 0; i < an.n; i++) h += '<tr><td class="l">' + esc(stName(b, i)) + '</td><td>' + fmt(an.pts[i].E) + '</td><td>' + fmt(an.pts[i].N) + '</td><td><b>' + fmt(an.ptsAdj[i].E) + '</b></td><td><b>' + fmt(an.ptsAdj[i].N) + '</b></td></tr>';
+    h += '</tbody></table></div></div>';
+    h += '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-download"></i> ' + T('التصدير والطباعة', 'Export & print') + '</div><div class="tv-actions"><button class="tv-btn tv-btn-pri" id="tvXlsx"><i class="fa-solid fa-file-excel"></i> Excel</button><button class="tv-btn tv-btn-pri" id="tvPdf"><i class="fa-solid fa-file-pdf"></i> PDF</button><button class="tv-btn" id="tvPrint"><i class="fa-solid fa-print"></i> ' + T('طباعة دفتر الحسابات', 'Print computation sheet') + '</button><button class="tv-btn" id="tvSaveNow"><i class="fa-solid fa-floppy-disk"></i> ' + T('حفظ المشروع', 'Save project') + '</button></div></div>';
+    el.innerHTML = msgs(an) + h;
+    $('tvXlsx').onclick = exportXlsx; $('tvPdf').onclick = exportPdf; $('tvPrint').onclick = doPrint; $('tvSaveNow').onclick = function () { saveBookNow().then(function () { toast(T('تم حفظ المشروع', 'Project saved')); }); };
+  }
+  /* ───────── وضع التعلّم ───────── */
+  var GLOSS = [
+    ['Azimuth (الأزيموث)', 'Azimuth', 'الزاوية المقاسة مع عقارب الساعة من الشمال (0°) إلى اتجاه الضلع، من 0° إلى 360°.', 'The angle measured clockwise from north (0°) to the line direction, 0°–360°.'],
+    ['Departure (ΔE)', 'Departure (ΔE)', 'مركّبة الضلع في اتجاه الشرق/الغرب = L·sin(Az). موجبة ناحية الشرق.', 'East–west component of a line = L·sin(Az). Positive toward east.'],
+    ['Latitude (ΔN)', 'Latitude (ΔN)', 'مركّبة الضلع في اتجاه الشمال/الجنوب = L·cos(Az). موجبة ناحية الشمال.', 'North–south component = L·cos(Az). Positive toward north.'],
+    ['Closed Traverse', 'Closed Traverse', 'مسير يبدأ وينتهي عند نفس النقطة (أو نقطة معلومة)، فمجموع ΔE وΔN لازم يساوي صفر نظريًا.', 'A traverse that returns to its start point; ΣΔE and ΣΔN should theoretically be zero.'],
+    ['Open Traverse', 'Open Traverse', 'مسير ينتهي عند نقطة مختلفة؛ التصحيح ممكن فقط لو نهايته نقطة تحكم معلومة الإحداثيات.', 'A traverse ending at a different point; it can only be adjusted if the end is a known control point.'],
+    ['Misclosure (خطأ الإقفال)', 'Misclosure', 'الفرق بين الإحداثيات المحسوبة والمعلومة عند نهاية المسير: e = √(eE² + eN²).', 'The difference between computed and known coordinates at the end: e = √(eE² + eN²).'],
+    ['Relative Precision', 'Relative Precision', 'نسبة المحيط إلى خطأ الإقفال (1 : P/e). كل ما الرقم أكبر كانت الدقة أعلى.', 'Perimeter divided by misclosure (1 : P/e). The larger the number, the better the accuracy.'],
+    ['Back azimuth', 'Back azimuth', 'أزيموث الاتجاه العكسي للضلع = Az ± 180°.', 'The reverse direction of a line = Az ± 180°.'],
+    ['Interior / Deflection angle', 'Interior / Deflection angle', 'الزاوية الداخلية تُقاس داخل الشكل، وزاوية الانحراف تُقاس من امتداد الضلع السابق يمين أو يسار.', 'Interior angles are measured inside the figure; deflection angles from the extension of the previous line, right or left.']
+  ];
+  var MISTAKES = [
+    ['خلط sin وcos: ΔE مع sin وΔN مع cos (لأن الأزيموث بيتقاس من الشمال مش من الشرق).', 'Swapping sin and cos: ΔE uses sin and ΔN uses cos (azimuth is measured from north, not east).'],
+    ['نسيان إضافة/طرح 180° عند حساب أزيموث الضلع التالي من الزاوية.', 'Forgetting to add/subtract 180° when deriving the next azimuth from an angle.'],
+    ['استخدام الزاوية الخارجية بدل الداخلية، أو الاتجاه الخاطئ (مع/عكس عقارب الساعة).', 'Using an exterior angle instead of an interior one, or the wrong direction (clockwise vs counter-clockwise).'],
+    ['عدم تصحيح خطأ الزوايا قبل حساب الأزيموثات؛ الخطأ الزاوي بيدخل في كل الأضلاع بعده.', 'Not distributing the angular misclosure before computing azimuths; it propagates into every following line.'],
+    ['عكس إشارة التصحيح: التصحيح = −خطأ الإقفال (مش +).', 'Wrong correction sign: correction = −misclosure (not +).'],
+    ['خلط الدرجات العشرية مع DMS (مثلًا 30.30 مش 30°30′).', 'Mixing decimal degrees with DMS (e.g., 30.30° is not 30°30′).'],
+    ['أزيموث خارج 0–360 أو مسافات بوحدات مختلفة في نفس الجدول.', 'Azimuth outside 0–360 or mixed length units within the same table.'],
+    ['الحكم على الدقة من خطأ الإقفال بالمتر فقط بدون قسمته على المحيط.', 'Judging accuracy from the misclosure alone without dividing the perimeter by it.']
+  ];
+  function demo() {
+    var an = S.an, b = S.book, i = Math.min(S.lnSel || 0, Math.max(0, (an.lines || []).length - 1));
+    if (an.complete && an.lines[i]) { var l = an.lines[i]; return { real: true, i: i, L: l.L, az: l.az, dE: l.dE, dN: l.dN, E0: i ? an.pts[i].E : an.pts[0].E, N0: i ? an.pts[i].N : an.pts[0].N }; }
+    var az = 30; return { real: false, i: 0, L: 100, az: az, dE: 100 * Math.sin(az * D2R), dN: 100 * Math.cos(az * D2R), E0: 1000, N0: 1000 };
+  }
+  function tabLearn(el) {
+    var an = S.an, b = S.book, dm = demo(), d = dc(b), u = b.distUnit, ar = isAR();
+    var lines = an.complete ? an.lines : [];
+    var h = '<div class="tv-card tv-learn"><div class="tv-card-t"><i class="fa-solid fa-graduation-cap"></i> ' + T('التعلّم خطوة بخطوة', 'Step-by-step learning') + '</div>';
+    if (an.complete) h += '<div class="tv-field" style="max-width:340px;margin-bottom:12px"><label>' + T('اشرح الخطوات على الضلع:', 'Explain the steps on line:') + '</label><select class="tv-in" id="tvLn">' + lines.map(function (l, i) { return '<option value="' + i + '"' + (i === dm.i ? ' selected' : '') + '>' + esc(lineName(b, i)) + '</option>'; }).join('') + '</select></div>';
+    else h += '<div class="tv-note tv-note-warn"><i class="fa-solid fa-lightbulb"></i><span>' + T('الأرقام هنا مثال افتراضي (100 م و30°). كمّل إدخال بياناتك وهتتغيّر الأرقام تلقائيًا لبياناتك.', 'These numbers are a sample (100 m and 30°). Complete your data and they will switch to your own numbers automatically.') + '</span></div>';
+    var sn = Math.sin(dm.az * D2R), cs = Math.cos(dm.az * D2R), n = 1;
+    function step(no, title, why, body) { return '<div class="tv-step"><div class="tv-step-n">' + no + '</div><div class="tv-step-b"><div class="tv-step-t">' + title + '</div>' + body + '<div class="tv-why"><i class="fa-solid fa-circle-question"></i> ' + why + '</div></div></div>'; }
+    if (b.mode === 'angles') {
+      var rule = angleRule(b.angleType, b.dir), prev = an.complete && dm.i > 0 ? an.az[dm.i - 1] : null, ang = an.complete && dm.i > 0 ? an.thetasAdj[dm.i] : null;
+      var body = '<p>' + T('الأزيموث الجديد = الأزيموث السابق + ', 'New azimuth = previous azimuth + ') + (rule.base ? '180° ' : '') + (rule.s > 0 ? '+' : '−') + T(' الزاوية المقاسة (ونرجّع الناتج لمدى 0–360°).', ' measured angle (normalised to 0–360°).') + '</p>';
+      body += eq('Az<sub>next</sub> = Az<sub>prev</sub> ' + (rule.base ? '+ 180° ' : '') + (rule.s > 0 ? '+ ' : '− ') + 'θ') + (prev != null && ang != null ? eq('Az = ' + angOut(prev) + (rule.base ? ' + 180°' : '') + (rule.s > 0 ? ' + ' : ' − ') + angOut(ang) + ' = ' + angOut(an.az[dm.i])) : '');
+      h += step(n++, T('حساب الأزيموث من الزاوية', 'Azimuth from the angle'), T('لأن الأزيموث بيتحدد بالاتجاه، والزاوية بتدّينا الفرق بين اتجاهين متتاليين، فنبني كل اتجاه على اللي قبله. ' + (an.angular ? 'ولو في خطأ زوايا بنوزعه بالتساوي (' + fmtDMS(Math.abs(an.angular.eps), 1) + ') قبل الحساب.' : ''), 'Each direction is built on the previous one using the turned angle. ' + (an.angular ? 'Any angular misclosure (' + fmtDMS(Math.abs(an.angular.eps), 1) + ') is spread equally first.' : '')), body);
+    }
+    h += step(n++, T('حساب Departure (ΔE)', 'Compute Departure (ΔE)'), T('الشرق بيقيس مدى حركتنا أفقيًا، والأزيموث متقاس من الشمال فالمركّبة الشرقية = L·sin(Az).', 'Easting measures our horizontal movement; azimuth is from north, so the east component = L·sin(Az).'),
+      eq('ΔE = L · sin(Az) = ' + fmt(dm.L) + ' × sin(' + angOut(dm.az) + ') = ' + fmt(dm.L) + ' × ' + sn.toFixed(6) + ' = <b>' + fmtS(dm.dE) + ' ' + u + '</b>'));
+    h += step(n++, T('حساب Latitude (ΔN)', 'Compute Latitude (ΔN)'), T('المركّبة الشمالية = L·cos(Az) لأن الشمال هو مرجع الزاوية.', 'The north component = L·cos(Az) because north is the angle reference.'),
+      eq('ΔN = L · cos(Az) = ' + fmt(dm.L) + ' × cos(' + angOut(dm.az) + ') = ' + fmt(dm.L) + ' × ' + cs.toFixed(6) + ' = <b>' + fmtS(dm.dN) + ' ' + u + '</b>') + '<p>' + T('النتيجة: تحركنا ', 'Result: we moved ') + '<b>' + fmt(Math.abs(dm.dE)) + ' ' + u + '</b> ' + (dm.dE >= 0 ? T('شرقًا', 'east') : T('غربًا', 'west')) + T(' و', ' and ') + '<b>' + fmt(Math.abs(dm.dN)) + ' ' + u + '</b> ' + (dm.dN >= 0 ? T('شمالًا', 'north') : T('جنوبًا', 'south')) + '.</p>');
+    h += step(n++, T('الإحداثيات الجديدة', 'New coordinates'), T('كل نقطة = النقطة السابقة + مركّبات الضلع (تراكمي).', 'Each point = previous point + the line components (cumulative).'),
+      eq('E = ' + fmt(dm.E0) + ' ' + (dm.dE >= 0 ? '+' : '−') + ' ' + fmt(Math.abs(dm.dE)) + ' = <b>' + fmt(dm.E0 + dm.dE) + '</b><br>N = ' + fmt(dm.N0) + ' ' + (dm.dN >= 0 ? '+' : '−') + ' ' + fmt(Math.abs(dm.dN)) + ' = <b>' + fmt(dm.N0 + dm.dN) + '</b>'));
+    if (an.complete && an.closure.have) {
+      var c = an.closure, a = an.adj[dm.i];
+      h += step(n++, T('خطأ الإقفال والدقة', 'Misclosure & precision'), T('لو القياسات مثالية يقفل المسير بالظبط؛ الفرق هو الخطأ المتراكم ونقيّم جودته بنسبته للمحيط.', 'With perfect measurements the traverse closes exactly; the gap is the accumulated error and we judge it against the perimeter.'),
+        eq('e<sub>E</sub> = ' + fmtS(c.eE, 4) + ' , e<sub>N</sub> = ' + fmtS(c.eN, 4) + '<br>e = √(' + fmtS(c.eE, 4) + '² + ' + fmtS(c.eN, 4) + '²) = <b>' + fmt(c.e, 4) + ' ' + u + '</b><br>Precision = ' + fmt(an.sums.L) + ' / ' + fmt(c.e, 4) + ' = <b>' + precisionText(an.sums.L, c.e) + '</b>'));
+      if (b.adjust === 'bowditch') h += step(n++, T('تصحيح Bowditch على هذا الضلع', 'Bowditch correction for this line'), T('الأطول بيتحمّل تصحيحًا أكبر لأن احتمال خطأه أكبر، فنوزّع الخطأ بنسبة طول الضلع للمحيط.', 'Longer lines are more likely to carry more error, so the error is shared in proportion to length / perimeter.'),
+        eq('c<sub>E</sub> = −(' + fmtS(c.eE, 4) + ') × ' + fmt(dm.L) + ' / ' + fmt(an.sums.L) + ' = <b>' + fmtS(a.cE, 4) + '</b><br>c<sub>N</sub> = −(' + fmtS(c.eN, 4) + ') × ' + fmt(dm.L) + ' / ' + fmt(an.sums.L) + ' = <b>' + fmtS(a.cN, 4) + '</b><br>ΔE<sub>adj</sub> = ' + fmtS(dm.dE) + ' ' + (a.cE >= 0 ? '+' : '−') + ' ' + fmt(Math.abs(a.cE), 4) + ' = <b>' + fmtS(a.dE) + '</b> , ΔN<sub>adj</sub> = <b>' + fmtS(a.dN) + '</b>'));
+      else if (b.adjust === 'transit') h += step(n++, T('تصحيح Transit على هذا الضلع', 'Transit correction for this line'), T('الأضلاع اللي مركّبتها أكبر بتاخد تصحيح أكبر في نفس الاتجاه، مناسبة لما الزوايا أدق من الأطوال.', 'Lines with larger components take larger corrections in that direction; suited when angles are more precise than distances.'),
+        eq('c<sub>E</sub> = −(' + fmtS(c.eE, 4) + ') × |' + fmtS(dm.dE) + '| / ' + fmt(an.sums.aE) + ' = <b>' + fmtS(a.cE, 4) + '</b><br>c<sub>N</sub> = −(' + fmtS(c.eN, 4) + ') × |' + fmtS(dm.dN) + '| / ' + fmt(an.sums.aN) + ' = <b>' + fmtS(a.cN, 4) + '</b>'));
+    }
+    h += '</div>';
+    h += '<div class="tv-card"><div class="tv-card-t"><i class="fa-solid fa-book-open"></i> ' + T('مثال محلول بالكامل', 'Fully worked example') + '</div><p class="tv-p">' + T('افتح مثال جاهز (ترافيرس مقفول بـ4 أضلاع) كمشروع جديد وتابع كل التبويبات: القراءات ← الحسابات ← التصحيح ← النتائج.', 'Open a ready example (4-side closed traverse) as a new project and follow every tab: data → calculations → adjustment → results.') + '</p><div class="tv-actions"><button class="tv-btn tv-btn-pri" id="tvLoadEx"><i class="fa-solid fa-play"></i> ' + T('افتح المثال المحلول', 'Open the worked example') + '</button></div></div>';
+    h += '<div class="tv-card" id="tvExCard"></div>';
+    h += '<div class="tv-card"><details><summary class="tv-card-t" style="cursor:pointer;margin:0"><i class="fa-solid fa-spell-check"></i> ' + T('معنى المصطلحات', 'Glossary') + '</summary><dl class="tv-gl">' + GLOSS.map(function (g) { return '<dt>' + esc(ar ? g[0] : g[1]) + '</dt><dd>' + esc(ar ? g[2] : g[3]) + '</dd>'; }).join('') + '</dl></details></div>';
+    h += '<div class="tv-card"><details><summary class="tv-card-t" style="cursor:pointer;margin:0"><i class="fa-solid fa-triangle-exclamation"></i> ' + T('الأخطاء الشائعة', 'Common mistakes') + '</summary><ul class="tv-ml">' + MISTAKES.map(function (m) { return '<li>' + esc(ar ? m[0] : m[1]) + '</li>'; }).join('') + '</ul></details></div>';
+    el.innerHTML = h;
+    var ln = $('tvLn'); if (ln) ln.onchange = function () { S.lnSel = +ln.value; renderTab(); };
+    $('tvLoadEx').onclick = function () { saveBookNow(); loadExample(0); S.tab = 'calc'; renderEditor(); };
+    drawExercise();
+  }
+
+  /* التمرين: الطالب يحل خطوة، ونوريه الحل الصحيح وسبب الخطأ */
+  function rnd(a, b2, dp) { var v = a + Math.random() * (b2 - a); return dp === undefined ? v : +v.toFixed(dp); }
+  function newExercise(kind) {
+    var u = S.book.distUnit;
+    if (kind === 'dE' || kind === 'dN') { var L = rnd(60, 220, 2), az = Math.round(rnd(5, 355, 0)); return { kind: kind, L: L, az: az, ans: kind === 'dE' ? L * Math.sin(az * D2R) : L * Math.cos(az * D2R) }; }
+    if (kind === 'az') { var a0 = Math.round(rnd(10, 350, 0)), th = Math.round(rnd(60, 150, 0)); return { kind: kind, a0: a0, th: th, ans: norm360(a0 + 180 - th) }; }
+    var e = rnd(-0.12, 0.12, 3) || 0.05, sl = rnd(400, 700, 1), l = rnd(80, 160, 1); return { kind: 'corr', e: e, sl: sl, l: l, ans: -e * l / sl };
+  }
+  function exText(q) {
+    var u = S.book.distUnit;
+    if (q.kind === 'dE') return T('ضلع طوله ', 'A line of length ') + '<b>' + q.L.toFixed(2) + ' ' + u + '</b>' + T(' وأزيموثه ', ' with azimuth ') + '<b>' + q.az + '°</b>' + T('. احسب الـ Departure (ΔE) بالمتر لأقرب 0.01.', '. Compute the Departure ΔE to the nearest 0.01.');
+    if (q.kind === 'dN') return T('ضلع طوله ', 'A line of length ') + '<b>' + q.L.toFixed(2) + ' ' + u + '</b>' + T(' وأزيموثه ', ' with azimuth ') + '<b>' + q.az + '°</b>' + T('. احسب الـ Latitude (ΔN) لأقرب 0.01.', '. Compute the Latitude ΔN to the nearest 0.01.');
+    if (q.kind === 'az') return T('أزيموث الضلع السابق = ', 'Previous azimuth = ') + '<b>' + q.a0 + '°</b>' + T(' والزاوية الداخلية عند النقطة (مسير مع عقارب الساعة) = ', ' and the interior angle (clockwise traverse) = ') + '<b>' + q.th + '°</b>' + T('. احسب أزيموث الضلع التالي بالدرجات.', '. Find the next azimuth in degrees.');
+    return T('خطأ الإقفال في ΣΔE = ', 'Misclosure in ΣΔE = ') + '<b>' + (q.e > 0 ? '+' : '') + q.e.toFixed(3) + '</b>' + T('، محيط الترافيرس = ', ', perimeter = ') + '<b>' + q.sl.toFixed(1) + '</b>' + T('، وطول الضلع = ', ', line length = ') + '<b>' + q.l.toFixed(1) + '</b>' + T('. احسب تصحيح Bowditch في ΔE لهذا الضلع (4 خانات).', '. Compute the Bowditch correction in ΔE for this line (4 decimals).');
+  }
+  function exExplain(q, v) {
+    var ok = false, tip = '';
+    if (q.kind === 'dE' || q.kind === 'dN') {
+      ok = Math.abs(v - q.ans) <= 0.011; var other = q.kind === 'dE' ? q.L * Math.cos(q.az * D2R) : q.L * Math.sin(q.az * D2R);
+      if (!ok) tip = Math.abs(v - other) <= 0.02 ? T('استخدمت الدالة العكسية (sin بدل cos أو العكس). الأزيموث متقاس من الشمال: ΔE مع sin وΔN مع cos.', 'You used the other function. Azimuth is from north: ΔE uses sin, ΔN uses cos.') : Math.abs(v + q.ans) <= 0.02 ? T('الإشارة معكوسة. الربع اللي فيه الأزيموث ' + q.az + '° بيحدد الإشارة.', 'Sign is reversed — the quadrant of ' + q.az + '° decides it.') : T('راجع التعويض: تأكد إن الآلة الحاسبة على Degrees مش Radians.', 'Check substitution; make sure the calculator is in Degrees, not Radians.');
+      return { ok: ok, ans: fmtNum(q.ans, 3), steps: (q.kind === 'dE' ? 'ΔE = ' + q.L.toFixed(2) + ' × sin(' + q.az + '°)' : 'ΔN = ' + q.L.toFixed(2) + ' × cos(' + q.az + '°)') + ' = ' + fmtNum(q.ans, 3), tip: tip };
+    }
+    if (q.kind === 'az') {
+      ok = Math.abs(norm180(v - q.ans)) <= 0.0006; if (!ok) tip = Math.abs(norm180(v - norm360(q.a0 + q.th))) < 0.0006 || Math.abs(norm180(v - norm360(q.a0 - q.th))) < 0.0006 ? T('نسيت الـ 180°: الأزيموث التالي = السابق + 180° − الزاوية الداخلية.', 'You missed the 180°: next = previous + 180° − interior angle.') : Math.abs(norm180(v - norm360(q.a0 + 180 + q.th))) < 0.0006 ? T('الإشارة غلط: في المسير مع عقارب الساعة بنطرح الزاوية الداخلية.', 'Wrong sign: in a clockwise traverse the interior angle is subtracted.') : T('راجع الجمع/الطرح وإن الناتج لازم يرجع لمدى 0–360°.', 'Recheck the arithmetic and normalise into 0–360°.');
+      return { ok: ok, ans: q.ans.toFixed(4) + '°', steps: 'Az = ' + q.a0 + '° + 180° − ' + q.th + '° = ' + (q.a0 + 180 - q.th) + '° → ' + q.ans.toFixed(4) + '°', tip: tip };
+    }
+    ok = Math.abs(v - q.ans) <= 0.00051; if (!ok) tip = Math.abs(v + q.ans) <= 0.001 ? T('الإشارة غلط: التصحيح = −الخطأ × (L/ΣL).', 'Wrong sign: correction = −error × (L/ΣL).') : T('الصيغة: c = −e × L / ΣL.', 'Formula: c = −e × L / ΣL.');
+    return { ok: ok, ans: fmtNum(q.ans, 4), steps: 'c<sub>E</sub> = −(' + q.e.toFixed(3) + ') × ' + q.l.toFixed(1) + ' / ' + q.sl.toFixed(1) + ' = ' + fmtNum(q.ans, 4), tip: tip };
+  }
+  function drawExercise() {
+    var c = $('tvExCard'); if (!c) return; if (!S.exQ) S.exQ = newExercise('dE'); var q = S.exQ;
+    var kinds = [['dE', 'ΔE'], ['dN', 'ΔN'], ['az', 'Azimuth'], ['corr', T('تصحيح Bowditch', 'Bowditch')]];
+    c.innerHTML = '<div class="tv-card-t"><i class="fa-solid fa-pen-to-square"></i> ' + T('تمرين: حلّها بنفسك', 'Practice: solve it yourself') + '</div><div class="tv-exk">' + kinds.map(function (k) { return '<button class="tv-chip' + (q.kind === k[0] ? ' on' : '') + '" data-k="' + k[0] + '">' + esc(k[1]) + '</button>'; }).join('') + '</div>' +
+      '<p class="tv-p">' + exText(q) + '</p><div class="tv-exrow"><input class="tv-in" id="tvExIn" inputmode="decimal" dir="ltr" placeholder="' + T('إجابتك', 'Your answer') + '" style="max-width:220px"><button class="tv-btn tv-btn-pri" id="tvExGo">' + T('تحقق', 'Check') + '</button><button class="tv-btn" id="tvExNew"><i class="fa-solid fa-shuffle"></i> ' + T('تمرين جديد', 'New') + '</button></div><div id="tvExRes"></div>';
+    c.querySelectorAll('[data-k]').forEach(function (x) { x.onclick = function () { S.exQ = newExercise(x.dataset.k); drawExercise(); }; });
+    $('tvExNew').onclick = function () { S.exQ = newExercise(q.kind); drawExercise(); };
+    function go() { var raw = $('tvExIn').value, v = q.kind === 'az' ? parseAngle(raw, 'deg') : parseNum(raw); var r = $('tvExRes'); if (!isFinite(v)) { r.innerHTML = '<div class="tv-note tv-note-warn"><span>' + T('اكتب رقم صحيح.', 'Enter a valid number.') + '</span></div>'; return; } var x = exExplain(q, v);
+      r.innerHTML = x.ok ? '<div class="tv-note tv-note-ok"><i class="fa-solid fa-circle-check"></i><span><b>' + T('إجابة صحيحة! ', 'Correct! ') + '</b><span dir="ltr">' + x.steps + '</span></span></div>' : '<div class="tv-note tv-note-err"><i class="fa-solid fa-circle-xmark"></i><span><b>' + T('إجابة غير صحيحة. ', 'Not quite. ') + '</b>' + T('الحل الصحيح: ', 'Correct solution: ') + '<span dir="ltr">' + x.steps + '</span><br>' + esc(x.tip) + '</span></div>'; }
+    $('tvExGo').onclick = go; $('tvExIn').onkeydown = function (e) { if (e.key === 'Enter') go(); };
+  }
+
+  /* ───────── التصدير والطباعة ───────── */
+  function fileBase() { return String(S.book.name || 'traverse').replace(/[\\/:*?"<>|]+/g, '_').trim().slice(0, 60) || 'traverse'; }
+  function loadScript(url, test) { return new Promise(function (res, rej) { if (test()) return res(); var s = document.createElement('script'); s.src = url; s.async = true; s.onload = function () { test() ? res() : rej(new Error('lib')); }; s.onerror = function () { rej(new Error('load')); }; document.head.appendChild(s); }); }
+  function download(name, mime, data) { var a = document.createElement('a'), bl = new Blob([data], { type: mime }); a.href = URL.createObjectURL(bl); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+  function num(x, d) { return isFinite(x) ? +(+x).toFixed(d === undefined ? 4 : d) : ''; }
+  function sheets() {
+    var b = S.book, an = S.an, d = dc(b), nm = function (x) { return isFinite(x) ? +x.toFixed(6) : ''; }, S1 = [], S2 = [], S3 = [], S4 = [];
+    S1.push(['ATLASYA — Traverse Calculator'], [T('المشروع', 'Project'), b.name], [T('النوع', 'Type'), b.type === 'open' ? 'Open' : 'Closed'], [T('طريقة التصحيح', 'Adjustment'), methodName(b.adjust)], [T('وحدة الطول', 'Length unit'), b.distUnit], ['Start E', b.startE], ['Start N', b.startN], [], [T('محيط الترافيرس', 'Perimeter'), nm(an.sums.L)], ['ΣΔE', nm(an.sums.dE)], ['ΣΔN', nm(an.sums.dN)]);
+    if (an.closure.have) S1.push(['e_E', nm(an.closure.eE)], ['e_N', nm(an.closure.eN)], [T('خطأ الإقفال الخطي', 'Linear misclosure'), nm(an.closure.e)], [T('الدقة النسبية', 'Relative precision'), precisionText(an.sums.L, an.closure.e)], [T('التقييم', 'Grade'), gradeText(an.grade)]);
+    if (an.angular) S1.push([T('خطأ الزوايا (ثانية)', 'Angular misclosure (sec)'), +(an.angular.eps * 3600).toFixed(2)]);
+    if (an.area != null) S1.push([T('المساحة', 'Area'), nm(an.area)]);
+    S1.push([], [T('التحقق', 'Checks')]); checks(an, b).forEach(function (c) { S1.push([c[0] ? 'OK' : 'CHECK', c[1]]); });
+    S2.push(['Station', 'Horizontal Angle', 'Distance', 'Azimuth']); b.rows.forEach(function (r, i) { S2.push([stName(b, i), r.ang, r.dist, i < an.m && isFinite(an.az[i]) ? angOut(an.az[i]) : r.az]); });
+    S3.push(['Line', 'L', 'Azimuth (deg)', 'ΔE', 'ΔN', 'E', 'N']); S3.push([stName(b, 0), '', '', '', '', nm(an.pts[0].E), nm(an.pts[0].N)]);
+    an.lines.forEach(function (l) { S3.push([lineName(b, l.i), nm(l.L), nm(l.az), nm(l.dE), nm(l.dN), nm(l.E), nm(l.N)]); });
+    S4.push(['Line', 'ΔE', 'cE', 'ΔE adj', 'ΔN', 'cN', 'ΔN adj', 'E adj', 'N adj']); S4.push([stName(b, 0), '', '', '', '', '', '', nm(an.ptsAdj[0].E), nm(an.ptsAdj[0].N)]);
+    an.lines.forEach(function (l, i) { var a = an.adj[i]; S4.push([lineName(b, i), nm(l.dE), nm(a.cE), nm(a.dE), nm(l.dN), nm(a.cN), nm(a.dN), nm(a.E), nm(a.N)]); });
+    var S5 = [['Station', 'E (before)', 'N (before)', 'E (adjusted)', 'N (adjusted)']]; for (var i = 0; i < an.n; i++) S5.push([stName(b, i), nm(an.pts[i].E), nm(an.pts[i].N), nm(an.ptsAdj[i].E), nm(an.ptsAdj[i].N)]);
+    return [['Summary', S1], ['Field Data', S2], ['Computation', S3], ['Adjustment', S4], ['Coordinates', S5]];
+  }
+  function exportXlsx() {
+    if (!S.an.complete) return; var sh = sheets();
+    toast(T('جارٍ تجهيز ملف Excel…', 'Preparing Excel file…'));
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', function () { return window.XLSX; }).then(function () {
+      var wb = XLSX.utils.book_new(); sh.forEach(function (s) { var ws = XLSX.utils.aoa_to_sheet(s[1]); ws['!cols'] = s[1][0] && s[1][0].length > 2 ? s[1][0].map(function () { return { wch: 16 }; }) : [{ wch: 32 }, { wch: 40 }]; XLSX.utils.book_append_sheet(wb, ws, s[0]); });
+      XLSX.writeFile(wb, fileBase() + '.xlsx'); toast(T('تم تحميل ملف Excel', 'Excel downloaded'));
+    }).catch(function () {
+      var csv = '﻿' + sh.map(function (s) { return s[0] + '\n' + s[1].map(function (r) { return r.map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n'); }).join('\n\n');
+      download(fileBase() + '.csv', 'text/csv;charset=utf-8', csv); toast(T('تعذّر تحميل مكتبة Excel — تم تنزيل CSV بدلًا منه', 'Excel library unavailable — CSV downloaded instead'), true);
+    });
+  }
+  function reportPages() {
+    var b = S.book, an = S.an, ar = isAR(), d = dc(b), dir = ar ? 'rtl' : 'ltr', pages = [];
+    function head(t) { return '<div class="rt"><span class="rlogo">ATLASYA</span> ' + esc(T('حاسبة الترافيرس المساحي', 'Traverse Calculator')) + ' <span class="ren">' + esc(t) + '</span></div><table class="rm"><tr><td><b>' + T('المشروع', 'Project') + ':</b> ' + esc(b.name) + '</td><td><b>' + T('النوع', 'Type') + ':</b> ' + (b.type === 'open' ? 'Open' : 'Closed') + '</td><td><b>' + T('التصحيح', 'Adjustment') + ':</b> ' + esc(methodName(b.adjust)) + '</td></tr><tr><td><b>Start E,N:</b> <span dir="ltr">' + esc(b.startE + ' , ' + b.startN) + '</span></td><td><b>' + T('الوحدة', 'Unit') + ':</b> ' + b.distUnit + '</td><td><b>' + T('التاريخ', 'Date') + ':</b> ' + new Date().toLocaleDateString('en-GB') + '</td></tr></table>'; }
+    function pg(inner, k, tot) { return '<div class="pg" dir="' + dir + '">' + inner + '<div class="rf">ATLASYA — ' + T('صفحة', 'Page') + ' ' + k + '/' + tot + '</div></div>'; }
+    var p1 = head(T('الحسابات', 'Computation')) + '<div class="rst">' + T('جدول حسابات الترافيرس', 'Traverse computation table') + '</div><table class="rd" dir="ltr"><thead><tr><th>Line</th><th>L</th><th>Azimuth</th><th>ΔE</th><th>ΔN</th><th>cE</th><th>cN</th><th>ΔE adj</th><th>ΔN adj</th><th>E</th><th>N</th></tr></thead><tbody>';
+    p1 += '<tr class="st"><td class="l">' + esc(stName(b, 0)) + '</td><td colspan="8"></td><td>' + fmt(an.ptsAdj[0].E) + '</td><td>' + fmt(an.ptsAdj[0].N) + '</td></tr>';
+    an.lines.forEach(function (l, i) { var a = an.adj[i]; p1 += '<tr><td class="l">' + esc(lineName(b, i)) + '</td><td>' + fmt(l.L) + '</td><td>' + angOut(l.az) + '</td><td>' + fmtS(l.dE) + '</td><td>' + fmtS(l.dN) + '</td><td>' + fmtS(a.cE, 4) + '</td><td>' + fmtS(a.cN, 4) + '</td><td>' + fmtS(a.dE) + '</td><td>' + fmtS(a.dN) + '</td><td>' + fmt(a.E) + '</td><td>' + fmt(a.N) + '</td></tr>'; });
+    p1 += '<tr class="sm"><td class="l">Σ</td><td>' + fmt(an.sums.L) + '</td><td></td><td>' + fmtS(an.sums.dE) + '</td><td>' + fmtS(an.sums.dN) + '</td><td colspan="6"></td></tr></tbody></table>';
+    var cs = checks(an, b);
+    p1 += '<div class="rst" style="margin-top:14px">' + T('خطأ الإقفال والتحقق', 'Closure & verification') + '</div><table class="rsum">' + (an.closure.have ? '<tr><td>e<sub>E</sub> / e<sub>N</sub></td><td dir="ltr">' + fmtS(an.closure.eE, 4) + ' / ' + fmtS(an.closure.eN, 4) + '</td></tr><tr><td>' + T('الخطأ الخطي e', 'Linear misclosure e') + '</td><td dir="ltr">' + fmt(an.closure.e, 4) + ' ' + b.distUnit + '</td></tr><tr><td>' + T('الدقة النسبية', 'Relative precision') + '</td><td dir="ltr">' + precisionText(an.sums.L, an.closure.e) + ' (' + gradeText(an.grade) + ')</td></tr>' : '') + (an.angular ? '<tr><td>' + T('خطأ الزوايا', 'Angular misclosure') + '</td><td dir="ltr">' + fmtDMS(Math.abs(an.angular.eps), 1) + '</td></tr>' : '') + (an.area != null ? '<tr><td>' + T('المساحة', 'Area') + '</td><td dir="ltr">' + fmt(an.area, 2) + ' ' + b.distUnit + '²</td></tr>' : '') + cs.map(function (c) { return '<tr><td>' + (c[0] ? '✓' : '✗') + '</td><td>' + esc(c[1]) + '</td></tr>'; }).join('') + '</table>';
+    var p2 = head(T('الإحداثيات والرسم', 'Coordinates & diagram')) + '<div style="display:flex;gap:16px;align-items:flex-start"><div style="flex:1"><div class="rst">' + T('الإحداثيات قبل وبعد التصحيح', 'Coordinates before & after') + '</div><table class="rd" dir="ltr"><thead><tr><th>Station</th><th>E before</th><th>N before</th><th>E adjusted</th><th>N adjusted</th></tr></thead><tbody>';
+    for (var i = 0; i < an.n; i++) p2 += '<tr><td class="l">' + esc(stName(b, i)) + '</td><td>' + fmt(an.pts[i].E) + '</td><td>' + fmt(an.pts[i].N) + '</td><td><b>' + fmt(an.ptsAdj[i].E) + '</b></td><td><b>' + fmt(an.ptsAdj[i].N) + '</b></td></tr>';
+    p2 += '</tbody></table></div><div style="width:430px">' + svgDiagram(an, b, { print: true, w: 430, h: 330 }) + '</div></div>';
+    return [pg(p1, 1, 2), pg(p2, 2, 2)];
+  }
+  var REPORT_CSS = '*{box-sizing:border-box}body{margin:0;background:#fff;color:#111;font-family:Tajawal,Segoe UI,Arial,sans-serif}.pg{width:1122px;min-height:790px;padding:26px 30px;background:#fff;page-break-after:always;position:relative}.rt{font-size:22px;font-weight:800;margin-bottom:10px;border-bottom:3px solid #1e7a34;padding-bottom:8px}.rlogo{color:#1e7a34;letter-spacing:1px}.ren{font-size:13px;color:#666;font-weight:600}.rm{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:13px}.rm td{padding:4px 8px;border:1px solid #ddd;width:33%}.rd{width:100%;border-collapse:collapse;font-size:12px}.rd th{background:#1e7a34;color:#fff;padding:6px 4px;border:1px solid #14572a}.rd td{border:1px solid #bbb;padding:4px 5px;text-align:center}.rd td.l{text-align:start;white-space:nowrap}.rd tr.sm td{background:#eef4ef;font-weight:800}.rd tr.st td{background:#f7faf8}.rst{font-weight:800;font-size:15px;margin-bottom:6px;color:#1e7a34}.rsum{border-collapse:collapse;font-size:13px;min-width:420px}.rsum td{border:1px solid #ccc;padding:4px 10px}.rsum td:first-child{font-weight:700;background:#f3f6f4}.rf{position:absolute;bottom:12px;inset-inline:30px;text-align:center;font-size:11px;color:#777}.tv-svg{width:100%;height:auto}';
+  function doPrint() {
+    if (!S.an.complete) return; var pages = reportPages();
+    var fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;right:-9999px;bottom:0;width:0;height:0;border:0'; document.body.appendChild(fr);
+    var dd = fr.contentWindow.document; dd.open(); dd.write('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(S.book.name) + '</title><style>@page{size:A4 landscape;margin:6mm}' + REPORT_CSS + '.pg{width:auto;min-height:0;padding:0 4px}@media print{.pg:last-child{page-break-after:auto}}</style></head><body>' + pages.join('') + '</body></html>'); dd.close();
+    setTimeout(function () { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast(T('تعذّرت الطباعة', 'Print failed'), true); } setTimeout(function () { fr.remove(); }, 2000); }, 350);
+  }
+  function exportPdf() {
+    if (!S.an.complete) return; var pages = reportPages(); toast(T('جارٍ تجهيز ملف PDF…', 'Preparing PDF…'));
+    var host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-20000px;top:0;width:1122px;background:#fff;z-index:-1'; host.innerHTML = '<style>' + REPORT_CSS + '</style>' + pages.join(''); document.body.appendChild(host);
+    Promise.all([loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', function () { return window.html2canvas; }), loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', function () { return window.jspdf && window.jspdf.jsPDF; })]).then(function () {
+      var pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true }), chain = Promise.resolve();
+      host.querySelectorAll('.pg').forEach(function (el, k) { chain = chain.then(function () { return window.html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true }); }).then(function (cv) { if (k > 0) pdf.addPage(); var w = 297, h = Math.min(210, w * cv.height / cv.width); pdf.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h); }); });
+      return chain.then(function () { pdf.save(fileBase() + '.pdf'); toast(T('تم تحميل ملف PDF', 'PDF downloaded')); });
+    }).catch(function (e) { console.warn('[traverse] PDF:', e); toast(T('تعذّر إنشاء PDF مباشرة — استخدم الطباعة واختر «حفظ كـ PDF»', 'Direct PDF failed — use Print and choose “Save as PDF”'), true); }).then(function () { host.remove(); });
+  }
+  function flush() { if (S.view === 'editor' && S.dirty && S.book) saveBookNow(); }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(); });
+  window.addEventListener('pagehide', flush);
+  window.ATL_TRAVERSE = { analyze: analyze, parseAngle: parseAngle, examples: EXAMPLES, cleanBook: cleanBook };
+  window.renderTraverseCalc = render;
 })();
 </script>
 </body>
