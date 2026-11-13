@@ -3712,6 +3712,9 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                     <button class="nav-item" id="menuAdminOffers" onclick="navigate('adminoffers', this)" style="display:none;">
                         <i class="fa-solid fa-gift"></i> <span id="menuAdminOffersTxt">العروض والخصومات</span>
                     </button>
+                    <button class="nav-item" id="menuAdminCompetitions" onclick="navigate('admincompetitions', this)" style="display:none;">
+                        <i class="fa-solid fa-medal"></i> <span id="menuAdminCompetitionsTxt">مسابقات الخرائط</span>
+                    </button>
                     <button class="nav-item" id="menuAdminReviews" onclick="navigate('adminreviews', this)" style="display:none;">
                         <i class="fa-solid fa-star"></i> <span id="menuAdminReviewsTxt">تقييمات التطبيق</span>
                     </button>
@@ -6076,7 +6079,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
         community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
         account: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
-        adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro', admincoins: 'menuAdminCoins', adminwheel: 'menuAdminWheel', adminoffers: 'menuAdminOffers',
+        adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro', admincoins: 'menuAdminCoins', adminwheel: 'menuAdminWheel', adminoffers: 'menuAdminOffers', admincompetitions: 'menuAdminCompetitions',
         adminreferrals: 'menuAdminReferrals',
         adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
         admincourses: 'menuAdminCourses', adminlibrary: 'menuAdminLibrary',
@@ -6142,6 +6145,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             admincoins:    lang==='AR'?'إعدادات نظام العملات':'Coin System Settings',
             adminwheel:    lang==='AR'?'عجلة الحظ والهدايا':'Fortune & Gift Wheel',
             adminoffers:   lang==='AR'?'العروض والخصومات':'Offers & Deals',
+            admincompetitions: lang==='AR'?'مسابقات الخرائط':'Map Competitions',
             adminportfolio: lang==='AR'?'خرائط الطلبة':'Student Maps',
             admincourses: lang==='AR'?'إدارة الكورسات':'Manage Courses',
             adminlibrary: lang==='AR'?'إدارة المكتبة الرقمية':'Manage Digital Library',
@@ -6191,6 +6195,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         else if (page === 'admincoins') renderAdminCoinSettings(area);
         else if (page === 'adminwheel') renderAdminWheelSettings(area);
         else if (page === 'adminoffers') renderAdminOffers(area);
+        else if (page === 'admincompetitions') renderAdminCompetitions(area);
         else if (page === 'adminportfolio') renderAdminPortfolio(area);
         else if (page === 'admincourses') renderAdminCourses(area);
         else if (page === 'adminlibrary') renderAdminLibrary(area);
@@ -10103,6 +10108,53 @@ window.openConsultationModal = function () { csTab('book'); };
     };
 
     /* ─── ADMIN: FORTUNE WHEEL & GIFT WHEEL SETTINGS ─── */
+
+    /* ═══ ATLASYA admin · المسابقات (additive) ═══ */
+const _cE = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const _cSD = (typeof setDoc === 'function') ? setDoc : _sbSetDoc;
+const _cT = m => (window.showToast ? showToast(m) : alert(m));
+const _cIn = 'width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:13px;margin-bottom:8px;';
+async function renderAdminCompetitions(area) {
+  area = area || document.getElementById('contentArea');
+  const cs = (await getDocs(collection(db, 'competitions'))).docs.map(d => ({ id: d.id, ...d.data() }));
+  const iso = v => (typeof _cairoLocalToIso === 'function' ? _cairoLocalToIso(v) : (v ? new Date(v).toISOString() : ''));
+  area.innerHTML = `<div class="page-header"><h2>🏅 مسابقات الخرائط</h2><p>أنشئ المسابقة، راجع المشاركات، حدد درجات التحكيم، ثم أعلن الفائزين (التواريخ بتوقيت القاهرة).</p></div>
+  <div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:18px"><b>مسابقة جديدة</b><br><br>
+  <input id="cpT" style="${_cIn}" placeholder="اسم المسابقة"><textarea id="cpD" rows="2" style="${_cIn}" placeholder="الوصف"></textarea><textarea id="cpR" rows="2" style="${_cIn}" placeholder="شروط المشاركة"></textarea>
+  <label class="cmp-muted">نهاية التسجيل</label><input id="cpRe" type="datetime-local" style="${_cIn}"><label class="cmp-muted">بداية التصويت</label><input id="cpVs" type="datetime-local" style="${_cIn}"><label class="cmp-muted">نهاية التصويت</label><input id="cpVe" type="datetime-local" style="${_cIn}">
+  <select id="cpM" style="${_cIn}"><option value="public">تصويت الجمهور</option><option value="jury">لجنة التحكيم</option><option value="mixed">تقييم مشترك</option></select>
+  <input id="cpP" type="number" min="0" max="100" value="30" style="${_cIn}" placeholder="نسبة تصويت الجمهور % (للمشترك)"><input id="cpC" type="number" min="0" value="0" style="${_cIn}" placeholder="عملات ATLAS للفائز الأول (والثاني 60% والثالث 30%)">
+  <button id="cpGo" style="padding:10px 18px;border:0;border-radius:10px;background:var(--green3);color:#fff;font-weight:700;cursor:pointer">إنشاء ونشر</button></div>
+  <div id="cpList">${cs.map(c => `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px;align-items:center"><div><b>${_cE(c.title)}</b><br><span class="cmp-muted">${c.status === 'draft' ? 'مسودة' : 'منشورة'}${c.winners?.length ? ' · أُعلن الفائزون' : ''}</span></div><div style="display:flex;gap:6px"><button data-m="${c.id}" class="cmp-btn">المشاركات</button><button data-h="${c.id}" class="cmp-btn alt">إخفاء</button></div></div>`).join('') || '<p class="cmp-muted">لا توجد مسابقات.</p>'}</div><div id="cpEntries"></div>`;
+  document.getElementById('cpGo').onclick = async () => {
+    const g = i => document.getElementById(i).value, t = g('cpT').trim(); if (!t || !g('cpRe') || !g('cpVs') || !g('cpVe')) return _cT('الاسم والتواريخ مطلوبة');
+    await addDoc(collection(db, 'competitions'), { title: t, desc: g('cpD').trim(), rules: g('cpR').trim(), type: 'map', status: 'open', regEnd: iso(g('cpRe')), voteStart: iso(g('cpVs')), voteEnd: iso(g('cpVe')), mode: g('cpM'), publicPct: Math.min(100, Math.max(0, +g('cpP') || 0)), prizeCoins: Math.max(0, +g('cpC') || 0), winners: [], createdAt: serverTimestamp() });
+    _cT('تم إنشاء المسابقة'); renderAdminCompetitions(area); };
+  area.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => { if (confirm('إخفاء المسابقة عن الطلبة؟')) { await _sbUpdateDoc(doc(db, 'competitions', b.dataset.h), { status: 'hidden' }); renderAdminCompetitions(area); } });
+  area.querySelectorAll('[data-m]').forEach(b => b.onclick = () => _cEntries(cs.find(c => c.id === b.dataset.m)));
+}
+async function _cEntries(c) {
+  const box = document.getElementById('cpEntries');
+  const es = (await getDocs(query(collection(db, 'competition_entries'), where('compId', '==', c.id)))).docs.map(d => ({ id: d.id, ...d.data() }));
+  const vs = (await getDocs(query(collection(db, 'competition_votes'), where('compId', '==', c.id)))).docs.map(d => d.data());
+  const cnt = e => vs.filter(v => v.entryId === e.id).length, maxV = Math.max(0, ...es.filter(e => e.status === 'approved').map(cnt));
+  const sc = e => c.mode === 'public' ? cnt(e) : c.mode === 'jury' ? (+e.jury || 0) : (maxV ? cnt(e) / maxV * 100 : 0) * c.publicPct / 100 + (+e.jury || 0) * (100 - c.publicPct) / 100;
+  box.innerHTML = `<h3>مشاركات: ${_cE(c.title)}</h3>${es.map(e => `<div style="display:flex;gap:10px;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px"><img src="${_cE(e.imageUrl)}" style="width:80px;height:60px;object-fit:cover;border-radius:8px"><div style="flex:1"><b>${_cE(e.title)}</b><br><span class="cmp-muted">${_cE(e.authorName)} · ${e.status} · 👍 ${cnt(e)}</span></div><input type="number" min="0" max="100" value="${+e.jury || 0}" data-j="${e.id}" style="width:70px;${_cIn}margin:0" title="درجة التحكيم 0-100"><button data-a="${e.id}" class="cmp-btn">قبول</button><button data-r="${e.id}" class="cmp-btn alt">رفض</button></div>`).join('') || '<p class="cmp-muted">لا توجد مشاركات.</p>'}<button id="cpWin" class="cmp-btn" style="margin-top:10px">🏆 حساب وإعلان الفائزين ومنح الجوائز</button>`;
+  const setE = (id, d) => _sbUpdateDoc(doc(db, 'competition_entries', id), d).then(() => _cEntries(c));
+  box.querySelectorAll('[data-a]').forEach(b => b.onclick = () => setE(b.dataset.a, { status: 'approved' }));
+  box.querySelectorAll('[data-r]').forEach(b => b.onclick = () => setE(b.dataset.r, { status: 'rejected' }));
+  box.querySelectorAll('[data-j]').forEach(i => i.onchange = () => _sbUpdateDoc(doc(db, 'competition_entries', i.dataset.j), { jury: Math.min(100, Math.max(0, +i.value || 0)) }));
+  document.getElementById('cpWin').onclick = async () => {
+    if (c.winners?.length) return _cT('تم إعلان الفائزين مسبقًا');
+    const top = es.filter(e => e.status === 'approved').sort((a, b) => sc(b) - sc(a)).slice(0, 3); if (!top.length) return _cT('لا توجد مشاركات مقبولة');
+    if (!confirm('إعلان الفائزين نهائي ولا يمكن التراجع عنه. متابعة؟')) return;
+    const pr = [1, .6, .3];
+    for (let i = 0; i < top.length; i++) { const coins = Math.round((c.prizeCoins || 0) * pr[i]); if (coins > 0) await _sbUpdateDoc(doc(db, 'users', top[i].uid), { coins: increment(coins), coinsEarnedTotal: increment(coins) }); }
+    await _sbUpdateDoc(doc(db, 'competitions', c.id), { winners: top.map(e => ({ entryId: e.id, uid: e.uid, name: e.authorName, title: e.title })), status: 'closed' });
+    _cT('تم إعلان الفائزين'); renderAdminCompetitions();
+  };
+}
+window.renderAdminCompetitions = renderAdminCompetitions;
 
     /* ─── العروض والخصومات (The Final Deals) — بتظهر في الصفحة الرئيسية للطلبة ─── */
     let _offersDraft = [];
@@ -15484,7 +15536,7 @@ async function csAdmShowLink(id, btn) {
         dailychallenges: ['menuAdminDailyChallenges'],
         coinsettings: ['menuAdminCoins'],
         wheelsettings: ['menuAdminWheel'],
-        offers: ['menuAdminOffers'],
+        offers: ['menuAdminOffers','menuAdminCompetitions'],
     };
 
     // Maps a page route to the permission key that guards it (used for direct navigate() calls)
@@ -15503,7 +15555,7 @@ async function csAdmShowLink(id, btn) {
         admindailychallenges: 'dailychallenges',
         admincoins: 'coinsettings',
         adminwheel: 'wheelsettings',
-        adminoffers: 'offers',
+        adminoffers: 'offers', admincompetitions: 'offers',
     };
 
     // Shows/hides admin nav + mobile items according to window._adminPermissions ('all' or an array of keys)
