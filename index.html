@@ -4229,6 +4229,10 @@ body.rtl .fc-badge::after{transform:translateX(120%);animation-name:fcShineR}
 .fc-prog-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--fc-em2),var(--fc-em),var(--fc-gold));box-shadow:0 0 16px rgba(var(--fc-a),.6);transition:width 1s}
 .fc-prog-l{display:flex;justify-content:space-between;margin-top:8px;font-size:11.5px;color:var(--fc-mut);direction:ltr}
 .fc-fin{margin-top:16px;font-size:14px;font-weight:800;color:var(--fc-gold);position:relative}
+@keyframes fcFlash{0%,100%{box-shadow:0 0 0 0 rgba(var(--fc-g),0)}30%{box-shadow:0 0 0 4px rgba(var(--fc-g),.55)}}
+.fc-offers.fc-flash{border-radius:16px;animation:fcFlash 1.4s ease-out}
+.fc-deals-btns .fc-btn{-webkit-tap-highlight-color:transparent;outline:none}
+.fc-deals-btns .fc-btn:focus-visible{outline:2px solid rgba(var(--fc-g),.9);outline-offset:2px}
 .fc-deals-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.fc-deals-btns .fc-btn{margin-top:0;padding:11px 20px}
 .fc-comp-info{margin-top:10px;font-size:12.5px;font-weight:700;color:var(--fc-ink);display:flex;gap:8px;flex-wrap:wrap}.fc-comp-info:empty{display:none}.fc-comp-info span{padding:4px 11px;border-radius:99px;background:rgba(var(--fc-g),.2);border:1px solid rgba(var(--fc-g),.4)}
 .fc-count{padding:28px 16px 24px;border-color:rgba(var(--fc-g),.4)}
@@ -5433,7 +5437,7 @@ window.renderCompetitions = async function (area) {
   area = area || document.getElementById('contentArea');
   if (!document.getElementById('cmpCss')) { const s = document.createElement('style'); s.id = 'cmpCss'; s.textContent = css; document.head.appendChild(s); }
   const tabs = [['maps', '🗺️ ' + T('مسابقات الخرائط', 'Map Competitions')], ['mine', '👤 ' + T('مشاركاتي', 'My Participations')], ['go:leaderboard', '🏆 ' + T('المتصدرين', 'Leaderboard')], ['go:offers', '🎁 ' + T('العروض والخصومات', 'Offers & Deals')]];
-  area.innerHTML = `<div class="cmp"><button class="cmp-btn alt" id="cmpHome">← ${T('الصفحة الرئيسية', 'Home')}</button><h2 style="margin-top:12px">🏅 ${T('العروض والمسابقات', 'Offers & Competitions')}</h2><div class="cmp-tabs">${tabs.map(([k, l]) => `<button class="cmp-tab ${S.tab === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div><div id="cmpBody"><div class="spinner" style="margin:30px auto"></div></div></div>`;
+  area.innerHTML = `<div class="cmp"><button class="cmp-btn alt" id="cmpHome">← ${T('الصفحة الرئيسية', 'Home')}</button><h2 style="margin-top:12px">🏅 ${T('المسابقات', 'Competitions')}</h2><div class="cmp-tabs">${tabs.map(([k, l]) => `<button class="cmp-tab ${S.tab === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div><div id="cmpBody"><div class="spinner" style="margin:30px auto"></div></div></div>`;
   document.getElementById('cmpHome').onclick = () => fcGo('dashboard');
   area.querySelectorAll('.cmp-tab').forEach(b => b.onclick = () => { const k = b.dataset.k; if (k === 'go:offers') return fcGoOffers(); if (k.startsWith('go:')) return fcGo(k.slice(3)); S.tab = k; S.comp = null; S.entry = null; renderCompetitions(area); });
   const body = document.getElementById('cmpBody');
@@ -8878,7 +8882,7 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
                 wheel: lang==='AR'?'عجلة الحظ':'Fortune Wheel',
                 achievements: lang==='AR'?'إنجازاتي':'My Achievements',
                 leaderboard: lang==='AR'?'لوحة المتصدرين':'Leaderboard',
-                competitions: lang==='AR'?'العروض والمسابقات':'Offers & Competitions',
+                competitions: lang==='AR'?'المسابقات':'Competitions',
                 profile: lang==='AR'?'ملفي الشخصي':'My Profile',
             };
             document.getElementById('breadcrumbTitle').textContent = titles[page] || titles[String(page).split('/')[0]] || page;
@@ -9133,6 +9137,18 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
             const id = (typeof PAGE_NAV_ID_MAP !== 'undefined' && PAGE_NAV_ID_MAP[page]) || '';
             navigate(page, id ? document.getElementById(id) : null);
         }
+        /* زرار "المسابقات" و"العروض" في الكارت الأصفر — كل واحد ليه فعل مستقل تمامًا:
+           المسابقات = يفتح صفحة المسابقات فقط | العروض = ينزل لقسم العروض في نفس الصفحة فقط */
+        function fcDealsAct(kind) {
+            if (kind === 'comp') {
+                if (typeof window._cmpOpen === 'function') window._cmpOpen('maps'); else fcGo('competitions');
+                return;
+            }
+            const box = document.getElementById('fcOffers'); if (!box) return;
+            fcScrollTo('fcOffers');
+            box.classList.remove('fc-flash'); void box.offsetWidth; box.classList.add('fc-flash');
+            setTimeout(() => box.classList.remove('fc-flash'), 1600);
+        }
         function fcScrollTo(id) { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 
         /* ── العروض: بتتجاب من settings/offers (بتتدار من لوحة التحكم admin.html → "العروض والخصومات") ── */
@@ -9254,8 +9270,8 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
                             <div class="s2">${isAR ? 'نافس، شارك بخريطتك، واكسب جوائز وخصومات — لفترة محدودة!' : "Compete, share your map & win prizes and deals — limited time!"}</div>
                             <div class="fc-comp-info" id="fcCompInfo"></div>
                             <div class="fc-deals-btns">
-                                <button class="fc-btn fc-btn-gold" id="fcBtnComp" type="button" onclick="_cmpOpen('maps')"><i class="fa-solid fa-trophy"></i> ${isAR ? 'المسابقات' : 'Competitions'}</button>
-                                <button class="fc-btn fc-btn-glass" id="fcBtnOffers" type="button" onclick="fcScrollTo('fcOffers')"><i class="fa-solid fa-gift"></i> ${isAR ? 'العروض' : 'Offers'}</button>
+                                <button class="fc-btn fc-btn-gold" id="fcBtnComp" type="button" onclick="event.stopPropagation();fcDealsAct('comp')"><i class="fa-solid fa-trophy"></i> ${isAR ? 'المسابقات' : 'Competitions'}</button>
+                                <button class="fc-btn fc-btn-glass" id="fcBtnOffers" type="button" onclick="event.stopPropagation();fcDealsAct('offers')"><i class="fa-solid fa-gift"></i> ${isAR ? 'العروض' : 'Offers'}</button>
                             </div>
                         </div>
                         ${FC_GIFT}
@@ -9402,7 +9418,7 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
             { k: 'acct', ic: 'fa-user', ar: 'حسابي', en: 'Account', go: () => goSettings('hub') }
         ];
         const FC_PAGE_KEY = { dashboard: 'home', tools: 'tools', unitconverter: 'tools', levelingcalc: 'tools', traverse: 'tools', playlists: 'learn', courses: 'learn',
-            library: 'res', datasets: 'res', competitions: 'offers', jobs: 'jobs', cvbuilder: 'jobs', account: 'acct', achievements: 'acct', profile: 'acct' };
+            library: 'res', datasets: 'res', competitions: '', jobs: 'jobs', cvbuilder: 'jobs', account: 'acct', achievements: 'acct', profile: 'acct' };
         function fcGoOffers() {
             if (window._currentPage === 'dashboard' && document.getElementById('fcDeals')) { fcScrollTo('fcDeals'); return; }
             window._fcScrollTo = 'fcDeals'; fcGo('dashboard');
