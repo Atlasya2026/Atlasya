@@ -3709,6 +3709,9 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                     <button class="nav-item" id="menuAdminWheel" onclick="navigate('adminwheel', this)" style="display:none;">
                         <i class="fa-solid fa-dharmachakra"></i> <span id="menuAdminWheelTxt">عجلة الحظ والهدايا</span>
                     </button>
+                    <button class="nav-item" id="menuAdminOffers" onclick="navigate('adminoffers', this)" style="display:none;">
+                        <i class="fa-solid fa-gift"></i> <span id="menuAdminOffersTxt">العروض والخصومات</span>
+                    </button>
                     <button class="nav-item" id="menuAdminReviews" onclick="navigate('adminreviews', this)" style="display:none;">
                         <i class="fa-solid fa-star"></i> <span id="menuAdminReviewsTxt">تقييمات التطبيق</span>
                     </button>
@@ -4546,6 +4549,11 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         } catch(e) { console.error('loadWheelConfig error:', e); }
         return JSON.parse(JSON.stringify(window.DEFAULT_WHEEL_CONFIG));
     };
+    window._loadOffers = async () => {
+        try { const s = await getDoc(doc(db, 'settings', 'offers')); if (s.exists() && Array.isArray(s.data().items)) return s.data().items; } catch(e) { console.error('loadOffers', e); }
+        return [];
+    };
+    window._saveOffers = async (items) => { await setDoc(doc(db, 'settings', 'offers'), { items, updatedAt: serverTimestamp() }, { merge: true }); };
     window._saveWheelConfig = async (data) => {
         await setDoc(doc(db, 'settings', 'wheel'), { ...data, updatedAt: serverTimestamp() }, { merge: true });
     };
@@ -5734,6 +5742,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             menuAdminProTxt: 'طلبات البرو',
             menuAdminCoinsTxt: 'إعدادات نظام العملات',
             menuAdminWheelTxt: 'عجلة الحظ والهدايا',
+            menuAdminOffersTxt: 'العروض والخصومات',
             txtTopbarLogout: 'خروج',
             txtTopbarLogoutDesk: 'خروج',
             sideUserRole: 'عضو',
@@ -5779,6 +5788,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             menuAdminProTxt: 'Pro Requests',
             menuAdminCoinsTxt: 'Coin System Settings',
             menuAdminWheelTxt: 'Fortune Wheel & Gifts',
+            menuAdminOffersTxt: 'Offers & Deals',
             txtLogout: 'Log Out',
             txtTopbarLogout: 'Logout',
             txtTopbarLogoutDesk: 'Logout',
@@ -6066,7 +6076,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         jobs: 'menuJob', courses: 'menuCourse', expert: 'menuExpert',
         community: 'menuCommunity', cvbuilder: 'menuCV', connect: 'menuConnect',
         account: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
-        adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro', admincoins: 'menuAdminCoins', adminwheel: 'menuAdminWheel',
+        adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro', admincoins: 'menuAdminCoins', adminwheel: 'menuAdminWheel', adminoffers: 'menuAdminOffers',
         adminreferrals: 'menuAdminReferrals',
         adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
         admincourses: 'menuAdminCourses', adminlibrary: 'menuAdminLibrary',
@@ -6131,6 +6141,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             adminpro:      lang==='AR'?'طلبات Pro':'Pro Requests',
             admincoins:    lang==='AR'?'إعدادات نظام العملات':'Coin System Settings',
             adminwheel:    lang==='AR'?'عجلة الحظ والهدايا':'Fortune & Gift Wheel',
+            adminoffers:   lang==='AR'?'العروض والخصومات':'Offers & Deals',
             adminportfolio: lang==='AR'?'خرائط الطلبة':'Student Maps',
             admincourses: lang==='AR'?'إدارة الكورسات':'Manage Courses',
             adminlibrary: lang==='AR'?'إدارة المكتبة الرقمية':'Manage Digital Library',
@@ -6179,6 +6190,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         else if (page === 'adminpro') renderAdminProRequests(area);
         else if (page === 'admincoins') renderAdminCoinSettings(area);
         else if (page === 'adminwheel') renderAdminWheelSettings(area);
+        else if (page === 'adminoffers') renderAdminOffers(area);
         else if (page === 'adminportfolio') renderAdminPortfolio(area);
         else if (page === 'admincourses') renderAdminCourses(area);
         else if (page === 'adminlibrary') renderAdminLibrary(area);
@@ -10091,6 +10103,73 @@ window.openConsultationModal = function () { csTab('book'); };
     };
 
     /* ─── ADMIN: FORTUNE WHEEL & GIFT WHEEL SETTINGS ─── */
+
+    /* ─── العروض والخصومات (The Final Deals) — بتظهر في الصفحة الرئيسية للطلبة ─── */
+    let _offersDraft = [];
+    function _cairoOffsetMin(ms) {
+        const p = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Cairo', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(ms)).reduce((a, x) => (a[x.type] = x.value, a), {});
+        return (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(ms / 1000) * 1000) / 60000;
+    }
+    function _isoToCairoLocal(iso) {
+        if (!iso) return ''; const ms = Date.parse(iso); if (isNaN(ms)) return '';
+        return new Date(ms + _cairoOffsetMin(ms) * 60000).toISOString().slice(0, 16);
+    }
+    function _cairoLocalToIso(v) {
+        if (!v) return ''; const guess = Date.parse(v + ':00Z'); if (isNaN(guess)) return '';
+        let ms = guess - _cairoOffsetMin(guess) * 60000; ms = guess - _cairoOffsetMin(ms) * 60000; return new Date(ms).toISOString();
+    }
+    async function renderAdminOffers(area) {
+        area = area || document.getElementById('contentArea');
+        const isAR = lang === 'AR';
+        area.innerHTML = `<div class="page-header"><h2>🎁 ${isAR ? 'العروض والخصومات' : 'Offers & Deals'}</h2>
+            <p>${isAR ? 'العروض دي بتظهر للطلبة في قسم THE FINAL DEALS بالصفحة الرئيسية. التواريخ بتوقيت القاهرة، والعرض بيختفي تلقائيًا بعد تاريخ الانتهاء.' : 'These appear in the student home page "THE FINAL DEALS" section. Dates are Cairo time; an offer hides automatically after it ends.'}</p></div>
+            <div id="offersRoot"><div style="text-align:center;padding:40px;color:var(--muted);"><i class="fa-solid fa-spinner fa-spin"></i></div></div>`;
+        try { _offersDraft = JSON.parse(JSON.stringify(await window._loadOffers())); } catch (e) { _offersDraft = []; }
+        drawOffersForm();
+    }
+    function drawOffersForm() {
+        const isAR = lang === 'AR', root = document.getElementById('offersRoot'); if (!root) return;
+        const pages = [['account', isAR ? 'الحساب / الاشتراك' : 'Account / Upgrade'], ['courses', isAR ? 'الكورسات' : 'Courses'], ['library', isAR ? 'المكتبة' : 'Library'], ['tools', isAR ? 'أدوات GIS' : 'GIS Tools'], ['playlists', isAR ? 'قوائم التشغيل' : 'Playlists'], ['wheel', isAR ? 'عجلة الحظ' : 'Wheel'], ['dashboard', isAR ? 'الرئيسية' : 'Home']];
+        const inp = 'width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:13px;';
+        const f = (i, k, label, type, extra) => `<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);">${label}<input type="${type || 'text'}" value="${escapeHtml(String(_offersDraft[i][k] ?? ''))}" oninput="_offersDraft[${i}].${k}=this.value" style="${inp}" ${extra || ''}></label>`;
+        const dt = (i, k, label) => `<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);">${label}<input type="datetime-local" value="${_isoToCairoLocal(_offersDraft[i][k])}" onchange="_offersDraft[${i}].${k}=_cairoLocalToIso(this.value)" style="${inp}"></label>`;
+        root.innerHTML = _offersDraft.map((o, i) => `
+        <div class="form-card" style="margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+                <h3 style="margin:0;">#${i + 1} ${escapeHtml(o.titleAR || o.titleEN || (isAR ? 'عرض جديد' : 'New offer'))}</h3>
+                <label style="margin-inline-start:auto;display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" ${o.active !== false ? 'checked' : ''} onchange="_offersDraft[${i}].active=this.checked"> ${isAR ? 'مفعّل' : 'Active'}</label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" ${o.hero ? 'checked' : ''} onchange="_offersDraft[${i}].hero=this.checked"> ${isAR ? 'سلايد في الـ Hero' : 'Show in hero slider'}</label>
+                <button onclick="offersRemove(${i})" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(231,76,60,.4);background:rgba(231,76,60,.1);color:#e74c3c;cursor:pointer;"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+                ${f(i, 'titleAR', 'العنوان (عربي)')}${f(i, 'titleEN', 'Title (English)')}
+                ${f(i, 'descAR', 'الوصف (عربي)')}${f(i, 'descEN', 'Description (English)')}
+                ${f(i, 'originalPrice', isAR ? 'السعر الأصلي' : 'Original price', 'number', 'min="0" step="any"')}${f(i, 'discountPrice', isAR ? 'السعر بعد الخصم' : 'Discounted price', 'number', 'min="0" step="any"')}
+                ${f(i, 'currency', isAR ? 'العملة (مثلاً EGP)' : 'Currency (e.g. EGP)')}${f(i, 'code', isAR ? 'كود الخصم' : 'Discount code')}
+                ${dt(i, 'startsAt', isAR ? 'يبدأ (القاهرة) — اختياري' : 'Starts (Cairo) — optional')}${dt(i, 'endsAt', isAR ? 'ينتهي (القاهرة)' : 'Ends (Cairo)')}
+                <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);">${isAR ? 'زر العرض يفتح صفحة' : 'Button opens page'}<select onchange="_offersDraft[${i}].ctaPage=this.value" style="${inp}">${pages.map(p => `<option value="${p[0]}" ${(o.ctaPage || 'account') === p[0] ? 'selected' : ''}>${p[1]}</option>`).join('')}</select></label>
+            </div>
+        </div>`).join('') + `
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button onclick="offersAdd()" style="padding:10px 18px;border-radius:10px;border:1px dashed var(--border2);background:none;color:var(--text);cursor:pointer;font-family:inherit;"><i class="fa-solid fa-plus"></i> ${isAR ? 'إضافة عرض' : 'Add offer'}</button>
+            <button onclick="offersSave()" style="padding:10px 22px;border-radius:10px;border:0;background:linear-gradient(135deg,var(--gold4),var(--gold3));color:#1a1405;font-weight:800;cursor:pointer;font-family:inherit;"><i class="fa-solid fa-floppy-disk"></i> ${isAR ? 'حفظ' : 'Save'}</button>
+        </div>`;
+    }
+    function offersAdd() { _offersDraft.push({ active: true, hero: false, currency: 'EGP', ctaPage: 'account' }); drawOffersForm(); }
+    function offersRemove(i) { if (!confirm(lang === 'AR' ? 'حذف العرض ده؟' : 'Delete this offer?')) return; _offersDraft.splice(i, 1); drawOffersForm(); }
+    async function offersSave() {
+        const isAR = lang === 'AR';
+        for (const o of _offersDraft) {
+            if (!(o.titleAR || o.titleEN)) { showToast(isAR ? 'اكتب عنوان لكل عرض' : 'Every offer needs a title', true); return; }
+            ['originalPrice', 'discountPrice'].forEach(k => { if (o[k] === '' || o[k] == null) delete o[k]; else o[k] = Number(o[k]); });
+            if (o.originalPrice != null && o.discountPrice != null && o.discountPrice > o.originalPrice) { showToast(isAR ? 'سعر الخصم أكبر من الأصلي' : 'Discounted price is higher than original', true); return; }
+            if (o.code) o.code = String(o.code).trim().toUpperCase();
+            if (!o.id) o.id = 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+        }
+        try { await window._saveOffers(_offersDraft); showToast(isAR ? 'تم حفظ العروض ✅' : 'Offers saved ✅'); }
+        catch (e) { console.error(e); showToast(isAR ? 'فشل الحفظ (صلاحيات؟)' : 'Save failed (permissions?)', true); }
+    }
+
     async function renderAdminWheelSettings(area) {
         area = area || document.getElementById('contentArea');
         const isAR = lang === 'AR';
@@ -15382,6 +15461,7 @@ async function csAdmShowLink(id, btn) {
         { key:'dailychallenges', labelAR:'التحديات', labelEN:'Challenges', icon:'fa-calendar-check' },
         { key:'coinsettings', labelAR:'إعدادات العملات',  labelEN:'Coin Settings',          icon:'fa-coins' },
         { key:'wheelsettings', labelAR:'عجلة الحظ والهدايا', labelEN:'Fortune & Gift Wheel', icon:'fa-dharmachakra' },
+        { key:'offers', labelAR:'العروض والخصومات', labelEN:'Offers & Deals', icon:'fa-gift' },
     ];
 
     // Which DOM elements each permission key controls the visibility of
@@ -15404,6 +15484,7 @@ async function csAdmShowLink(id, btn) {
         dailychallenges: ['menuAdminDailyChallenges'],
         coinsettings: ['menuAdminCoins'],
         wheelsettings: ['menuAdminWheel'],
+        offers: ['menuAdminOffers'],
     };
 
     // Maps a page route to the permission key that guards it (used for direct navigate() calls)
@@ -15422,6 +15503,7 @@ async function csAdmShowLink(id, btn) {
         admindailychallenges: 'dailychallenges',
         admincoins: 'coinsettings',
         adminwheel: 'wheelsettings',
+        adminoffers: 'offers',
     };
 
     // Shows/hides admin nav + mobile items according to window._adminPermissions ('all' or an array of keys)
