@@ -4229,6 +4229,26 @@ body.rtl .fc-badge::after{transform:translateX(120%);animation-name:fcShineR}
 .fc-prog-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--fc-em2),var(--fc-em),var(--fc-gold));box-shadow:0 0 16px rgba(var(--fc-a),.6);transition:width 1s}
 .fc-prog-l{display:flex;justify-content:space-between;margin-top:8px;font-size:11.5px;color:var(--fc-mut);direction:ltr}
 .fc-fin{margin-top:16px;font-size:14px;font-weight:800;color:var(--fc-gold);position:relative}
+.fc-deals-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.fc-deals-btns .fc-btn{margin-top:0;padding:11px 20px}
+.fc-comp-info{margin-top:10px;font-size:12.5px;font-weight:700;color:var(--fc-ink);display:flex;gap:8px;flex-wrap:wrap}.fc-comp-info:empty{display:none}.fc-comp-info span{padding:4px 11px;border-radius:99px;background:rgba(var(--fc-g),.2);border:1px solid rgba(var(--fc-g),.4)}
+.fc-count{padding:28px 16px 24px;border-color:rgba(var(--fc-g),.4)}
+.fc-live{display:inline-flex;align-items:center;gap:7px;font:800 10.5px/1 'Space Mono',monospace;letter-spacing:1.6px;padding:6px 12px;border-radius:99px;background:rgba(var(--fc-g),.14);border:1px solid rgba(var(--fc-g),.4);color:var(--fc-gold);margin-bottom:12px;position:relative}
+.fc-live i{width:7px;height:7px;border-radius:50%;background:#ef4444;animation:fcPulse 1.6s infinite}
+@keyframes fcPulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}70%,100%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+@keyframes fcBlink{50%{opacity:.15}}
+.fc-cd{grid-template-columns:1fr auto 1fr auto 1fr auto 1fr;gap:6px;max-width:620px;align-items:center}
+.fc-cd div{position:relative;overflow:hidden;padding:20px 4px 12px;border-radius:18px;background:linear-gradient(180deg,rgba(var(--fc-w),.10),rgba(var(--fc-d),.6));border:1px solid rgba(var(--fc-g),.38);box-shadow:0 12px 28px -14px rgba(var(--fc-g),.6)}
+.fc-cd div::before{content:'';position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,transparent,var(--fc-gold),transparent)}
+.fc-cd div::after{content:'';position:absolute;left:0;right:0;top:46%;height:1px;background:rgba(var(--fc-g),.2)}
+.fc-cd b{position:relative;z-index:1;font-size:clamp(28px,8.4vw,48px);background:linear-gradient(180deg,var(--fc-gold2),var(--fc-gold) 55%,var(--fc-gold3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.fc-cd small{position:relative;z-index:1}
+.fc-cd .sep{font:800 clamp(20px,5vw,32px)/1 'Space Mono',monospace;color:var(--fc-gold);animation:fcBlink 1s steps(2) infinite}
+.fc-prog{max-width:620px}.fc-prog-bar{height:10px;overflow:visible}
+.fc-prog-bar i{position:relative}
+.fc-prog-bar i::after{content:'';position:absolute;right:-8px;top:50%;width:16px;height:16px;transform:translateY(-50%);border-radius:50%;background:var(--fc-gold2);border:3px solid var(--fc-gold3);box-shadow:0 0 14px rgba(var(--fc-g),.85)}
+.fc-prog-l #fcPct{font-weight:800;color:var(--fc-gold);padding:2px 12px;border-radius:99px;background:rgba(var(--fc-g),.16)}
+@media (prefers-reduced-motion:reduce){.fc-cd .sep,.fc-live i{animation:none}}
+
 
 /* ── Bottom navigation (mobile) ── */
 .fc-bnav{display:none}
@@ -5478,18 +5498,14 @@ async function mine(body) {
   const votesBy = await Promise.all(rows.map(r => loadVotes(r.c.id)));
   body.innerHTML = rows.length ? `<div class="cmp-grid">${rows.map(({ c, e }, i) => `<div class="cmp-card"><img src="${E(e.imageUrl)}"><b>${E(e.title)}</b><span class="cmp-muted">${E(c.title)}</span><span class="cmp-pill">${{ pending: T('قيد المراجعة', 'Pending'), approved: T('مقبولة', 'Approved'), rejected: T('مرفوضة', 'Rejected') }[e.status] || E(e.status)}</span><span>🗳️ ${votesBy[i].filter(v => v.entryId === e.id).length}</span></div>`).join('')}</div>` : `<p class="cmp-muted">${T('لم تشارك في أي مسابقة بعد.', 'No participations yet.')}</p>`;
 }
-/* ── قسم "العروض والمسابقات" داخل الصفحة الرئيسية (بدل السايد بار) ── */
-const homeSection = async () => {
-  await loadSeason(); const st = seasonState(), s = SEASON || {};
-  if (st === 'off' || (st === 'ended' && s.archive !== 'archive')) return '';
-  const sub = !SEASON ? '' : st === 'live' ? `<span class="cmp-muted" id="cmpHomeCd" data-end="${ms(s.endAt)}">${left(ms(s.endAt))}</span>` : `<span class="cmp-muted">${{ upcoming: T('تبدأ قريبًا', 'Starting soon'), final: T('الفترة الختامية — إعلان النتائج', 'Final period'), ended: T('أرشيف الحملة', 'Campaign archive') }[st]}</span>`;
-  const tiles = [['maps', 'fa-map-location-dot', 'مسابقات الخرائط', 'Map Competitions'], ['mine', 'fa-user-check', 'مشاركاتي', 'My Participations']];
-  return `<section class="fc-sec" id="fcComp"><div class="cmp-hub"><div class="cmp-hub-top"><div><b>🏅 ${T('العروض والمسابقات', 'Offers & Competitions')}</b><div class="cmp-muted">${E(s.name || '')}</div></div>${sub}</div><div class="fc-grid">${tiles.map(([k, ic, a, e]) => `<div class="fc-xcard mini" role="button" tabindex="0" onclick="_cmpOpen('${k}')" onkeydown="if(event.key==='Enter')this.click()"><div class="ic"><i class="fa-solid ${ic}"></i></div><h4>${T(a, e)}</h4><span class="go"><i class="fa-solid ${_hmArrow()}"></i></span></div>`).join('')}</div></div></section>`;
-};
+/* ── الكارت الأصفر في الرئيسية = عروض + مسابقات: نعبّي معلومات الحملة ونخفي زر المسابقات بعد انتهائها ── */
 if (typeof window.renderDashboard === 'function') { const _o = window.renderDashboard;
   window.renderDashboard = async function (area) { const r = await _o.apply(this, arguments);
-    try { area = area || document.getElementById('contentArea'); if (!document.getElementById('cmpCss')) { const x = document.createElement('style'); x.id = 'cmpCss'; x.textContent = css; document.head.appendChild(x); }
-      const h = await homeSection(), anchor = area.querySelector('.fch .fc-stats'); if (h && anchor && !document.getElementById('fcComp')) anchor.insertAdjacentHTML('afterend', h); } catch (e) { console.warn('[competitions home]', e); }
+    (async () => { try { await loadSeason(); const st = seasonState(), s = SEASON || {}, info = document.getElementById('fcCompInfo'), btn = document.getElementById('fcBtnComp'); if (!info) return;
+      if (st === 'off' || (st === 'ended' && s.archive !== 'archive')) { if (btn) btn.remove(); return; }
+      const bits = []; if (s.name) bits.push(`<span>🏅 ${E(s.name)}</span>`);
+      if (st === 'live' && ms(s.endAt)) bits.push(`<span>${left(ms(s.endAt))}</span>`); else if (st === 'upcoming') bits.push(`<span>${T('تبدأ قريبًا', 'Starting soon')}</span>`); else if (st === 'final') bits.push(`<span>${T('الفترة الختامية — إعلان النتائج', 'Final period')}</span>`); else if (st === 'ended') bits.push(`<span>${T('أرشيف الحملة', 'Campaign archive')}</span>`);
+      info.innerHTML = bits.join(''); } catch (e) { console.warn('[competitions home]', e); } })();
     return r; }; }
 })();
 
@@ -9234,9 +9250,13 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
                     <div class="fc-deals-top">
                         <div class="fc-deals-txt">
                             <h3>THE FINAL DEALS</h3>
-                            <div class="s1">${isAR ? 'عروض ديسمبر الحصرية' : 'Exclusive December Offers'}</div>
-                            <div class="s2">${isAR ? 'لفترة محدودة — لا تفوّت الفرصة!' : "Limited Time – Don't Miss Out!"}</div>
-                            <button class="fc-btn fc-btn-gold" type="button" onclick="fcScrollTo('fcOffers')">${isAR ? 'شاهد العروض' : 'View Offers'} <i class="fa-solid ${_hmArrow()}"></i></button>
+                            <div class="s1">${isAR ? 'عروض ومسابقات ديسمبر الحصرية' : 'Exclusive December Offers & Competitions'}</div>
+                            <div class="s2">${isAR ? 'نافس، شارك بخريطتك، واكسب جوائز وخصومات — لفترة محدودة!' : "Compete, share your map & win prizes and deals — limited time!"}</div>
+                            <div class="fc-comp-info" id="fcCompInfo"></div>
+                            <div class="fc-deals-btns">
+                                <button class="fc-btn fc-btn-gold" id="fcBtnComp" type="button" onclick="_cmpOpen('maps')"><i class="fa-solid fa-trophy"></i> ${isAR ? 'المسابقات' : 'Competitions'}</button>
+                                <button class="fc-btn fc-btn-glass" id="fcBtnOffers" type="button" onclick="fcScrollTo('fcOffers')"><i class="fa-solid fa-gift"></i> ${isAR ? 'العروض' : 'Offers'}</button>
+                            </div>
                         </div>
                         ${FC_GIFT}
                     </div>
@@ -9244,12 +9264,15 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
                 </section>
 
                 <section class="fc-sec fc-count" id="fcCount">
-                    <h3>${isAR ? 'نهاية <em>2026</em> بعد' : 'The year <em>2026</em> ends in'}</h3>
-                    <div class="st">${isAR ? 'بتوقيت القاهرة — حتى 31 ديسمبر 2026' : 'Cairo time — until 31 December 2026'}</div>
+                    <div class="fc-count-hd">
+                        <span class="fc-live"><i></i> LIVE</span>
+                        <h3>${isAR ? 'نهاية <em>2026</em> بعد' : 'The year <em>2026</em> ends in'}</h3>
+                        <div class="st">${isAR ? 'بتوقيت القاهرة — حتى 31 ديسمبر 2026' : 'Cairo time — until 31 December 2026'}</div>
+                    </div>
                     <div class="fc-cd">
-                        <div><b id="fcD">--</b><small>${isAR ? 'يوم' : 'Days'}</small></div>
-                        <div><b id="fcH">--</b><small>${isAR ? 'ساعة' : 'Hours'}</small></div>
-                        <div><b id="fcM">--</b><small>${isAR ? 'دقيقة' : 'Minutes'}</small></div>
+                        <div><b id="fcD">--</b><small>${isAR ? 'يوم' : 'Days'}</small></div><span class="sep">:</span>
+                        <div><b id="fcH">--</b><small>${isAR ? 'ساعة' : 'Hours'}</small></div><span class="sep">:</span>
+                        <div><b id="fcM">--</b><small>${isAR ? 'دقيقة' : 'Minutes'}</small></div><span class="sep">:</span>
                         <div><b id="fcS">--</b><small>${isAR ? 'ثانية' : 'Seconds'}</small></div>
                     </div>
                     <div class="fc-prog"><div class="fc-prog-bar"><i id="fcBar"></i></div><div class="fc-prog-l"><span>1 Jan</span><span id="fcPct">0%</span><span>31 Dec</span></div></div>
@@ -15187,7 +15210,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.13.6';
+        window.ATL_APP_VERSION = '2026.11.13.7';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
