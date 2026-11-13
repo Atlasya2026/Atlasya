@@ -10156,6 +10156,30 @@ async function _cEntries(c) {
 }
 window.renderAdminCompetitions = renderAdminCompetitions;
 
+/* ═══ إعدادات الحملة الموسمية + بلاغات المشاركات (additive) ═══ */
+{ const _base = renderAdminCompetitions;
+  window.renderAdminCompetitions = renderAdminCompetitions = async function (area) {
+    area = area || document.getElementById('contentArea'); await _base(area);
+    try {
+      let s = {}; try { const d = await getDoc(doc(db, 'settings', 'competition_season')); if (d.exists()) s = d.data(); } catch (e) {}
+      const loc = v => (v && typeof _isoToCairoLocal === 'function' ? _isoToCairoLocal(v) : ''), iso = v => (v ? (typeof _cairoLocalToIso === 'function' ? _cairoLocalToIso(v) : new Date(v).toISOString()) : '');
+      const rp = (await getDocs(collection(db, 'competition_reports'))).docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.status === 'open');
+      const hd = area.querySelector('.page-header');
+      hd.insertAdjacentHTML('afterend', `<div id="seasonBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:18px"><b>🎯 الحملة الموسمية (مستقلة عن التحديات اليومية)</b><br><span class="cmp-muted">بعد نهاية "الفترة الختامية" يُغلق التسجيل والتصويت والتعليقات ويُخفى القسم من الرئيسية (أو يتحول لأرشيف) وتبقى كل البيانات. لموسم جديد غيّر الاسم والتواريخ فقط.</span><br><br>
+        <input id="seN" style="${_cIn}" placeholder="اسم الحملة (مثال: ATLASYA END OF YEAR 2026 CAMPAIGN)" value="${_cE(s.name || '')}">
+        <label class="cmp-muted">بداية الحملة</label><input id="seS" type="datetime-local" style="${_cIn}" value="${loc(s.startAt)}"><label class="cmp-muted">نهاية استقبال المشاركات والتصويت (31 ديسمبر 2026 مثلًا)</label><input id="seE" type="datetime-local" style="${_cIn}" value="${loc(s.endAt)}"><label class="cmp-muted">نهاية الفترة الختامية (إعلان النتائج وتكريم الفائزين)</label><input id="seC" type="datetime-local" style="${_cIn}" value="${loc(s.closeAt)}">
+        <select id="seA" style="${_cIn}"><option value="hide" ${s.archive !== 'archive' ? 'selected' : ''}>بعد الانتهاء: إخفاء القسم من الرئيسية</option><option value="archive" ${s.archive === 'archive' ? 'selected' : ''}>بعد الانتهاء: تحويله إلى أرشيف ظاهر</option></select>
+        <label style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><input id="seO" type="checkbox" ${s.active === false ? '' : 'checked'}> الحملة مفعّلة</label>
+        <button id="seGo" style="padding:10px 18px;border:0;border-radius:10px;background:var(--green3);color:#fff;font-weight:700;cursor:pointer">حفظ إعدادات الحملة</button></div>
+        <div id="repBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:18px"><b>🚩 بلاغات المشاركات (${rp.length})</b><br><br>${rp.map(r => `<div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px"><b>${_cE(r.entryTitle || r.entryId)}</b><br><span class="cmp-muted">${_cE(r.reason)}</span><br><button data-rh="${r.id}" data-e="${_cE(r.entryId)}" style="margin-top:6px;padding:6px 12px;border:0;border-radius:8px;background:#b42318;color:#fff;cursor:pointer">إخفاء المشاركة</button> <button data-rd="${r.id}" style="margin-top:6px;padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);cursor:pointer">تجاهل البلاغ</button></div>`).join('') || '<span class="cmp-muted">لا توجد بلاغات مفتوحة.</span>'}</div>`);
+      document.getElementById('seGo').onclick = async () => { const g = i => document.getElementById(i).value, n = g('seN').trim(); if (!n || !g('seE')) return _cT('اسم الحملة ونهاية الاستقبال مطلوبان');
+        if (g('seS') && g('seS') >= g('seE')) return _cT('بداية الحملة يجب أن تسبق نهايتها'); if (g('seC') && g('seC') < g('seE')) return _cT('الفترة الختامية يجب أن تكون بعد نهاية الاستقبال');
+        await _cSD(doc(db, 'settings', 'competition_season'), { name: n, startAt: iso(g('seS')), endAt: iso(g('seE')), closeAt: iso(g('seC')), archive: g('seA'), active: document.getElementById('seO').checked, updatedAt: serverTimestamp() }); _cT('تم حفظ إعدادات الحملة'); };
+      area.querySelectorAll('[data-rh]').forEach(b => b.onclick = async () => { if (!confirm('إخفاء هذه المشاركة (تتحول لمرفوضة)؟')) return; await _sbUpdateDoc(doc(db, 'competition_entries', b.dataset.e), { status: 'rejected' }); await _sbUpdateDoc(doc(db, 'competition_reports', b.dataset.rh), { status: 'closed' }); renderAdminCompetitions(area); });
+      area.querySelectorAll('[data-rd]').forEach(b => b.onclick = async () => { await _sbUpdateDoc(doc(db, 'competition_reports', b.dataset.rd), { status: 'closed' }); renderAdminCompetitions(area); });
+    } catch (e) { console.warn('[season admin]', e); }
+  }; }
+
     /* ─── العروض والخصومات (The Final Deals) — بتظهر في الصفحة الرئيسية للطلبة ─── */
     let _offersDraft = [];
     function _cairoOffsetMin(ms) {
