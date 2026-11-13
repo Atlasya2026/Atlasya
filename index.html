@@ -4090,6 +4090,171 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
 :not(button) > .spinner::after{content:none}
 @keyframes atlMiniRing{to{transform:rotate(360deg)}}
 </style>
+<style id="fcCss">
+/* ═════════ ATLASYA — The Final Chapter 2026 (home redesign) ═════════ */
+#pageBody.fc-home-on{background:#04130d !important}
+#pageBody.fc-home-on::before,#pageBody.fc-home-on::after{display:none !important}
+#pageBody.fc-home-on .main{background:#04130d !important}
+#pageBody.fc-home-on .topbar{background:rgba(5,24,16,.86) !important;border-bottom:1px solid rgba(231,200,115,.16) !important;--text:#e8f5ee;--muted:#9fbfae;color:#e8f5ee}
+#pageBody.fc-home-on .main > div:last-child{background:#04130d;border-top-color:rgba(231,200,115,.12) !important}
+
+.fch{--fc-bg:#04130d;--fc-deep:#07231a;--fc-em:#34d399;--fc-em2:#10b981;--fc-gold:#e7c873;--fc-gold2:#f6e7b8;--fc-gold3:#b8913a;--fc-txt:#e8f5ee;--fc-mut:#9fbfae;
+  --fc-glass:linear-gradient(145deg,rgba(52,211,153,.10),rgba(7,35,26,.55));--fc-line:rgba(231,200,115,.2);
+  position:relative;color:var(--fc-txt);max-width:1180px;margin:0 auto;isolation:isolate}
+.fch *{box-sizing:border-box}
+.fch{overflow-x:clip}
+.fc-bgc{position:absolute;inset:-24px -16px;width:calc(100% + 32px);height:calc(100% + 48px);z-index:-1;pointer-events:none;opacity:.9}
+.fc-sec{margin-top:26px}
+.fc-sec-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.fc-sec-h h3{font-size:clamp(17px,2.4vw,22px);font-weight:900;letter-spacing:.2px}
+.fc-sec-h h3 em{font-style:normal;color:var(--fc-gold)}
+.fc-sec-h::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--fc-line),transparent)}
+body.rtl .fc-sec-h::after{background:linear-gradient(270deg,var(--fc-line),transparent)}
+.fc-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 22px;border-radius:99px;font:800 14px/1 inherit;font-family:inherit;cursor:pointer;border:1px solid transparent;transition:transform .18s,box-shadow .18s,background .18s;white-space:nowrap;text-decoration:none}
+.fc-btn:active{transform:scale(.97)}
+.fc-btn-gold{background:linear-gradient(135deg,var(--fc-gold2),var(--fc-gold) 55%,var(--fc-gold3));color:#1a1405;box-shadow:0 8px 26px rgba(231,200,115,.28)}
+.fc-btn-gold:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(231,200,115,.4)}
+.fc-btn-glass{background:rgba(255,255,255,.06);color:var(--fc-txt);border-color:rgba(231,200,115,.35);backdrop-filter:blur(8px)}
+.fc-btn-glass:hover{background:rgba(231,200,115,.12);transform:translateY(-2px)}
+.fc-btn i{font-size:13px}
+
+/* ── Hero ── */
+.fc-hero{position:relative;overflow:hidden;border-radius:26px;border:1px solid var(--fc-line);background:radial-gradient(120% 90% at 85% 100%,rgba(16,185,129,.28),transparent 60%),linear-gradient(160deg,#0a3324 0%,#06201a 55%,#04130d 100%);padding:22px 20px 0;min-height:560px;box-shadow:0 24px 70px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06)}
+.fc-hero-bgc{position:absolute;inset:0;width:100%;height:100%;opacity:.8;pointer-events:none}
+.fc-earth-wrap{position:absolute;z-index:0;left:50%;bottom:-16%;width:min(98vw,430px);aspect-ratio:1;transform:translateX(-50%);pointer-events:none}
+.fc-earth-wrap::before{content:'';position:absolute;inset:-8%;border-radius:50%;background:radial-gradient(circle,rgba(52,211,153,.5) 0%,rgba(16,185,129,.16) 45%,transparent 70%);filter:blur(10px)}
+.fc-earth{position:relative;width:100%;height:100%;object-fit:cover;border-radius:50%;filter:saturate(1.1) drop-shadow(0 0 40px rgba(52,211,153,.45));animation:fcSpin 90s linear infinite}
+.fc-earth-wrap::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 70px 14px rgba(4,19,13,.85),0 0 0 1px rgba(231,200,115,.35),0 0 60px rgba(231,200,115,.18)}
+@keyframes fcSpin{to{transform:rotate(360deg)}}
+.fc-orbit{position:absolute;z-index:1;left:50%;bottom:-16%;width:min(128vw,560px);aspect-ratio:1;transform:translateX(-50%) rotate(-18deg);pointer-events:none;opacity:.9}
+.fc-sat{position:absolute;z-index:2;bottom:36%;inset-inline-end:7%;width:54px;animation:fcFloat 6s ease-in-out infinite;filter:drop-shadow(0 0 12px rgba(52,211,153,.6))}
+@keyframes fcFloat{50%{transform:translateY(-12px) rotate(6deg)}}
+.fc-streak{position:absolute;z-index:1;height:2px;border-radius:2px;pointer-events:none;opacity:.8}
+.fc-streak.g{background:linear-gradient(90deg,transparent,#34d399,transparent)}
+.fc-streak.y{background:linear-gradient(90deg,transparent,#e7c873,transparent)}
+.fc-hello{position:relative;z-index:3;display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);font-size:12.5px;color:var(--fc-mut);backdrop-filter:blur(8px);margin-bottom:14px}
+.fc-hello b{color:var(--fc-em)}
+.fc-slides{position:relative;z-index:3;display:grid}
+.fc-slide{grid-area:1/1;opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity .5s,transform .5s,visibility .5s;padding-bottom:250px}
+.fc-slide.on{opacity:1;visibility:visible;transform:none}
+.fc-badge{display:inline-flex;align-items:center;gap:8px;padding:7px 16px;border-radius:99px;font:800 11.5px/1 'Space Mono',monospace;letter-spacing:1.4px;color:#1a1405;background:linear-gradient(135deg,var(--fc-gold2),var(--fc-gold) 60%,var(--fc-gold3));box-shadow:0 6px 22px rgba(231,200,115,.3);position:relative;overflow:hidden}
+.fc-badge::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);transform:translateX(-120%);animation:fcShine 4s infinite}
+body.rtl .fc-badge::after{transform:translateX(120%);animation-name:fcShineR}
+@keyframes fcShine{60%,100%{transform:translateX(120%)}}
+@keyframes fcShineR{60%,100%{transform:translateX(-120%)}}
+.fc-h1{font-size:clamp(32px,8.6vw,62px);font-weight:900;line-height:1.12;margin:16px 0 12px;letter-spacing:-.5px}
+.fc-h1 span{display:block}
+.fc-h1 span+span{background:linear-gradient(100deg,var(--fc-gold2),var(--fc-gold) 50%,var(--fc-em));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.fc-sub{font-size:clamp(14px,3.6vw,19px);color:var(--fc-mut);max-width:460px;line-height:1.7}
+.fc-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+.fc-dots{position:absolute;z-index:4;inset-inline:0;bottom:14px;display:flex;justify-content:center;gap:7px}
+.fc-dots:empty{display:none}
+.fc-dots button{width:8px;height:8px;border-radius:99px;border:0;padding:0;background:rgba(255,255,255,.28);cursor:pointer;transition:.3s}
+.fc-dots button.on{width:26px;background:var(--fc-gold)}
+
+/* ── Stats ── */
+.fc-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:-6px;position:relative;z-index:5;padding:0 6px}
+.fc-stat{display:flex;align-items:center;gap:12px;padding:16px 14px;border-radius:18px;border:1px solid var(--fc-line);background:var(--fc-glass);backdrop-filter:blur(12px);cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;box-shadow:0 10px 30px rgba(0,0,0,.28)}
+.fc-stat:hover{transform:translateY(-3px);border-color:rgba(231,200,115,.5);box-shadow:0 14px 36px rgba(231,200,115,.12)}
+.fc-stat .ic{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--fc-gold);background:rgba(231,200,115,.1);border:1px solid rgba(231,200,115,.28);flex-shrink:0}
+.fc-stat .n{font:800 clamp(22px,5.4vw,30px)/1.05 'Space Mono',monospace;color:#fff;font-variant-numeric:tabular-nums}
+.fc-stat .l{font-size:12px;color:var(--fc-mut);margin-top:4px}
+
+/* ── Explore cards ── */
+.fc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.fc-xcard{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:6px;padding:18px 16px 16px;min-height:158px;border-radius:20px;border:1px solid rgba(52,211,153,.22);background:var(--fc-glass);backdrop-filter:blur(12px);cursor:pointer;transition:transform .22s,border-color .22s,box-shadow .22s}
+.fc-xcard::before{content:'';position:absolute;inset-inline-end:-30px;top:-30px;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,rgba(52,211,153,.28),transparent 70%);transition:.3s}
+.fc-xcard:hover,.fc-xcard:focus-visible{transform:translateY(-4px);border-color:rgba(231,200,115,.55);box-shadow:0 16px 40px rgba(16,185,129,.18),0 0 0 1px rgba(231,200,115,.2);outline:0}
+.fc-xcard:hover::before{transform:scale(1.5);background:radial-gradient(circle,rgba(231,200,115,.3),transparent 70%)}
+.fc-xcard:active{transform:scale(.98)}
+.fc-xcard .ic{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--fc-em);background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.35);position:relative}
+.fc-xcard h4{font-size:15.5px;font-weight:900;margin-top:6px;position:relative}
+.fc-xcard .tag{font-size:11.5px;font-weight:800;color:var(--fc-gold);position:relative}
+.fc-xcard p{font-size:12px;color:var(--fc-mut);line-height:1.6;position:relative;flex:1}
+.fc-xcard .go{position:absolute;inset-inline-end:14px;bottom:14px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--fc-gold);border:1px solid rgba(231,200,115,.4);transition:.2s}
+.fc-xcard:hover .go{background:var(--fc-gold);color:#1a1405}
+.fc-xcard.mini{min-height:0;flex-direction:row;align-items:center;gap:12px;padding:14px}
+.fc-xcard.mini .ic{width:40px;height:40px;font-size:17px;flex-shrink:0}
+.fc-xcard.mini h4{margin:0;font-size:14px}
+.fc-xcard.mini p{display:none}
+.fc-xcard.mini .go{position:static;margin-inline-start:auto;flex-shrink:0}
+
+/* ── Deals ── */
+.fc-deals{position:relative;overflow:hidden;border-radius:24px;border:1px solid rgba(231,200,115,.42);background:radial-gradient(90% 120% at 100% 0%,rgba(231,200,115,.2),transparent 60%),linear-gradient(150deg,#0b3a29,#06231a 60%,#04130d);padding:22px 18px;scroll-margin-top:90px}
+body.rtl .fc-deals{background:radial-gradient(90% 120% at 0% 0%,rgba(231,200,115,.2),transparent 60%),linear-gradient(210deg,#0b3a29,#06231a 60%,#04130d)}
+.fc-deals-top{display:flex;align-items:center;gap:14px}
+.fc-deals-txt{flex:1;min-width:0}
+.fc-deals-txt h3{font:900 clamp(22px,5.6vw,34px)/1.1 'Space Mono',monospace;letter-spacing:1px;background:linear-gradient(100deg,var(--fc-gold2),var(--fc-gold) 60%,var(--fc-gold3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.fc-deals-txt .s1{margin-top:8px;font-size:15px;font-weight:800;color:#fff}
+.fc-deals-txt .s2{margin-top:4px;font-size:12.5px;color:var(--fc-gold)}
+.fc-deals-txt .fc-btn{margin-top:16px;padding:11px 20px}
+.fc-gift{width:clamp(96px,26vw,170px);flex-shrink:0;filter:drop-shadow(0 0 26px rgba(231,200,115,.5));animation:fcFloat 5s ease-in-out infinite}
+.fc-offers{display:grid;gap:12px;margin-top:18px}
+.fc-offers:empty{display:none}
+.fc-offer{border-radius:18px;padding:16px;background:rgba(4,19,13,.6);border:1px solid rgba(231,200,115,.3);backdrop-filter:blur(8px);display:flex;flex-direction:column;gap:10px}
+.fc-offer.gone{display:none}
+.fc-offer-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.fc-offer h4{font-size:16px;font-weight:900}
+.fc-offer p{font-size:12.5px;color:var(--fc-mut);line-height:1.6}
+.fc-off{flex-shrink:0;padding:5px 11px;border-radius:99px;font:800 12px/1 'Space Mono',monospace;background:var(--fc-gold);color:#1a1405}
+.fc-prices{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.fc-prices s{color:var(--fc-mut);font-size:14px}
+.fc-prices b{font:800 24px/1 'Space Mono',monospace;color:var(--fc-gold2)}
+.fc-offer-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--fc-mut)}
+.fc-code{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:10px;border:1px dashed rgba(231,200,115,.6);background:rgba(231,200,115,.08);color:var(--fc-gold2);font:800 13px/1 'Space Mono',monospace;cursor:pointer;letter-spacing:1px}
+.fc-code:hover{background:rgba(231,200,115,.18)}
+.fc-left{margin-inline-start:auto;color:var(--fc-gold)}
+.fc-empty{text-align:center;color:var(--fc-mut);font-size:13px;padding:14px 8px;border:1px dashed rgba(231,200,115,.25);border-radius:14px}
+
+/* ── Countdown ── */
+.fc-count{border-radius:24px;border:1px solid var(--fc-line);background:var(--fc-glass);backdrop-filter:blur(14px);padding:22px 16px;text-align:center;position:relative;overflow:hidden}
+.fc-count::before{content:'';position:absolute;inset:0;background:radial-gradient(60% 80% at 50% 0%,rgba(52,211,153,.18),transparent 70%);pointer-events:none}
+.fc-count h3{font-size:clamp(16px,4.4vw,22px);font-weight:900;position:relative}
+.fc-count h3 em{font-style:normal;color:var(--fc-gold)}
+.fc-count .st{font-size:12.5px;color:var(--fc-mut);margin-top:4px;position:relative}
+.fc-cd{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px auto 0;max-width:520px;direction:ltr;position:relative}
+.fc-cd div{padding:14px 4px 10px;border-radius:16px;background:rgba(4,19,13,.65);border:1px solid rgba(231,200,115,.3)}
+.fc-cd b{display:block;font:800 clamp(24px,7vw,38px)/1 'Space Mono',monospace;color:var(--fc-gold2);font-variant-numeric:tabular-nums}
+.fc-cd small{display:block;margin-top:7px;font-size:11px;color:var(--fc-mut);letter-spacing:.6px;text-transform:uppercase}
+.fc-prog{max-width:520px;margin:18px auto 0;position:relative}
+.fc-prog-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;direction:ltr}
+.fc-prog-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--fc-em2),var(--fc-em),var(--fc-gold));box-shadow:0 0 16px rgba(52,211,153,.6);transition:width 1s}
+.fc-prog-l{display:flex;justify-content:space-between;margin-top:8px;font-size:11.5px;color:var(--fc-mut);direction:ltr}
+.fc-fin{margin-top:16px;font-size:14px;font-weight:800;color:var(--fc-gold);position:relative}
+
+/* ── Bottom navigation (mobile) ── */
+.fc-bnav{display:none}
+@media (max-width:768px){
+  .fc-bnav{display:flex;position:fixed;inset-inline:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:900;height:66px;padding:6px 4px;gap:2px;border-radius:22px;background:rgba(5,24,16,.9);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(231,200,115,.26);box-shadow:0 12px 40px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06)}
+  .fc-bnav button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;background:none;cursor:pointer;color:#9fbfae;font-family:inherit;border-radius:16px;position:relative;transition:color .2s,background .2s;-webkit-tap-highlight-color:transparent}
+  .fc-bnav button i{font-size:17px;transition:transform .2s}
+  .fc-bnav button span{font-size:9.5px;font-weight:700;line-height:1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fc-bnav button.on{color:#e7c873;background:rgba(231,200,115,.1)}
+  .fc-bnav button.on i{transform:translateY(-2px);filter:drop-shadow(0 0 8px rgba(231,200,115,.6))}
+  .fc-bnav button.on::after{content:'';position:absolute;top:2px;width:16px;height:3px;border-radius:3px;background:#e7c873;box-shadow:0 0 10px #e7c873}
+  #contentArea{padding-bottom:104px !important}
+  .fc-hero{padding:18px 16px 0;border-radius:22px}
+}
+@media (min-width:640px){
+  .fc-stats{grid-template-columns:repeat(4,1fr)}
+  .fc-grid{grid-template-columns:repeat(4,1fr)}
+  .fc-grid.more{grid-template-columns:repeat(3,1fr)}
+  .fc-offers{grid-template-columns:repeat(2,1fr)}
+}
+@media (min-width:900px){
+  .fc-hero{min-height:520px;padding:34px 44px}
+  .fc-earth-wrap{left:auto;inset-inline-end:-120px;bottom:50%;transform:translateY(50%);width:600px}
+  .fc-orbit{left:auto;inset-inline-end:-190px;bottom:50%;transform:translateY(50%) rotate(-18deg);width:760px}
+  .fc-slide{padding-bottom:70px;max-width:560px}
+  .fc-dots{justify-content:flex-start;inset-inline-start:44px}
+  .fc-sat{top:12%;bottom:auto;inset-inline-end:42%}
+  .fc-stats{margin-top:-34px;padding:0 24px}
+  .fc-offers{grid-template-columns:repeat(3,1fr)}
+  .fc-deals{padding:30px 34px}
+}
+@media (prefers-reduced-motion:reduce){.fc-earth,.fc-sat,.fc-gift,.fc-badge::after{animation:none !important}}
+</style>
+
 <div id="atlBoot" role="status" aria-live="polite" aria-label="Loading ATLASYA">
     <div class="ab-logo-wrap"><div class="ab-glow"></div>
         <svg class="ab-ring" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="abG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b5e96" stop-opacity="0"/><stop offset=".55" stop-color="#2aa58f"/><stop offset="1" stop-color="#1b5e96"/></linearGradient></defs>
@@ -4599,6 +4764,7 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
                     <span>&copy; Copyright 2026</span>
                 </div>
             </main>
+            <nav class="fc-bnav" id="fcBnav" aria-label="Main navigation"></nav>
         </div>
     </div>
 
@@ -6043,6 +6209,23 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             autoApprove: true
         };
         window.DEFAULT_COIN_SETTINGS = DEFAULT_COIN_SETTINGS; // exposed for the classic <script> block below, which can't see module-scoped consts
+
+        // ── العروض (The Final Deals): بتتدار من admin.html → "العروض والخصومات" وبتتخزّن في settings/offers ──
+        window._loadOffers = async () => {
+            try {
+                const snap = await getDoc(doc(db, 'settings', 'offers'));
+                if (snap.exists()) { const d = snap.data(); return Array.isArray(d.items) ? d.items : []; }
+            } catch(e) { console.error('loadOffers error:', e); }
+            return [];
+        };
+        // عدد الكورسات الفعلي (كورسات الشركات المعتمدة + الكورسات المجانية) لإحصائيات الصفحة الرئيسية
+        window._countCourses = async () => {
+            const [a, b] = await Promise.all([
+                getDocs(query(collection(db, 'courses'), where('status', '==', 'approved'))),
+                getDocs(collection(db, 'free_courses'))
+            ]);
+            return a.docs.filter(d => !d.data().hidden).length + b.docs.length;
+        };
 
         window._loadCoinSettings = async () => {
             try {
@@ -8501,6 +8684,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 }
             }
             window._currentPage = page;
+            if (page !== 'dashboard') { window._fcAtOffers = false; document.getElementById('pageBody')?.classList.remove('fc-home-on'); }
             // Close mobile sidebar on navigation
             closeSidebar();
             if (!silent) {
@@ -8599,6 +8783,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
 
             // Apply admin-saved content from Firebase after every render
             if (window._applyContent) window._applyContent();
+            try { fcSyncNav(page); } catch (e) {}
         }
 
         /* Handles the browser Back/Forward buttons: re-renders the page encoded
@@ -8654,8 +8839,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             }
         };
 
-        /* ─── DASHBOARD ─── */
-        async function renderDashboard(area) {
+        /* ─── DASHBOARD (الصفحة القديمة — بتُستخدم كاحتياطي فقط) ─── */
+        async function renderDashboardLegacy(area) {
             const isAR = lang === 'AR';
 
             /* ── Time-based greeting ── */
@@ -8753,6 +8938,292 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                     }
                 } catch(e) { /* silent fail — keep default 0 */ }
             })();
+        }
+
+        /* ═════════ ATLASYA — The Final Chapter 2026: home page ═════════
+           الصفحة الرئيسية الجديدة. لو حصل أي خطأ في الرسم بنرجع تلقائيًا للصفحة القديمة (renderDashboardLegacy). */
+        const FC_END_MS   = Date.parse('2026-12-31T23:59:59+02:00') + 999;   // نهاية 31 ديسمبر 2026 بتوقيت القاهرة (UTC+2 في ديسمبر)
+        const FC_START_MS = Date.parse('2026-01-01T00:00:00+02:00');
+        let _fcTimers = [];
+        function fcClearTimers() { _fcTimers.forEach(t => { clearInterval(t); clearTimeout(t); }); _fcTimers = []; }
+
+        async function renderDashboard(area) {
+            fcClearTimers();
+            try { fcRenderHome(area); }
+            catch (e) { console.error('[home] new design failed, falling back', e); document.getElementById('pageBody')?.classList.remove('fc-home-on'); return renderDashboardLegacy(area); }
+        }
+
+        function fcContours() {
+            let s = '<svg class="fc-bgc" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">';
+            [[620, 220, 9], [150, 760, 8]].forEach(([cx, cy, n], ci) => {
+                for (let k = 1; k <= n; k++) {
+                    const r = 26 + k * 36, a = 5 + k * 1.6;
+                    let d = '';
+                    for (let i = 0; i <= 72; i++) {
+                        const t = i / 72 * Math.PI * 2;
+                        const rr = r + Math.sin(3 * t + k * .7 + ci) * a + Math.sin(5 * t + k * 1.3) * a * .55;
+                        d += (i ? 'L' : 'M') + (cx + Math.cos(t) * rr * 1.25).toFixed(1) + ' ' + (cy + Math.sin(t) * rr).toFixed(1);
+                    }
+                    s += `<path d="${d}Z" fill="none" stroke="${k % 4 === 0 ? 'rgba(231,200,115,.11)' : 'rgba(52,211,153,.09)'}" stroke-width="${k % 4 === 0 ? 1.2 : .8}"/>`;
+                }
+            });
+            return s + '</svg>';
+        }
+        const FC_SAT = '<svg class="fc-sat" viewBox="0 0 64 64" aria-hidden="true"><g transform="rotate(-35 32 32)"><rect x="24" y="22" width="16" height="20" rx="3" fill="#e7c873"/><rect x="26" y="25" width="12" height="14" rx="2" fill="#0b3a29"/><rect x="2" y="26" width="19" height="12" rx="1.5" fill="#10b981" stroke="#e7c873" stroke-width=".8"/><rect x="43" y="26" width="19" height="12" rx="1.5" fill="#10b981" stroke="#e7c873" stroke-width=".8"/><path d="M8 26v12M14 26v12M49 26v12M55 26v12" stroke="#04130d" stroke-width=".8"/><path d="M32 22v-7" stroke="#e7c873" stroke-width="1.6"/><circle cx="32" cy="13" r="2.6" fill="#34d399"/></g></svg>';
+        const FC_ORBIT = '<svg class="fc-orbit" viewBox="0 0 400 400" aria-hidden="true"><ellipse cx="200" cy="200" rx="196" ry="196" fill="none" stroke="rgba(231,200,115,.4)" stroke-width="1" stroke-dasharray="2 7"/><ellipse cx="200" cy="200" rx="178" ry="178" fill="none" stroke="rgba(52,211,153,.35)" stroke-width="1.2"/><circle cx="26" cy="150" r="3.2" fill="#e7c873"/><circle cx="372" cy="250" r="2.6" fill="#34d399"/></svg>';
+        const FC_GIFT = '<svg class="fc-gift" viewBox="0 0 200 200" aria-hidden="true"><defs><linearGradient id="fcgA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e7b8"/><stop offset=".55" stop-color="#e7c873"/><stop offset="1" stop-color="#a97f2a"/></linearGradient><linearGradient id="fcgB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9b25a"/><stop offset="1" stop-color="#8f6a1e"/></linearGradient></defs><rect x="30" y="92" width="140" height="92" rx="8" fill="url(#fcgB)"/><rect x="22" y="68" width="156" height="34" rx="8" fill="url(#fcgA)"/><rect x="88" y="68" width="24" height="116" fill="#0b3a29" opacity=".85"/><rect x="88" y="68" width="24" height="116" fill="none" stroke="#f6e7b8" stroke-width="1"/><path d="M100 68C70 66 52 42 66 30c14-10 32 8 34 38z" fill="url(#fcgA)" stroke="#8f6a1e" stroke-width="1.5"/><path d="M100 68C130 66 148 42 134 30c-14-10-32 8-34 38z" fill="url(#fcgA)" stroke="#8f6a1e" stroke-width="1.5"/><circle cx="100" cy="66" r="9" fill="#f6e7b8" stroke="#8f6a1e" stroke-width="1.5"/><path d="M40 108v68M160 108v68" stroke="rgba(255,255,255,.25)" stroke-width="3" stroke-linecap="round"/><g fill="#f6e7b8"><path d="M170 36l3 8 8 3-8 3-3 8-3-8-8-3 8-3z"/><path d="M28 50l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></g></svg>';
+
+        function fcT(ar, en) { return lang === 'AR' ? ar : en; }
+        function fcGo(page) {
+            const id = (typeof PAGE_NAV_ID_MAP !== 'undefined' && PAGE_NAV_ID_MAP[page]) || '';
+            navigate(page, id ? document.getElementById(id) : null);
+        }
+        function fcScrollTo(id) { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+
+        /* ── العروض: بتتجاب من settings/offers (بتتدار من لوحة التحكم admin.html → "العروض والخصومات") ── */
+        function fcOfferLive(o, now) {
+            if (!o || o.active === false) return false;
+            const s = o.startsAt ? Date.parse(o.startsAt) : 0, e = o.endsAt ? Date.parse(o.endsAt) : Infinity;
+            return (isNaN(s) || now >= s) && (isNaN(e) || now < e);
+        }
+        function fcMoney(v, cur) { const n = Number(v); return (isNaN(n) ? '' : n.toLocaleString(lang === 'AR' ? 'ar-EG' : 'en-US')) + (cur ? ' ' + cur : ''); }
+        function fcLeft(ms) {
+            if (ms <= 0) return '';
+            const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4), s = Math.floor(ms % 6e4 / 1e3);
+            const p = [];
+            if (d) p.push(d + fcT(' ي', 'd')); if (d || h) p.push(h + fcT(' س', 'h')); p.push(m + fcT(' د', 'm')); if (!d) p.push(s + fcT(' ث', 's'));
+            return fcT('ينتهي خلال ', 'Ends in ') + p.join(' ');
+        }
+        function fcOfferCard(o) {
+            const t = lang === 'AR' ? (o.titleAR || o.titleEN) : (o.titleEN || o.titleAR);
+            const d = lang === 'AR' ? (o.descAR || o.descEN) : (o.descEN || o.descAR);
+            const orig = Number(o.originalPrice), disc = Number(o.discountPrice);
+            const hasP = o.discountPrice !== '' && o.discountPrice != null && !isNaN(disc);
+            const pct = hasP && orig > disc ? Math.round((1 - disc / orig) * 100) : (Number(o.percent) || 0);
+            const end = o.endsAt ? Date.parse(o.endsAt) : 0;
+            const page = o.ctaPage || 'account';
+            return `<div class="fc-offer" data-end="${end || ''}">
+                <div class="fc-offer-top"><h4>${escapeHtml(t || '')}</h4>${pct ? `<span class="fc-off">-${pct}%</span>` : ''}</div>
+                ${d ? `<p>${escapeHtml(d)}</p>` : ''}
+                ${hasP ? `<div class="fc-prices">${orig > disc ? `<s>${fcMoney(orig, o.currency)}</s>` : ''}<b>${fcMoney(disc, o.currency)}</b></div>` : ''}
+                <div class="fc-offer-meta">
+                    ${o.code ? `<button class="fc-code" type="button" onclick="fcCopyCode(this.dataset.c)" data-c="${escapeHtml(o.code)}"><i class="fa-regular fa-copy"></i> ${escapeHtml(o.code)}</button>` : ''}
+                    <span class="fc-left" data-left></span>
+                </div>
+                <button class="fc-btn fc-btn-gold" type="button" onclick="fcGo('${String(page).replace(/[^a-z0-9_]/gi, '')}')">${fcT('احصل على العرض', 'Get this offer')} <i class="fa-solid ${_hmArrow()}"></i></button>
+            </div>`;
+        }
+        function fcCopyCode(c) {
+            const ok = () => showToast(fcT('تم نسخ الكود: ', 'Code copied: ') + c);
+            try { navigator.clipboard.writeText(c).then(ok, ok); } catch (e) { ok(); }
+        }
+
+        function fcRenderHome(area) {
+            const isAR = lang === 'AR', admin = !!window._isAdmin;
+            document.getElementById('pageBody')?.classList.add('fc-home-on');
+            const _d = window._userData || {}, _ap = window._adminProfile || {};
+            const first = admin ? (_ap.displayName || '').split(' ')[0] : (_d.firstName || '');
+            const xcards = [
+                ['tools', 'fa-layer-group', 'GIS Tools', 'Analyze & Discover', 'أدوات GIS', 'حلّل واكتشف', 'برامج وأدوات احترافية لتحليل البيانات المكانية', 'Professional software and tools for spatial analysis'],
+                ['playlists', 'fa-graduation-cap', 'Learning Hub', 'Learn & Grow', 'مركز التعلّم', 'تعلّم وانمو', 'قوائم فيديوهات تعليمية خطوة بخطوة', 'Step-by-step GIS video playlists'],
+                ['library', 'fa-book-open', 'Resources', 'Books & References', 'المصادر', 'كتب ومراجع', 'مكتبة رقمية من الكتب والمراجع التقنية', 'A digital library of books and technical references'],
+                ['jobs', 'fa-briefcase', 'GIS Careers', 'Find Opportunities', 'وظائف GIS', 'اعثر على فرصتك', 'فرص عمل في الخرائط وتحليل البيانات', 'Mapping and data-analysis job opportunities']
+            ].map(([pg, ic, tEN, tagEN, tAR, tagAR, dAR, dEN]) => `
+                <div class="fc-xcard" role="button" tabindex="0" onclick="fcGo('${pg}')" onkeydown="if(event.key==='Enter')this.click()">
+                    <div class="ic"><i class="fa-solid ${ic}"></i></div>
+                    <h4>${isAR ? tAR : tEN}</h4><div class="tag">${isAR ? tagAR : tagEN}</div>
+                    <p>${isAR ? dAR : dEN}</p>
+                    <span class="go"><i class="fa-solid ${_hmArrow()}"></i></span>
+                </div>`).join('');
+            const more = admin ? '' : [
+                ['datasets', 'fa-database', 'البيانات المكانية', 'Spatial Datasets'],
+                ['courses', 'fa-building-shield', 'الكورسات والشركات', 'Courses & Companies'],
+                ['portfolio', 'fa-map-location-dot', 'خرائط الطلبة', 'Student Maps'],
+                ['insights', 'fa-lightbulb', 'نصائح GIS', 'GIS Insights'],
+                ['dailychallenge', 'fa-calendar-check', 'التحديات', 'Challenges'],
+                ['wheel', 'fa-dharmachakra', 'عجلة الحظ', 'Fortune Wheel']
+            ].map(([pg, ic, ar, en]) => `
+                <div class="fc-xcard mini" role="button" tabindex="0" onclick="fcGo('${pg}')" onkeydown="if(event.key==='Enter')this.click()">
+                    <div class="ic"><i class="fa-solid ${ic}"></i></div><h4>${isAR ? ar : en}</h4>
+                    <span class="go"><i class="fa-solid ${_hmArrow()}"></i></span>
+                </div>`).join('');
+            const stat = (id, ic, ar, en, pg) => `
+                <div class="fc-stat" role="button" tabindex="0" onclick="fcGo('${pg}')" onkeydown="if(event.key==='Enter')this.click()">
+                    <div class="ic"><i class="fa-solid ${ic}"></i></div>
+                    <div><div class="n" id="${id}">—</div><div class="l">${isAR ? ar : en}</div></div>
+                </div>`;
+
+            area.innerHTML = `
+            <div class="fch">
+                ${fcContours()}
+                <section class="fc-hero" aria-label="The Final Chapter 2026">
+                    <svg class="fc-hero-bgc" viewBox="0 0 800 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><path d="M-20 520C180 430 330 560 520 450S760 380 840 420" fill="none" stroke="rgba(52,211,153,.35)" stroke-width="1.2"/><path d="M-20 560C200 480 360 610 560 500S780 440 840 470" fill="none" stroke="rgba(231,200,115,.3)" stroke-width="1"/></svg>
+                    <i class="fc-streak g" style="width:150px;top:22%;inset-inline-start:-30px;transform:rotate(-14deg)"></i>
+                    <i class="fc-streak y" style="width:110px;top:36%;inset-inline-end:-20px;transform:rotate(18deg)"></i>
+                    ${FC_ORBIT}
+                    <div class="fc-earth-wrap"><img class="fc-earth" id="fcEarth" alt="" aria-hidden="true" decoding="async"></div>
+                    ${FC_SAT}
+                    ${first ? `<div class="fc-hello"><i class="fa-solid fa-location-crosshairs" style="color:var(--fc-gold)"></i>${isAR ? 'مرحباً،' : 'Welcome,'} <b>${escapeHtml(first)}</b></div>` : ''}
+                    <div class="fc-slides" id="fcSlides">
+                        <div class="fc-slide on">
+                            <span class="fc-badge"><i class="fa-solid fa-star" style="font-size:10px"></i> THE FINAL CHAPTER 2026</span>
+                            <h1 class="fc-h1"><span>${isAR ? 'فصل أخير.' : 'One Last Chapter.'}</span><span>${isAR ? 'إمكانيات بلا حدود.' : 'Endless Possibilities.'}</span></h1>
+                            <p class="fc-sub">${isAR ? 'اكتشافك القادم يبدأ من هنا.' : 'Your next discovery starts here.'}</p>
+                            <div class="fc-cta">
+                                <button class="fc-btn fc-btn-gold" type="button" onclick="fcScrollTo('fcExplore')">${isAR ? 'استكشف ATLASYA' : 'Explore ATLASYA'} <i class="fa-solid fa-compass"></i></button>
+                                <button class="fc-btn fc-btn-glass" type="button" onclick="fcScrollTo('fcDeals')">${isAR ? 'اكتشف العروض' : 'Discover Offers'} <i class="fa-solid fa-gift"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="fc-dots" id="fcDots"></div>
+                </section>
+
+                <div class="fc-stats">
+                    ${stat('fcS_members', 'fa-users', 'عضو نشط', 'Active Members', 'leaderboard')}
+                    ${stat('fcS_courses', 'fa-graduation-cap', 'كورس', 'Courses', 'courses')}
+                    ${stat('fcS_tools', 'fa-laptop-code', 'أداة GIS', 'GIS Tools', 'tools')}
+                    ${stat('fcS_res', 'fa-book-bookmark', 'مصدر', 'Resources', 'library')}
+                </div>
+
+                <section class="fc-sec" id="fcExplore">
+                    <div class="fc-sec-h"><h3>${isAR ? 'استكشف' : 'Explore'} <em>ATLASYA</em></h3></div>
+                    <div class="fc-grid">${xcards}</div>
+                    ${more ? `<div class="fc-grid more" style="margin-top:12px">${more}</div>` : ''}
+                </section>
+
+                <section class="fc-sec fc-deals" id="fcDeals">
+                    <div class="fc-deals-top">
+                        <div class="fc-deals-txt">
+                            <h3>THE FINAL DEALS</h3>
+                            <div class="s1">${isAR ? 'عروض ديسمبر الحصرية' : 'Exclusive December Offers'}</div>
+                            <div class="s2">${isAR ? 'لفترة محدودة — لا تفوّت الفرصة!' : "Limited Time – Don't Miss Out!"}</div>
+                            <button class="fc-btn fc-btn-gold" type="button" onclick="fcScrollTo('fcOffers')">${isAR ? 'شاهد العروض' : 'View Offers'} <i class="fa-solid ${_hmArrow()}"></i></button>
+                        </div>
+                        ${FC_GIFT}
+                    </div>
+                    <div class="fc-offers" id="fcOffers"></div>
+                </section>
+
+                <section class="fc-sec fc-count" id="fcCount">
+                    <h3>${isAR ? 'نهاية <em>2026</em> بعد' : 'The year <em>2026</em> ends in'}</h3>
+                    <div class="st">${isAR ? 'بتوقيت القاهرة — حتى 31 ديسمبر 2026' : 'Cairo time — until 31 December 2026'}</div>
+                    <div class="fc-cd">
+                        <div><b id="fcD">--</b><small>${isAR ? 'يوم' : 'Days'}</small></div>
+                        <div><b id="fcH">--</b><small>${isAR ? 'ساعة' : 'Hours'}</small></div>
+                        <div><b id="fcM">--</b><small>${isAR ? 'دقيقة' : 'Minutes'}</small></div>
+                        <div><b id="fcS">--</b><small>${isAR ? 'ثانية' : 'Seconds'}</small></div>
+                    </div>
+                    <div class="fc-prog"><div class="fc-prog-bar"><i id="fcBar"></i></div><div class="fc-prog-l"><span>1 Jan</span><span id="fcPct">0%</span><span>31 Dec</span></div></div>
+                    <div class="fc-fin">${isAR ? 'اختم السنة بمعرفة أكتر!' : 'Finish the year with more knowledge!'}</div>
+                </section>
+            </div>`;
+            const er = document.getElementById('fcEarth'); if (er) er.src = HM_EARTH;
+
+            /* العداد التنازلي — بتوقيت القاهرة (الهدف لحظة مطلقة فمش بيتأثر بتوقيت جهاز الطالب) ويقف عند صفر */
+            let cdTimer = null;
+            const pad = n => String(n).padStart(2, '0');
+            const tick = () => {
+                if (!document.getElementById('fcCount')) { fcClearTimers(); return; }
+                const now = Date.now(), left = Math.max(0, FC_END_MS - now);
+                const pct = Math.min(100, Math.max(0, (now - FC_START_MS) / (FC_END_MS - FC_START_MS) * 100));
+                const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+                set('fcD', pad(Math.floor(left / 864e5))); set('fcH', pad(Math.floor(left % 864e5 / 36e5)));
+                set('fcM', pad(Math.floor(left % 36e5 / 6e4))); set('fcS', pad(Math.floor(left % 6e4 / 1e3)));
+                set('fcPct', pct.toFixed(1) + '%');
+                const bar = document.getElementById('fcBar'); if (bar) bar.style.width = pct + '%';
+                document.querySelectorAll('#fcOffers .fc-offer').forEach(c => {
+                    const end = Number(c.dataset.end); if (!end) return;
+                    const l = end - now; if (l <= 0) { c.classList.add('gone'); return; }
+                    const sp = c.querySelector('[data-left]'); if (sp) sp.textContent = fcLeft(l);
+                });
+                if (left <= 0) clearInterval(cdTimer);
+            };
+            tick(); if (FC_END_MS > Date.now()) _fcTimers.push(cdTimer = setInterval(tick, 1000));
+
+            /* الإحصائيات — من بيانات المنصة الفعلية (لو فشل التحميل بيفضل "—" بدل رقم وهمي) */
+            const put = (id, n) => {
+                const el = document.getElementById(id); if (!el || n == null || isNaN(n)) return;
+                const t0 = performance.now(), dur = 900;
+                const step = t => { const k = Math.min(1, (t - t0) / dur); el.textContent = Math.round(n * (1 - Math.pow(1 - k, 3))).toLocaleString('en-US'); if (k < 1 && document.body.contains(el)) requestAnimationFrame(step); };
+                requestAnimationFrame(step);
+            };
+            (async () => { try { const r = await window._consultRpc('lb_config'); put('fcS_members', Number(r && r.participants)); } catch (e) {} })();
+            (async () => { try { put('fcS_courses', await window._countCourses()); } catch (e) {} })();
+            (async () => { try { const t = await window._loadSoftwareTools(); put('fcS_tools', t.filter(x => !x.hidden).length); } catch (e) {} })();
+            (async () => {
+                try {
+                    const [b, d] = await Promise.all([window._loadLibraryBooks(), window._loadSpatialDatasets ? window._loadSpatialDatasets() : Promise.resolve([])]);
+                    put('fcS_res', b.length + d.filter(x => !x.hidden).length);
+                } catch (e) {}
+            })();
+
+            /* العروض + سلايدات الـ Hero */
+            (async () => {
+                let items = [];
+                try { items = (await window._loadOffers()).filter(o => fcOfferLive(o, Date.now())); } catch (e) {}
+                const box = document.getElementById('fcOffers'); if (!box) return;
+                box.innerHTML = items.length ? items.map(fcOfferCard).join('')
+                    : `<div class="fc-empty" style="grid-column:1/-1">${isAR ? 'سيتم الإعلان عن العروض قريبًا.' : 'Offers will be announced soon.'}</div>`;
+                tick();
+                const heroOffers = items.filter(o => o.hero);
+                const wrap = document.getElementById('fcSlides'), dots = document.getElementById('fcDots');
+                if (!wrap || !heroOffers.length) return;
+                heroOffers.forEach(o => {
+                    const t = isAR ? (o.titleAR || o.titleEN) : (o.titleEN || o.titleAR), ds = isAR ? (o.descAR || o.descEN) : (o.descEN || o.descAR);
+                    const pg = String(o.ctaPage || 'account').replace(/[^a-z0-9_]/gi, '');
+                    wrap.insertAdjacentHTML('beforeend', `<div class="fc-slide"><span class="fc-badge"><i class="fa-solid fa-gift" style="font-size:10px"></i> THE FINAL DEALS</span>
+                        <h1 class="fc-h1"><span>${escapeHtml(t || '')}</span></h1>${ds ? `<p class="fc-sub">${escapeHtml(ds)}</p>` : ''}
+                        <div class="fc-cta"><button class="fc-btn fc-btn-gold" type="button" onclick="fcGo('${pg}')">${isAR ? 'احصل على العرض' : 'Get this offer'} <i class="fa-solid ${_hmArrow()}"></i></button>
+                        <button class="fc-btn fc-btn-glass" type="button" onclick="fcScrollTo('fcDeals')">${isAR ? 'كل العروض' : 'All offers'}</button></div></div>`);
+                });
+                const slides = [...wrap.querySelectorAll('.fc-slide')]; let cur = 0, timer = null;
+                dots.innerHTML = slides.map((_, i) => `<button type="button" aria-label="${i + 1}"></button>`).join('');
+                const show = i => { cur = (i + slides.length) % slides.length; slides.forEach((s, k) => s.classList.toggle('on', k === cur)); [...dots.children].forEach((b, k) => b.classList.toggle('on', k === cur)); };
+                const auto = () => { clearInterval(timer); if (!window.matchMedia('(prefers-reduced-motion:reduce)').matches) { timer = setInterval(() => { if (!document.getElementById('fcSlides')) { clearInterval(timer); return; } show(cur + 1); }, 6500); _fcTimers.push(timer); } };
+                [...dots.children].forEach((b, k) => b.onclick = () => { show(k); auto(); });
+                let x0 = null; wrap.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+                wrap.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 45) { show(cur + ((dx < 0) === (lang !== 'AR') ? 1 : -1)); auto(); } }, { passive: true });
+                show(0); auto();
+            })();
+
+            /* تمييز "العروض" في الشريط السفلي لما قسم العروض يبقى على الشاشة */
+            try {
+                const deals = document.getElementById('fcDeals');
+                if ('IntersectionObserver' in window && deals) {
+                    const io = new IntersectionObserver(es => { window._fcAtOffers = es[0].isIntersecting; fcSyncNav(); }, { threshold: .35 });
+                    io.observe(deals);
+                }
+            } catch (e) {}
+            if (window._fcScrollTo) { const id = window._fcScrollTo; window._fcScrollTo = null; setTimeout(() => fcScrollTo(id), 250); }
+        }
+
+        /* ═════════ Bottom navigation (mobile) ═════════ */
+        const FC_NAV = [
+            { k: 'home', ic: 'fa-house', ar: 'الرئيسية', en: 'Home', go: () => fcGo('dashboard') },
+            { k: 'tools', ic: 'fa-layer-group', ar: 'الأدوات', en: 'GIS Tools', go: () => fcGo('tools') },
+            { k: 'learn', ic: 'fa-graduation-cap', ar: 'التعلّم', en: 'Learning', go: () => fcGo('playlists') },
+            { k: 'res', ic: 'fa-book-open', ar: 'المصادر', en: 'Resources', go: () => fcGo('library') },
+            { k: 'jobs', ic: 'fa-briefcase', ar: 'الوظائف', en: 'Careers', go: () => fcGo('jobs') },
+            { k: 'offers', ic: 'fa-gift', ar: 'العروض', en: 'Offers', go: () => fcGoOffers() },
+            { k: 'acct', ic: 'fa-user', ar: 'حسابي', en: 'Account', go: () => goSettings('hub') }
+        ];
+        const FC_PAGE_KEY = { dashboard: 'home', tools: 'tools', unitconverter: 'tools', levelingcalc: 'tools', traverse: 'tools', playlists: 'learn', courses: 'learn',
+            library: 'res', datasets: 'res', jobs: 'jobs', cvbuilder: 'jobs', account: 'acct', achievements: 'acct', profile: 'acct' };
+        function fcGoOffers() {
+            if (window._currentPage === 'dashboard' && document.getElementById('fcDeals')) { fcScrollTo('fcDeals'); return; }
+            window._fcScrollTo = 'fcDeals'; fcGo('dashboard');
+        }
+        function fcSyncNav(page) {
+            page = page || window._currentPage || 'dashboard';
+            let nav = document.getElementById('fcBnav'); if (!nav) return;
+            if (!nav.firstChild) nav.innerHTML = FC_NAV.map(n => `<button type="button" data-k="${n.k}"><i class="fa-solid ${n.ic}"></i><span></span></button>`).join('');
+            let key = FC_PAGE_KEY[String(page).split('/')[0]] || '';
+            if (key === 'home' && window._fcAtOffers) key = 'offers';
+            [...nav.children].forEach((b, i) => {
+                const n = FC_NAV[i]; b.querySelector('span').textContent = lang === 'AR' ? n.ar : n.en;
+                b.classList.toggle('on', n.k === key); b.onclick = n.go; b.setAttribute('aria-label', lang === 'AR' ? n.ar : n.en);
+                if (n.k === key) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+            });
         }
 
         /* A dashboard stat card that's also a nav shortcut (new "hm" look) */
@@ -14545,7 +15016,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.5.2';
+        window.ATL_APP_VERSION = '2026.11.13.1';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
