@@ -5701,6 +5701,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         }
     }
     window._applyTheme = applyTheme;
+    window._cmpFs = { db, doc, getDoc, getDocs, collection, query, where, addDoc, setDoc, serverTimestamp, increment, updateDoc: _sbUpdateDoc };
 </script>
 
 <script>
@@ -10111,10 +10112,12 @@ window.openConsultationModal = function () { csTab('book'); };
 
     /* ═══ ATLASYA admin · المسابقات (additive) ═══ */
 const _cE = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const _cSD = (typeof setDoc === 'function') ? setDoc : _sbSetDoc;
+const _cX = () => window._cmpFs;
+const _cSD = (...a) => _cX().setDoc(...a);
 const _cT = m => (window.showToast ? showToast(m) : alert(m));
 const _cIn = 'width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:13px;margin-bottom:8px;';
 async function renderAdminCompetitions(area) {
+  const { db, doc, getDoc, getDocs, collection, query, where, addDoc, serverTimestamp, increment, updateDoc: _sbUpdateDoc } = _cX();
   area = area || document.getElementById('contentArea');
   const cs = (await getDocs(collection(db, 'competitions'))).docs.map(d => ({ id: d.id, ...d.data() }));
   const iso = v => (typeof _cairoLocalToIso === 'function' ? _cairoLocalToIso(v) : (v ? new Date(v).toISOString() : ''));
@@ -10134,6 +10137,7 @@ async function renderAdminCompetitions(area) {
   area.querySelectorAll('[data-m]').forEach(b => b.onclick = () => _cEntries(cs.find(c => c.id === b.dataset.m)));
 }
 async function _cEntries(c) {
+  const { db, doc, getDoc, getDocs, collection, query, where, addDoc, serverTimestamp, increment, updateDoc: _sbUpdateDoc } = _cX();
   const box = document.getElementById('cpEntries');
   const es = (await getDocs(query(collection(db, 'competition_entries'), where('compId', '==', c.id)))).docs.map(d => ({ id: d.id, ...d.data() }));
   const vs = (await getDocs(query(collection(db, 'competition_votes'), where('compId', '==', c.id)))).docs.map(d => d.data());
@@ -10161,6 +10165,7 @@ try { const _base = renderAdminCompetitions;
   window.renderAdminCompetitions = renderAdminCompetitions = async function (area) {
     area = area || document.getElementById('contentArea'); await _base(area);
     try {
+      const { db, doc, getDoc, getDocs, collection, query, where, addDoc, serverTimestamp, increment, updateDoc: _sbUpdateDoc } = _cX();
       let s = {}; try { const d = await getDoc(doc(db, 'settings', 'competition_season')); if (d.exists()) s = d.data(); } catch (e) {}
       const loc = v => (v && typeof _isoToCairoLocal === 'function' ? _isoToCairoLocal(v) : ''), iso = v => (v ? (typeof _cairoLocalToIso === 'function' ? _cairoLocalToIso(v) : new Date(v).toISOString()) : '');
       const rp = (await getDocs(collection(db, 'competition_reports'))).docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.status === 'open');
