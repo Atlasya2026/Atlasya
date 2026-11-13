@@ -4580,6 +4580,9 @@ body.rtl .fc-badge::after{transform:translateX(120%);animation-name:fcShineR}
                     <button class="nav-item" id="menuLeaderboard" onclick="navigate('leaderboard', this)" style="color:var(--gold4);">
                         <i class="fa-solid fa-ranking-star" style="color:var(--gold3);"></i> <span id="menuLeaderboardTxt">لوحة المتصدرين</span>
                     </button>
+                    <button class="nav-item" id="menuCompetitions" onclick="navigate('competitions', this)" style="color:var(--gold4);">
+                        <i class="fa-solid fa-medal" style="color:var(--gold3);"></i> <span id="menuCompetitionsTxt">العروض والمسابقات</span>
+                    </button>
                 </div>
 
                 <div class="nav-section collapsible" style="margin-top:8px;">
@@ -5381,6 +5384,72 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         window._deletePortfolioItem = async (itemId) => {
             await deleteDoc(doc(db, 'portfolio_items', itemId));
         };
+
+        /* ═══ ATLASYA · العروض والمسابقات (additive) — مسابقات الخرائط + ربط التحديات/المتصدرين/العروض الحالية ═══ */
+(() => {
+const E = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const AR = () => (typeof lang !== 'undefined' ? lang === 'AR' : true), T = (a, e) => AR() ? a : e;
+const SD = (typeof setDoc === 'function') ? setDoc : _sbSetDoc;
+const toast = (m, bad) => (window.showToast ? showToast(m, bad) : alert(m));
+const ms = v => { const t = Date.parse(v || ''); return isNaN(t) ? 0 : t; };
+const left = t => { const d = t - Date.now(); if (d <= 0) return ''; const D = Math.floor(d / 864e5), H = Math.floor(d % 864e5 / 36e5), M = Math.floor(d % 36e5 / 6e4); return `⏳ ${D ? D + T(' يوم ', 'd ') : ''}${H}${T(' س ', 'h ')}${D ? '' : M + T(' د', 'm')}`; };
+const phase = c => { const n = Date.now(); if (c.winners && c.winners.length) return ['won', T('تم إعلان الفائزين', 'Winners announced'), 0];
+  if (c.status === 'draft') return ['draft', T('قريبًا', 'Upcoming'), 0];
+  if (n < ms(c.regEnd)) return ['reg', T('التسجيل مفتوح', 'Registration open'), ms(c.regEnd)];
+  if (n >= ms(c.voteStart) && n < ms(c.voteEnd)) return ['vote', T('التصويت متاح', 'Voting open'), ms(c.voteEnd)];
+  if (n < ms(c.voteStart)) return ['wait', T('المسابقة نشطة', 'Active'), ms(c.voteStart)];
+  return ['done', T('اكتملت المسابقة', 'Completed'), 0]; };
+const loadComps = async () => (await getDocs(collection(db, 'competitions'))).docs.map(d => ({ id: d.id, ...d.data() })).filter(c => c.status !== 'hidden').sort((a, b) => ms(b.regEnd) - ms(a.regEnd));
+const loadEntries = async cid => (await getDocs(query(collection(db, 'competition_entries'), where('compId', '==', cid)))).docs.map(d => ({ id: d.id, ...d.data() }));
+const loadVotes = async cid => (await getDocs(query(collection(db, 'competition_votes'), where('compId', '==', cid)))).docs.map(d => d.data());
+const css = `.cmp{max-width:1100px;margin:0 auto}.cmp-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.cmp-tab{padding:9px 16px;border-radius:99px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;font-family:inherit;font-size:13px}.cmp-tab.on{background:rgba(var(--brand-rgb,30,122,52),.25);border-color:var(--green3);color:var(--green4)}.cmp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}.cmp-card{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}.cmp-card img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;cursor:pointer}.cmp-pill{align-self:flex-start;font-size:11px;font-weight:800;padding:3px 10px;border-radius:99px;background:rgba(var(--brand-rgb,30,122,52),.18);color:var(--green4)}.cmp-btn{padding:9px 14px;border-radius:10px;border:0;background:var(--green3);color:#fff;font-family:inherit;font-weight:700;cursor:pointer}.cmp-btn.alt{background:transparent;border:1px solid var(--border2,var(--border));color:var(--text)}.cmp-btn:disabled{opacity:.5;cursor:not-allowed}.cmp-in{width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--bg2,var(--bg3));color:var(--text);font-family:inherit;margin-bottom:8px}.cmp-muted{color:var(--muted);font-size:12px}`;
+let S = { tab: 'maps', comp: null };
+window.renderCompetitions = async function (area) {
+  area = area || document.getElementById('contentArea');
+  if (!document.getElementById('cmpCss')) { const s = document.createElement('style'); s.id = 'cmpCss'; s.textContent = css; document.head.appendChild(s); }
+  const tabs = [['maps', '🗺️ ' + T('مسابقات الخرائط', 'Map Competitions')], ['mine', '👤 ' + T('مشاركاتي', 'My Participations')], ['go:dailychallenge', '🧠 ' + T('تحديات GIS', 'GIS Challenges')], ['go:leaderboard', '🏆 ' + T('المتصدرين', 'Leaderboard')], ['go:dashboard', '🎁 ' + T('العروض والخصومات', 'Offers & Deals')]];
+  area.innerHTML = `<div class="cmp"><h2>🏅 ${T('العروض والمسابقات', 'Offers & Competitions')}</h2><div class="cmp-tabs">${tabs.map(([k, l]) => `<button class="cmp-tab ${S.tab === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div><div id="cmpBody"><div class="spinner" style="margin:30px auto"></div></div></div>`;
+  area.querySelectorAll('.cmp-tab').forEach(b => b.onclick = () => { const k = b.dataset.k; if (k.startsWith('go:')) { const p = k.slice(3); return navigate(p, document.getElementById(PAGE_NAV_ID_MAP[p])); } S.tab = k; S.comp = null; renderCompetitions(area); });
+  const body = document.getElementById('cmpBody');
+  try { S.tab === 'mine' ? await mine(body) : S.comp ? await compView(body) : await list(body); } catch (e) { console.warn('[competitions]', e); body.innerHTML = `<p class="cmp-muted">${T('تعذّر التحميل — تأكد من إعداد جداول المسابقات في Supabase (competitions / competition_entries / competition_votes).', 'Could not load — make sure the competition tables exist in Supabase.')}</p>`; }
+};
+async function list(body) {
+  const cs = await loadComps();
+  body.innerHTML = cs.length ? `<div class="cmp-grid">${cs.map(c => { const [k, l, t] = phase(c); return `<div class="cmp-card"><span class="cmp-pill">${l}</span><h3>${E(c.title)}</h3><p class="cmp-muted">${E((c.desc || '').slice(0, 140))}</p><span class="cmp-muted">${left(t)}</span><button class="cmp-btn" data-c="${c.id}">${T('فتح المسابقة', 'Open')}</button></div>`; }).join('')}</div>` : `<p class="cmp-muted">${T('لا توجد مسابقات حاليًا — ستظهر هنا فور إنشاء المشرف لأول مسابقة.', 'No competitions yet.')}</p>`;
+  body.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { S.comp = cs.find(c => c.id === b.dataset.c); renderCompetitions(); });
+}
+const score = (c, e, votes, maxV) => { const v = votes.filter(x => x.entryId === e.id).length, j = Number(e.jury) || 0, p = Number(c.publicPct) || 0;
+  return c.mode === 'public' ? v : c.mode === 'jury' ? j : (maxV ? v / maxV * 100 : 0) * p / 100 + j * (100 - p) / 100; };
+async function compView(body) {
+  const c = S.comp, [k, l, t] = phase(c), uid = currentUid;
+  const [all, votes] = await Promise.all([loadEntries(c.id), loadVotes(c.id)]);
+  const es = all.filter(e => e.status === 'approved'), mine = all.filter(e => e.uid === uid), maxV = Math.max(0, ...es.map(e => votes.filter(v => v.entryId === e.id).length));
+  const ranked = es.map(e => ({ e, s: score(c, e, votes, maxV), v: votes.filter(x => x.entryId === e.id).length })).sort((a, b) => b.s - a.s);
+  const myVotes = new Set(votes.filter(v => v.uid === uid).map(v => v.entryId));
+  body.innerHTML = `<button class="cmp-btn alt" id="cmpBack">← ${T('رجوع', 'Back')}</button><h2 style="margin:12px 0 4px">${E(c.title)} <span class="cmp-pill">${l}</span></h2><p>${E(c.desc || '')}</p>${c.rules ? `<p class="cmp-muted"><b>${T('الشروط:', 'Rules:')}</b> ${E(c.rules)}</p>` : ''}<p class="cmp-muted">${left(t)} · ${T('نظام الفوز', 'Scoring')}: ${c.mode === 'public' ? T('تصويت الجمهور', 'Public vote') : c.mode === 'jury' ? T('لجنة التحكيم', 'Jury') : `${c.publicPct}% ${T('جمهور', 'public')} / ${100 - c.publicPct}% ${T('تحكيم', 'jury')}`}</p>
+  ${k === 'reg' ? `<div class="cmp-card" style="margin:12px 0"><b>${T('شارك بخريطتك', 'Submit your map')}</b>${mine.length ? `<span class="cmp-muted">${T('لديك مشاركة بالفعل (الحالة: ', 'You already submitted (status: ')}${E(mine[0].status)})</span>` : `<input class="cmp-in" id="cmpT" placeholder="${T('عنوان الخريطة', 'Map title')}"><textarea class="cmp-in" id="cmpD" rows="2" placeholder="${T('وصف مختصر', 'Short description')}"></textarea><input class="cmp-in" id="cmpSw" placeholder="${T('البرنامج (ArcGIS Pro / QGIS…)', 'Software')}"><input class="cmp-in" id="cmpMt" placeholder="${T('نوع/تخصص الخريطة', 'Map type')}"><input class="cmp-in" id="cmpSrc" placeholder="${T('مصادر البيانات', 'Data sources')}"><input type="file" accept="image/png,image/jpeg,image/webp" id="cmpF" class="cmp-in"><button class="cmp-btn" id="cmpSend">${T('إرسال للمراجعة', 'Submit for review')}</button>`}</div>` : ''}
+  <h3 style="margin:14px 0 8px">${T('معرض الخرائط', 'Gallery')} (${es.length})</h3><div class="cmp-grid">${ranked.map(({ e, s, v }, i) => `<div class="cmp-card"><img src="${E(e.imageUrl)}" loading="lazy" onclick="window.open('${E(e.imageUrl)}','_blank')"><b>#${i + 1} ${E(e.title)}</b><span class="cmp-muted">${E(e.authorName)} · ${E(e.software || '')}</span><p class="cmp-muted">${E((e.desc || '').slice(0, 120))}</p><span>👍 ${v}${c.mode !== 'public' ? ` · ${T('تحكيم', 'Jury')}: ${Number(e.jury) || 0}` : ''}</span>${k === 'vote' ? `<button class="cmp-btn" data-v="${e.id}" ${e.uid === uid || myVotes.has(e.id) ? 'disabled' : ''}>${e.uid === uid ? T('مشاركتك', 'Yours') : myVotes.has(e.id) ? T('تم التصويت ✓', 'Voted ✓') : T('صوّت', 'Vote')}</button>` : ''}</div>`).join('') || `<p class="cmp-muted">${T('لا توجد مشاركات معتمدة بعد.', 'No approved entries yet.')}</p>`}</div>
+  ${c.winners && c.winners.length ? `<h3 style="margin:16px 0 6px">🏆 ${T('الفائزون', 'Winners')}</h3>${c.winners.map((w, i) => `<p>${['🥇', '🥈', '🥉'][i] || '🏅'} ${E(w.title)} — ${E(w.name)}</p>`).join('')}` : ''}`;
+  document.getElementById('cmpBack').onclick = () => { S.comp = null; renderCompetitions(); };
+  body.querySelectorAll('[data-v]').forEach(b => b.onclick = async () => { b.disabled = true;
+    try { const eid = b.dataset.v, e = es.find(x => x.id === eid); if (!uid || e.uid === uid) throw 0; const n = Date.now(); if (n < ms(c.voteStart) || n > ms(c.voteEnd)) { toast(T('التصويت غير متاح حاليًا', 'Voting is closed'), true); return; }
+      const ref = doc(db, 'competition_votes', eid + '_' + uid); if ((await getDoc(ref)).exists()) { toast(T('صوّتَّ لهذه المشاركة من قبل', 'Already voted'), true); return; }
+      await SD(ref, { entryId: eid, compId: c.id, uid, createdAt: serverTimestamp() }); toast(T('تم تسجيل صوتك', 'Vote recorded')); renderCompetitions(); } catch (er) { toast(T('تعذّر التصويت', 'Vote failed'), true); b.disabled = false; } });
+  const send = document.getElementById('cmpSend'); if (send) send.onclick = async () => { const f = document.getElementById('cmpF').files[0], ti = document.getElementById('cmpT').value.trim();
+    if (!ti || !f) return toast(T('العنوان وصورة الخريطة مطلوبان', 'Title and image required'), true);
+    if (!/^image\/(png|jpeg|webp)$/.test(f.type) || f.size > 8 * 1048576) return toast(T('صورة PNG/JPG/WEBP حتى 8MB فقط', 'PNG/JPG/WEBP up to 8MB'), true);
+    send.disabled = true; try { const du = await new Promise((ok, no) => { const im = new Image(); im.onload = () => { const r = Math.min(1, 1800 / Math.max(im.width, im.height)), cv = document.createElement('canvas'); cv.width = im.width * r; cv.height = im.height * r; cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', .85)); }; im.onerror = no; im.src = URL.createObjectURL(f); });
+      const url = await window._ensureStorageUrl('competitions', du), au = ((window._userData?.firstName || '') + ' ' + (window._userData?.lastName || '')).trim() || 'User';
+      await SD(doc(db, 'competition_entries', c.id + '_' + uid), { compId: c.id, compTitle: c.title, uid, authorName: au, title: ti, imageUrl: url, desc: document.getElementById('cmpD').value.trim().slice(0, 500), software: document.getElementById('cmpSw').value.trim().slice(0, 60), mapType: document.getElementById('cmpMt').value.trim().slice(0, 60), sources: document.getElementById('cmpSrc').value.trim().slice(0, 300), status: 'pending', jury: 0, createdAt: serverTimestamp() });
+      toast(T('تم الإرسال — بانتظار موافقة المشرف', 'Submitted — awaiting approval')); renderCompetitions(); } catch (er) { console.warn(er); toast(T('تعذّر الإرسال', 'Submit failed'), true); send.disabled = false; } };
+}
+async function mine(body) {
+  const uid = currentUid, cs = await loadComps();
+  const rows = (await Promise.all(cs.map(async c => (await loadEntries(c.id)).filter(e => e.uid === uid).map(e => ({ c, e }))))).flat();
+  const votesBy = await Promise.all(rows.map(r => loadVotes(r.c.id)));
+  body.innerHTML = rows.length ? `<div class="cmp-grid">${rows.map(({ c, e }, i) => `<div class="cmp-card"><img src="${E(e.imageUrl)}"><b>${E(e.title)}</b><span class="cmp-muted">${E(c.title)}</span><span class="cmp-pill">${{ pending: T('قيد المراجعة', 'Pending'), approved: T('مقبولة', 'Approved'), rejected: T('مرفوضة', 'Rejected') }[e.status] || E(e.status)}</span><span>👍 ${votesBy[i].filter(v => v.entryId === e.id).length}</span></div>`).join('')}</div>` : `<p class="cmp-muted">${T('لم تشارك في أي مسابقة بعد.', 'No participations yet.')}</p>`;
+}
+})();
 
         /* ─── PORTFOLIO: لايكات وكومنتات (portfolio_likes / portfolio_comments — شوف portfolio-social.sql) ─── */
         window._loadPortfolioSocial = async () => {
@@ -8682,7 +8751,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             account: 'menuAccount', achievements: 'menuAccount', portfolio: 'menuPortfolio', mentorship: 'menuMentorship',
             adminmembers: 'menuAdminMembers', adminpro: 'menuAdminPro',
             adminportfolio: 'menuAdminPortfolio', adminmentorship: 'menuAdminMentorship',
-            dailychallenge: 'menuDailyChallenge', wheel: 'menuWheel', leaderboard: 'menuLeaderboard', profile: 'menuAccount'
+            dailychallenge: 'menuDailyChallenge', wheel: 'menuWheel', leaderboard: 'menuLeaderboard', competitions: 'menuCompetitions', profile: 'menuAccount'
         };
 
         /* Reflects the current page in the URL as #/page-name so every page has
@@ -8751,6 +8820,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 wheel: lang==='AR'?'عجلة الحظ':'Fortune Wheel',
                 achievements: lang==='AR'?'إنجازاتي':'My Achievements',
                 leaderboard: lang==='AR'?'لوحة المتصدرين':'Leaderboard',
+                competitions: lang==='AR'?'العروض والمسابقات':'Offers & Competitions',
                 profile: lang==='AR'?'ملفي الشخصي':'My Profile',
             };
             document.getElementById('breadcrumbTitle').textContent = titles[page] || titles[String(page).split('/')[0]] || page;
@@ -8801,6 +8871,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             else if (page === 'dailychallenge') renderDailyChallenge(area);
             else if (page === 'wheel') renderWheel(area);
             else if (page === 'achievements' && window.renderAchievements) window.renderAchievements(area);
+            else if (page === 'competitions' && window.renderCompetitions) window.renderCompetitions(area);
             else if (page === 'leaderboard' && window.renderLeaderboard) window.renderLeaderboard(area);
             else if ((page === 'profile' || page.indexOf('profile/') === 0) && window.renderProfilePage) window.renderProfilePage(area, page);
             else renderSoon(area, page, titles[page]);
@@ -15074,7 +15145,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.5.3';
+        window.ATL_APP_VERSION = '2026.11.5.5';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
