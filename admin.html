@@ -4812,8 +4812,8 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         await addDoc(collection(db, 'job_posts'), {
             ...data,
             authorName,
-            authorUid: currentUid,
-            authorEmail: isAdminUser ? (window._adminProfile?.email || '') : (d.email || ''),
+            authorUid: currentUid || auth.currentUser?.uid || window._currentUid || null,
+            authorEmail: isAdminUser ? (window._adminProfile?.email || auth.currentUser?.email || '') : (d.email || ''),
             isAdminPost: isAdminUser,
             status: isAdminUser ? 'approved' : 'pending',
             createdAt: serverTimestamp()
@@ -7456,7 +7456,9 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
                 showToast(isAR ? '✓ تم إرسال الوظيفة للمراجعة، وستظهر في اللوحة بعد موافقة الإدارة' : '✓ Job submitted for review and will appear once approved by admin');
             }
         } catch(e) {
-            showToast(isAR ? 'خطأ في النشر' : 'Failed to post job', true);
+            console.error('[submitJob] failed:', e);
+            const why = (e && (e.message || e.code)) ? ' — ' + String(e.message || e.code).slice(0, 140) : '';
+            showToast((isAR ? 'خطأ في النشر' : 'Failed to post job') + why, true);
         } finally {
             if (btn) {
                 btn.disabled = false;
