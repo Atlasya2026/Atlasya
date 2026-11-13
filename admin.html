@@ -144,19 +144,19 @@
     <style>
         /* ===== TOKENS — Dual Brand: GIS Explorer × TerraScope ===== */
         :root {
-                --brand-rgb: 30,122,52; --brand2-rgb: 39,163,70; --brand-shadow-rgb: 15,61,26; --brand-end: #1abc9c;
+                --brand-rgb: 16,185,129; --brand2-rgb: 52,211,153; --brand-shadow-rgb: 4,60,44; --brand-end: #e7c873;
             /* Base backgrounds — soft dark charcoal, not pure black */
-            --bg:        #1a1d23;
-            --bg2:       #20242c;
-            --bg3:       #262b35;
-            --sidebar:   #161920;
-            --card:      rgba(32,36,44,0.95);
+            --bg:        #04130d;
+            --bg2:       #07231a;
+            --bg3:       #0b2f22;
+            --sidebar:   #051a12;
+            --card:      rgba(7,35,26,0.95);
 
             /* Green palette (GIS Explorer) */
-            --green1:    #0f3d1a;
-            --green2:    #175c27;
-            --green3:    #1e7a34;
-            --green4:    #27a346;
+            --green1:    #064e3b;
+            --green2:    #047857;
+            --green3:    #059669;
+            --green4:    #34d399;
 
             /* Gold palette (TerraScope) */
             --gold1:     #7a5800;
@@ -176,8 +176,8 @@
             --accent2b:  var(--gold4);
 
             /* Text — crisp white, easy to read */
-            --text:      #e8e6f0;
-            --muted:     #8a8fa0;
+            --text:      #e8f5ee;
+            --muted:     #9fbfae;
 
             /* Borders */
             --border:    rgba(var(--brand-rgb,30,122,52),0.18);
@@ -610,7 +610,7 @@
             height: 68px; min-height: 68px;
             display: flex; align-items: center; justify-content: space-between;
             padding: 0 36px;
-            background: rgba(10,10,14,0.75);
+            background: rgba(4,19,13,0.82);
             backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border);
         }
@@ -1654,29 +1654,29 @@
 
         /* ===== LIGHT MODE (White + VS Code Blue) ===== */
         body.light-mode {
-                --bg:      #f1f6fa;
-                --bg2:     #e3edf5;
-                --bg3:     #d6e5f0;
-                --sidebar: #0f2a40;
+                --bg:      #fff8ec;
+                --bg2:     #ffefd0;
+                --bg3:     #ffe4b0;
+                --sidebar: #3a2410;
                 --card:    rgba(255,255,255,0.95);
-                --text:    #0f2a40;
-                --muted:   #5d7488;
-                --border:  rgba(24,96,136,0.15);
-                --border2: rgba(24,96,136,0.3);
-                --shadow:  0 20px 60px rgba(13,58,102,0.12);
+                --text:    #3a2410;
+                --muted:   #8a6a45;
+                --border:  rgba(217,119,6,0.15);
+                --border2: rgba(217,119,6,0.3);
+                --shadow:  0 20px 60px rgba(120,53,15,0.12);
                 /* ألوان اللوجو: نيفي → أزرق → تيل */
-                --brand-rgb: 24,96,136;
-                --brand2-rgb: 38,148,140;
-                --brand-shadow-rgb: 13,58,102;
-                --brand-end: #26948c;
-                --green1:  #0d3a66;
-                --green2:  #166088;
-                --green3:  #1a7f99;
-                --green4:  #26948c;
-                --g1:      #0d3a66;
-                --g2:      #166088;
-                --g3:      #1a7f99;
-                --g4:      #26948c;
+                --brand-rgb: 217,119,6;
+                --brand2-rgb: 245,158,11;
+                --brand-shadow-rgb: 120,53,15;
+                --brand-end: #f59e0b;
+                --green1:  #78350f;
+                --green2:  #b45309;
+                --green3:  #d97706;
+                --green4:  #f59e0b;
+                --g1:      #78350f;
+                --g2:      #b45309;
+                --g3:      #d97706;
+                --g4:      #f59e0b;
             }
         body.light-mode { color: var(--text); }
         body.light-mode::before {
@@ -1690,13 +1690,13 @@
                 radial-gradient(ellipse at 80% 10%, rgba(var(--brand-rgb,30,122,52),0.05), transparent 45%);
         }
         
-        body.light-mode .sidebar { background: #0f2a40; }
-        body.light-mode .nav-item { color: #b5c9d9; }
+        body.light-mode .sidebar { background: #3a2410; }
+        body.light-mode .nav-item { color: #f3e1c7; }
         body.light-mode .nav-item:hover { background: rgba(var(--brand-rgb,30,122,52),0.15); color: #fff; }
         body.light-mode .nav-item.active { background: rgba(var(--brand-rgb,30,122,52),0.25); color: #fff; border-left-color: var(--g3); }
         body.light-mode .nav-item.active i { color: var(--g4); }
-        body.light-mode .nav-label { color: #8097ab; }
-        body.light-mode .nav-group-toggle { color: #8097ab; }
+        body.light-mode .nav-label { color: #c9ae86; }
+        body.light-mode .nav-group-toggle { color: #c9ae86; }
         body.light-mode .nav-group-toggle:hover { background: rgba(var(--brand-rgb,30,122,52),0.15); color: #fff; }
         body.light-mode .nav-section.open .nav-group-toggle { color: var(--g4); }
         body.light-mode .brand { border-color: rgba(255,255,255,0.08); }
@@ -1718,8 +1718,8 @@
         body.light-mode .user-card:hover { background: rgba(255,255,255,0.08); }
         body.light-mode .avatar { background: linear-gradient(135deg, var(--g2), var(--g4)); border-color: rgba(var(--brand-rgb,30,122,52),0.4); color: #fff; }
         body.light-mode .avatar-xl { background: linear-gradient(135deg, var(--g2), var(--g4)); border-color: rgba(var(--brand-rgb,30,122,52),0.4); color: #fff; }
-        body.light-mode .user-name { color: #dce8f5; }
-        body.light-mode .user-role { color: #8097ab; }
+        body.light-mode .user-name { color: #fdf2e0; }
+        body.light-mode .user-role { color: #c9ae86; }
         body.light-mode .btn-logout { color: #ff8080; border-color: rgba(255,100,100,0.2); }
         body.light-mode .btn-logout:hover { background: rgba(255,100,100,0.08); }
         body.light-mode #toast { background: #fff; color: var(--text); border-color: rgba(var(--brand-rgb,30,122,52),0.2); }
@@ -1740,7 +1740,7 @@
             border-bottom-color: rgba(var(--brand-rgb,30,122,52),0.15) !important;
         }
         body.light-mode #notifDropdown > div:first-child span {
-            color: #0f2a40 !important;
+            color: #3a2410 !important;
         }
         body.light-mode #notifList {
             background: #ffffff !important;
@@ -1969,7 +1969,7 @@
         .tip-title { font-size:15px; font-weight:800; line-height:1.35; }
         .tip-body { font-size:13px; color:var(--muted); line-height:1.75; }
         .tip-body strong { color:var(--text); }
-        body.light-mode .tip-body strong { color:#0f2a40; }
+        body.light-mode .tip-body strong { color:#3a2410; }
         .tip-body ul, .tip-body ol { padding-right:18px; padding-left:0; margin:8px 0 0; }
         body:not(.rtl) .tip-body ul, body:not(.rtl) .tip-body ol { padding-left:18px; padding-right:0; }
         .tip-body li { margin-bottom:5px; }
@@ -2198,8 +2198,8 @@
         .job-field select option { background:#1e2535; color:#e8e6f0; }
         body.light-mode .job-field input,
         body.light-mode .job-field select,
-        body.light-mode .job-field textarea { background:#f4f6fa;border-color:rgba(var(--brand-rgb,30,122,52),0.18);color:#0f2a40;color-scheme:light; }
-        body.light-mode .job-field select option { background:#fff; color:#0f2a40; }
+        body.light-mode .job-field textarea { background:#f4f6fa;border-color:rgba(var(--brand-rgb,30,122,52),0.18);color:#3a2410;color-scheme:light; }
+        body.light-mode .job-field select option { background:#fff; color:#3a2410; }
         .job-field input:focus,.job-field select:focus,.job-field textarea:focus { border-color:var(--g3); }
         .job-field textarea { resize:vertical;min-height:80px; }
         .btn-post-job { width:100%;padding:11px;background:linear-gradient(135deg,var(--g3),var(--g2));color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;font-family:'IBM Plex Sans Arabic','Tajawal',system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s; }
@@ -2227,7 +2227,7 @@
         .ac-toolbar input, .ac-toolbar select { padding:9px 12px;background:rgba(0,0,0,0.22);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'IBM Plex Sans Arabic','Tajawal',system-ui,sans-serif;font-size:12.5px; }
         body.light-mode .ac-toolbar input, body.light-mode .ac-toolbar select { background:#f4f6fa; }
         .ac-toolbar select option { background:#1e2535; color:#e8e6f0; }
-        body.light-mode .ac-toolbar select option { background:#fff; color:#0f2a40; }
+        body.light-mode .ac-toolbar select option { background:#fff; color:#3a2410; }
         .ac-toolbar input { flex:1;min-width:180px; }
         .ac-row { display:flex;align-items:flex-start;gap:14px;padding:14px 16px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;flex-wrap:wrap; }
         .ac-row .ac-main { flex:1;min-width:200px; }
@@ -2406,7 +2406,7 @@
         }
         .tk-tab:hover { border-color:var(--border2); color:var(--text); }
         .tk-tab.active { background:linear-gradient(135deg,var(--g3),var(--g2)); border-color:transparent; color:#fff; }
-        body.theme-gold .tk-tab.active { background:linear-gradient(135deg,var(--gold4),var(--gold2)); color:#1a1d23; }
+        body.theme-gold .tk-tab.active { background:linear-gradient(135deg,var(--gold4),var(--gold2)); color:#04130d; }
 
         .tk-type-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
         .tk-type-btn {
@@ -2665,7 +2665,7 @@
             position: fixed;
             bottom: 24px; left: 50%; transform: translateX(-50%);
             z-index: 99999;
-            background: linear-gradient(135deg, #161920, #1e2230);
+            background: linear-gradient(135deg, #051a12, #0a2a1e);
             border: 1px solid rgba(var(--brand-rgb,30,122,52),0.5);
             border-radius: 18px;
             box-shadow: 0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(var(--brand2-rgb,39,163,70),0.1);
@@ -2735,7 +2735,7 @@
         #pwaIOSSheet {
             display: none;
             position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999;
-            background: #1e2230;
+            background: #0a2a1e;
             border-top: 1px solid rgba(var(--brand-rgb,30,122,52),0.4);
             border-radius: 20px 20px 0 0;
             padding: 20px 24px 36px;
@@ -2845,7 +2845,7 @@
             bottom: calc(100% + 10px);
             left: 50%; transform: translateX(-50%);
             width: 210px;
-            background: #1e2230;
+            background: #0a2a1e;
             border: 1px solid rgba(var(--brand-rgb,30,122,52),0.4);
             border-radius: 12px;
             padding: 12px 14px;
@@ -3125,7 +3125,7 @@
 .cs-cal-c.out{opacity:.25;pointer-events:none}
 .cs-cal-c b{display:block;font-size:10px;padding:1px 5px;border-radius:6px;background:rgba(39,163,70,0.22);color:#86efac;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .cs-mask{position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.72);display:flex;align-items:flex-start;justify-content:center;padding:20px 12px;overflow-y:auto}
-.cs-modal{width:100%;max-width:560px;background:var(--card,#20242c);border:1px solid var(--border);border-radius:18px;padding:22px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.6);animation:fadeUp .25s ease both}
+.cs-modal{width:100%;max-width:560px;background:var(--card,#07231a);border:1px solid var(--border);border-radius:18px;padding:22px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.6);animation:fadeUp .25s ease both}
 .cs-modal.wide{max-width:820px}
 .cs-modal-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
 .cs-modal-h h3{font-size:16px;font-weight:800;margin:0}
@@ -3405,7 +3405,7 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
   background:var(--atl-mini-logo) center/64% no-repeat}
 :not(button) > .fa-spinner.fa-spin::before,:not(button) > .spinner::before{
   content:''!important;position:absolute;inset:0;border-radius:50%;box-sizing:border-box;
-  border:2.5px solid rgba(27,94,150,.14);border-top-color:#2aa58f;border-right-color:#1b5e96;animation:atlMiniRing .9s linear infinite}
+  border:2.5px solid rgba(217,119,6,.14);border-top-color:#2aa58f;border-right-color:#d97706;animation:atlMiniRing .9s linear infinite}
 :not(button) > .spinner::after{content:none}
 @keyframes atlMiniRing{to{transform:rotate(360deg)}}
 @media (min-width:769px){.sidebar.collapsed .nav-label{font-size:0!important;height:1px;padding:0!important;margin:8px 12px!important;background:var(--border);border:0;overflow:hidden}}
@@ -3422,7 +3422,7 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
 <!-- ===== BOOT SPLASH (نفس خلفية دخول الطالب) — بيختفي أول ما لوحة الإدارة تفتح ===== -->
 <div id="adminBootSplash" role="status" aria-live="polite">
     <div class="abs-ringwrap">
-        <svg class="abs-ring" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="absG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b5e96" stop-opacity="0"/><stop offset=".55" stop-color="#3fd0c4"/><stop offset="1" stop-color="#2aa58f"/></linearGradient></defs>
+        <svg class="abs-ring" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="absG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d97706" stop-opacity="0"/><stop offset=".55" stop-color="#3fd0c4"/><stop offset="1" stop-color="#2aa58f"/></linearGradient></defs>
             <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.6"/>
             <circle cx="50" cy="50" r="46" fill="none" stroke="url(#absG)" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="150 139"/></svg>
         <img id="adminBootLogo" class="abs-logo" alt="ATLASYA">
@@ -3872,15 +3872,15 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
 </div>
 
 <!-- Notification Dropdown — outside #mainApp to avoid stacking context issues -->
-<div id="notifDropdown" style="display:none;position:fixed;top:72px;right:24px;z-index:999999;width:360px;background:#1e2230;border:1px solid rgba(var(--brand-rgb,30,122,52),0.4);border-radius:16px;box-shadow:0 32px 80px rgba(0,0,0,0.85);overflow:hidden;max-height:480px;overflow-y:auto;">
-    <div id="notifDropHeader" style="padding:14px 18px;border-bottom:1px solid rgba(var(--brand-rgb,30,122,52),0.25);display:flex;align-items:center;justify-content:space-between;background:#1e2230;">
+<div id="notifDropdown" style="display:none;position:fixed;top:72px;right:24px;z-index:999999;width:360px;background:#0a2a1e;border:1px solid rgba(var(--brand-rgb,30,122,52),0.4);border-radius:16px;box-shadow:0 32px 80px rgba(0,0,0,0.85);overflow:hidden;max-height:480px;overflow-y:auto;">
+    <div id="notifDropHeader" style="padding:14px 18px;border-bottom:1px solid rgba(var(--brand-rgb,30,122,52),0.25);display:flex;align-items:center;justify-content:space-between;background:#0a2a1e;">
         <span style="font-size:14px;font-weight:700;color:#e8e6f0;" id="notifDropTitle">الإشعارات</span>
         <div style="display:flex;align-items:center;gap:8px;">
             <button id="notifMarkAllBtn" onclick="markAllNotifsRead()" style="display:none;align-items:center;gap:5px;background:rgba(var(--brand-rgb,30,122,52),0.12);border:1px solid rgba(var(--brand-rgb,30,122,52),0.3);color:var(--green4);cursor:pointer;font-size:11px;font-weight:700;padding:4px 10px;border-radius:7px;font-family:Tajawal,sans-serif;transition:0.2s;" ><i class="fa-solid fa-check-double"></i> <span id="notifMarkAllTxt">تعليم الكل</span></button>
             <button onclick="toggleNotifDropdown()" style="background:none;border:none;color:#8a8fa0;cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>
         </div>
     </div>
-    <div id="notifList" style="padding:8px 0;background:#1e2230;">
+    <div id="notifList" style="padding:8px 0;background:#0a2a1e;">
         <div style="text-align:center;padding:24px;color:#8a8fa0;font-size:13px;">لا توجد إشعارات</div>
     </div>
 </div>
@@ -3894,7 +3894,7 @@ body.rtl .hm-glass{direction:rtl;text-align:right}
 
 <!-- iOS Instructions Sheet -->
 <div id="pwaBrowserOverlay" onclick="closeBrowserSheet()" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);"></div>
-<div id="pwaBrowserSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#1e2230;border-top:1px solid rgba(var(--brand-rgb,30,122,52),0.4);border-radius:20px 20px 0 0;padding:20px 24px 36px;font-family:'Tajawal',sans-serif;">
+<div id="pwaBrowserSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#0a2a1e;border-top:1px solid rgba(var(--brand-rgb,30,122,52),0.4);border-radius:20px 20px 0 0;padding:20px 24px 36px;font-family:'Tajawal',sans-serif;">
     <div style="width:40px;height:4px;background:rgba(255,255,255,0.15);border-radius:99px;margin:0 auto 20px;"></div>
     <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:6px;" id="bsTitle">🧭 تثبيت ATLASYA</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:20px;" id="bsSub">اتبع الخطوات لتثبيت التطبيق</div>
@@ -8377,14 +8377,14 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
     overlay.id = '__reportOverlay';
     overlay.style.cssText = `
         position:fixed;top:-9999px;left:-9999px;
-        width:900px;background:#20242c;
+        width:900px;background:#07231a;
         font-family:'Tajawal',sans-serif;
         direction:rtl;color:#e8e6f0;
         border-radius:24px;overflow:hidden;
         z-index:-1;
     `;
     overlay.innerHTML = `
-    <div style="background:linear-gradient(135deg,#161920 0%,#1a2818 60%,#1e2f1c 100%);border-bottom:1px solid rgba(var(--brand-rgb,30,122,52),0.3);padding:36px 48px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px;">
+    <div style="background:linear-gradient(135deg,#051a12 0%,#1a2818 60%,#1e2f1c 100%);border-bottom:1px solid rgba(var(--brand-rgb,30,122,52),0.3);padding:36px 48px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px;">
       <div style="display:flex;align-items:center;gap:14px;">
         <div style="width:58px;height:58px;background:linear-gradient(135deg,#1e7a34,#27a346);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(var(--brand-rgb,30,122,52),0.5);">
           <svg viewBox="0 0 24 24" width="34" height="34" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
@@ -8422,7 +8422,7 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
         const canvas = await html2canvas(overlay, {
             scale: 2,
             useCORS: true,
-            backgroundColor: '#20242c',
+            backgroundColor: '#07231a',
             logging: false
         });
         const link = document.createElement('a');
@@ -9244,7 +9244,7 @@ window.openConsultationModal = function () { csTab('book'); };
             : '';
         const myBubbleBg = 'linear-gradient(135deg,var(--g3),var(--g2))';
         const otherBg = isLight ? '#e8edf5' : '#2d3348';
-        const otherColor = isLight ? '#0f2a40' : '#e8e6f0';
+        const otherColor = isLight ? '#3a2410' : '#e8e6f0';
         const isAdminMsg = m.senderType === 'admin';
         const avatarLetter = isAdminMsg ? 'A' : (m.authorName||'?').trim().charAt(0).toUpperCase();
         const nameLabel = !isMe
@@ -9373,7 +9373,7 @@ window.openConsultationModal = function () { csTab('book'); };
         const currentUid = window._userData?.uid || '';
         const isLight = document.getElementById('pageBody').classList.contains('light-mode');
         const otherBg = isLight ? '#e8edf5' : '#2d3348';
-        const otherColor = isLight ? '#0f2a40' : '#e8e6f0';
+        const otherColor = isLight ? '#3a2410' : '#e8e6f0';
         el.innerHTML = replies.map(r => {
             const isMe = isAdmin ? (r.senderType === 'admin') : (r.senderType === 'student' && r.uid === currentUid);
             const isAdminMsg = r.senderType === 'admin';
@@ -15725,14 +15725,14 @@ async function csAdmShowLink(id, btn) {
 
         // Set solid background based on current theme
         const isLight = document.getElementById('pageBody').classList.contains('light-mode');
-        dd.style.background = isLight ? '#ffffff' : '#1e2230';
+        dd.style.background = isLight ? '#ffffff' : '#0a2a1e';
         dd.style.borderColor = isLight ? 'rgba(var(--brand-rgb,30,122,52),0.25)' : 'rgba(var(--brand-rgb,30,122,52),0.4)';
         const header = dd.querySelector('div:first-child');
-        if (header) header.style.background = isLight ? '#ffffff' : '#1e2230';
+        if (header) header.style.background = isLight ? '#ffffff' : '#0a2a1e';
         const titleEl = document.getElementById('notifDropTitle');
-        if (titleEl) titleEl.style.color = isLight ? '#0f2a40' : '#e8e6f0';
+        if (titleEl) titleEl.style.color = isLight ? '#3a2410' : '#e8e6f0';
         const list = document.getElementById('notifList');
-        if (list) list.style.background = isLight ? '#ffffff' : '#1e2230';
+        if (list) list.style.background = isLight ? '#ffffff' : '#0a2a1e';
 
         dd.style.display = _notifOpen ? 'block' : 'none';
         if (_notifOpen) {
@@ -15802,8 +15802,8 @@ async function csAdmShowLink(id, btn) {
         try {
             // ─ Section 1: Send broadcast notification
             const isDark = !document.getElementById('pageBody').classList.contains('light-mode');
-            const inputBg = isDark ? '#141720' : '#f1f6fa';
-            const inputColor = isDark ? '#e8e6f0' : '#0f2a40';
+            const inputBg = isDark ? '#141720' : '#fff8ec';
+            const inputColor = isDark ? '#e8e6f0' : '#3a2410';
             const inputBorder = isDark ? 'rgba(212,160,23,0.4)' : 'rgba(var(--brand-rgb,30,122,52),0.3)';
             const sectionBg = isDark ? 'rgba(212,160,23,0.08)' : 'rgba(212,160,23,0.06)';
             const broadcastSection = `<div style="padding:12px 16px;border-bottom:2px solid rgba(212,160,23,0.35);background:${sectionBg};">
@@ -16000,8 +16000,8 @@ async function csAdmShowLink(id, btn) {
             const personalAlerts = [];
 
             const isDark = !document.getElementById('pageBody').classList.contains('light-mode');
-            const textColor = isDark ? '#e8e6f0' : '#0f2a40';
-            const mutedColor = isDark ? '#8a8fa0' : '#5d7488';
+            const textColor = isDark ? '#e8e6f0' : '#3a2410';
+            const mutedColor = isDark ? '#8a8fa0' : '#8a6a45';
             const borderColor = isDark ? 'rgba(var(--brand-rgb,30,122,52),0.2)' : 'rgba(var(--brand-rgb,30,122,52),0.12)';
 
             // Render personal alerts section
