@@ -4580,9 +4580,6 @@ body.rtl .fc-badge::after{transform:translateX(120%);animation-name:fcShineR}
                     <button class="nav-item" id="menuLeaderboard" onclick="navigate('leaderboard', this)" style="color:var(--gold4);">
                         <i class="fa-solid fa-ranking-star" style="color:var(--gold3);"></i> <span id="menuLeaderboardTxt">لوحة المتصدرين</span>
                     </button>
-                    <button class="nav-item" id="menuCompetitions" onclick="navigate('competitions', this)" style="color:var(--gold4);">
-                        <i class="fa-solid fa-medal" style="color:var(--gold3);"></i> <span id="menuCompetitionsTxt">العروض والمسابقات</span>
-                    </button>
                 </div>
 
                 <div class="nav-section collapsible" style="margin-top:8px;">
@@ -5385,37 +5382,47 @@ const updateDoc = async (ref, ...rest) => _sbUpdateDoc(ref, ...(await Promise.al
             await deleteDoc(doc(db, 'portfolio_items', itemId));
         };
 
-        /* ═══ ATLASYA · العروض والمسابقات (additive) — مسابقات الخرائط + ربط التحديات/المتصدرين/العروض الحالية ═══ */
+        /* ═══ ATLASYA · العروض والمسابقات (additive) — الدخول من الصفحة الرئيسية + حملة موسمية مستقلة عن التحديات اليومية ═══ */
 (() => {
 const E = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const AR = () => (typeof lang !== 'undefined' ? lang === 'AR' : true), T = (a, e) => AR() ? a : e;
 const SD = (typeof setDoc === 'function') ? setDoc : _sbSetDoc;
 const toast = (m, bad) => (window.showToast ? showToast(m, bad) : alert(m));
-const ms = v => { const t = Date.parse(v || ''); return isNaN(t) ? 0 : t; };
+const ms = v => { if (v && typeof v.toMillis === 'function') return v.toMillis(); if (v && v.seconds) return v.seconds * 1000; const t = Date.parse(v || ''); return isNaN(t) ? 0 : t; };
 const left = t => { const d = t - Date.now(); if (d <= 0) return ''; const D = Math.floor(d / 864e5), H = Math.floor(d % 864e5 / 36e5), M = Math.floor(d % 36e5 / 6e4); return `⏳ ${D ? D + T(' يوم ', 'd ') : ''}${H}${T(' س ', 'h ')}${D ? '' : M + T(' د', 'm')}`; };
+/* ── الموسم/الحملة: settings/competition_season { name, active, startAt, endAt, closeAt, archive:'hide'|'archive' } ── */
+let SEASON = null;
+const loadSeason = async () => { try { const s = await getDoc(doc(db, 'settings', 'competition_season')); SEASON = s.exists() ? s.data() : null; } catch (e) { SEASON = null; } return SEASON; };
+const seasonState = () => { const s = SEASON; if (!s) return 'none'; if (s.active === false) return 'off'; const n = Date.now(), a = ms(s.startAt), e = ms(s.endAt), c = ms(s.closeAt) || e;
+  if (a && n < a) return 'upcoming'; if (!e || n < e) return 'live'; return n < c ? 'final' : 'ended'; };
+const frozen = () => ['final', 'ended', 'off'].includes(seasonState());
 const phase = c => { const n = Date.now(); if (c.winners && c.winners.length) return ['won', T('تم إعلان الفائزين', 'Winners announced'), 0];
   if (c.status === 'draft') return ['draft', T('قريبًا', 'Upcoming'), 0];
+  if (frozen()) return ['done', T('اكتملت المسابقة', 'Completed'), 0];
   if (n < ms(c.regEnd)) return ['reg', T('التسجيل مفتوح', 'Registration open'), ms(c.regEnd)];
   if (n >= ms(c.voteStart) && n < ms(c.voteEnd)) return ['vote', T('التصويت متاح', 'Voting open'), ms(c.voteEnd)];
   if (n < ms(c.voteStart)) return ['wait', T('المسابقة نشطة', 'Active'), ms(c.voteStart)];
   return ['done', T('اكتملت المسابقة', 'Completed'), 0]; };
-const loadComps = async () => (await getDocs(collection(db, 'competitions'))).docs.map(d => ({ id: d.id, ...d.data() })).filter(c => c.status !== 'hidden').sort((a, b) => ms(b.regEnd) - ms(a.regEnd));
+const loadComps = async () => { await loadSeason(); return (await getDocs(collection(db, 'competitions'))).docs.map(d => ({ id: d.id, ...d.data() })).filter(c => c.status !== 'hidden').sort((a, b) => ms(b.regEnd) - ms(a.regEnd)); };
 const loadEntries = async cid => (await getDocs(query(collection(db, 'competition_entries'), where('compId', '==', cid)))).docs.map(d => ({ id: d.id, ...d.data() }));
 const loadVotes = async cid => (await getDocs(query(collection(db, 'competition_votes'), where('compId', '==', cid)))).docs.map(d => d.data());
-const css = `.cmp{max-width:1100px;margin:0 auto}.cmp-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.cmp-tab{padding:9px 16px;border-radius:99px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;font-family:inherit;font-size:13px}.cmp-tab.on{background:rgba(var(--brand-rgb,30,122,52),.25);border-color:var(--green3);color:var(--green4)}.cmp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}.cmp-card{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}.cmp-card img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;cursor:pointer}.cmp-pill{align-self:flex-start;font-size:11px;font-weight:800;padding:3px 10px;border-radius:99px;background:rgba(var(--brand-rgb,30,122,52),.18);color:var(--green4)}.cmp-btn{padding:9px 14px;border-radius:10px;border:0;background:var(--green3);color:#fff;font-family:inherit;font-weight:700;cursor:pointer}.cmp-btn.alt{background:transparent;border:1px solid var(--border2,var(--border));color:var(--text)}.cmp-btn:disabled{opacity:.5;cursor:not-allowed}.cmp-in{width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--bg2,var(--bg3));color:var(--text);font-family:inherit;margin-bottom:8px}.cmp-muted{color:var(--muted);font-size:12px}`;
-let S = { tab: 'maps', comp: null };
+const css = `.cmp{max-width:1100px;margin:0 auto}.cmp-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.cmp-tab{padding:9px 16px;border-radius:99px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;font-family:inherit;font-size:13px}.cmp-tab.on{background:rgba(var(--brand-rgb,30,122,52),.25);border-color:var(--green3);color:var(--green4)}.cmp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}.cmp-card{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}.cmp-card img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;cursor:pointer}.cmp-pill{align-self:flex-start;font-size:11px;font-weight:800;padding:3px 10px;border-radius:99px;background:rgba(var(--brand-rgb,30,122,52),.18);color:var(--green4)}.cmp-btn{padding:9px 14px;border-radius:10px;border:0;background:var(--green3);color:#fff;font-family:inherit;font-weight:700;cursor:pointer}.cmp-btn.alt{background:transparent;border:1px solid var(--border2,var(--border));color:var(--text)}.cmp-btn:disabled{opacity:.5;cursor:not-allowed}.cmp-in{width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--bg2,var(--bg3));color:var(--text);font-family:inherit;margin-bottom:8px}.cmp-muted{color:var(--muted);font-size:12px}.cmp-big{width:100%;max-height:70vh;object-fit:contain;border-radius:14px;background:#000}.cmp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.cmp-cm{padding:10px 12px;border-radius:12px;background:var(--bg3);border:1px solid var(--border);margin-bottom:8px}.cmp-cm.rep{margin-inline-start:22px}.cmp-hub{display:flex;flex-direction:column;gap:12px}.cmp-hub-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;padding:16px 18px;border-radius:18px;border:1px solid var(--border);background:linear-gradient(135deg,rgba(240,192,64,.14),rgba(var(--brand2-rgb,39,163,70),.08))}.cmp-hub-top b{font-size:16px}`;
+let S = { tab: 'maps', comp: null, entry: null };
+window._cmpOpen = tab => { S = { tab: tab || 'maps', comp: null, entry: null }; fcGo('competitions'); };
 window.renderCompetitions = async function (area) {
   area = area || document.getElementById('contentArea');
   if (!document.getElementById('cmpCss')) { const s = document.createElement('style'); s.id = 'cmpCss'; s.textContent = css; document.head.appendChild(s); }
-  const tabs = [['maps', '🗺️ ' + T('مسابقات الخرائط', 'Map Competitions')], ['mine', '👤 ' + T('مشاركاتي', 'My Participations')], ['go:dailychallenge', '🧠 ' + T('تحديات GIS', 'GIS Challenges')], ['go:leaderboard', '🏆 ' + T('المتصدرين', 'Leaderboard')], ['go:dashboard', '🎁 ' + T('العروض والخصومات', 'Offers & Deals')]];
-  area.innerHTML = `<div class="cmp"><h2>🏅 ${T('العروض والمسابقات', 'Offers & Competitions')}</h2><div class="cmp-tabs">${tabs.map(([k, l]) => `<button class="cmp-tab ${S.tab === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div><div id="cmpBody"><div class="spinner" style="margin:30px auto"></div></div></div>`;
-  area.querySelectorAll('.cmp-tab').forEach(b => b.onclick = () => { const k = b.dataset.k; if (k.startsWith('go:')) { const p = k.slice(3); return navigate(p, document.getElementById(PAGE_NAV_ID_MAP[p])); } S.tab = k; S.comp = null; renderCompetitions(area); });
+  const tabs = [['maps', '🗺️ ' + T('مسابقات الخرائط', 'Map Competitions')], ['mine', '👤 ' + T('مشاركاتي', 'My Participations')], ['go:leaderboard', '🏆 ' + T('المتصدرين', 'Leaderboard')], ['go:offers', '🎁 ' + T('العروض والخصومات', 'Offers & Deals')]];
+  area.innerHTML = `<div class="cmp"><button class="cmp-btn alt" id="cmpHome">← ${T('الصفحة الرئيسية', 'Home')}</button><h2 style="margin-top:12px">🏅 ${T('العروض والمسابقات', 'Offers & Competitions')}</h2><div class="cmp-tabs">${tabs.map(([k, l]) => `<button class="cmp-tab ${S.tab === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div><div id="cmpBody"><div class="spinner" style="margin:30px auto"></div></div></div>`;
+  document.getElementById('cmpHome').onclick = () => fcGo('dashboard');
+  area.querySelectorAll('.cmp-tab').forEach(b => b.onclick = () => { const k = b.dataset.k; if (k === 'go:offers') return fcGoOffers(); if (k.startsWith('go:')) return fcGo(k.slice(3)); S.tab = k; S.comp = null; S.entry = null; renderCompetitions(area); });
   const body = document.getElementById('cmpBody');
-  try { S.tab === 'mine' ? await mine(body) : S.comp ? await compView(body) : await list(body); } catch (e) { console.warn('[competitions]', e); body.innerHTML = `<p class="cmp-muted">${T('تعذّر التحميل — تأكد من إعداد جداول المسابقات في Supabase (competitions / competition_entries / competition_votes).', 'Could not load — make sure the competition tables exist in Supabase.')}</p>`; }
+  try { S.tab === 'mine' ? await mine(body) : S.entry ? await entryView(body) : S.comp ? await compView(body) : await list(body); } catch (e) { console.warn('[competitions]', e); body.innerHTML = `<p class="cmp-muted">${T('تعذّر التحميل — تأكد من إعداد جداول المسابقات في Supabase.', 'Could not load — make sure the competition tables exist in Supabase.')}</p>`; }
 };
 async function list(body) {
-  const cs = await loadComps();
-  body.innerHTML = cs.length ? `<div class="cmp-grid">${cs.map(c => { const [k, l, t] = phase(c); return `<div class="cmp-card"><span class="cmp-pill">${l}</span><h3>${E(c.title)}</h3><p class="cmp-muted">${E((c.desc || '').slice(0, 140))}</p><span class="cmp-muted">${left(t)}</span><button class="cmp-btn" data-c="${c.id}">${T('فتح المسابقة', 'Open')}</button></div>`; }).join('')}</div>` : `<p class="cmp-muted">${T('لا توجد مسابقات حاليًا — ستظهر هنا فور إنشاء المشرف لأول مسابقة.', 'No competitions yet.')}</p>`;
+  const cs = await loadComps(), st = seasonState();
+  const banner = SEASON && SEASON.name ? `<div class="cmp-card" style="margin-bottom:12px"><b>${E(SEASON.name)}</b><span class="cmp-muted">${st === 'live' ? left(ms(SEASON.endAt)) : st === 'final' ? T('الفترة الختامية — إعلان النتائج', 'Final period — results') : st === 'upcoming' ? T('تبدأ قريبًا', 'Starting soon') : T('انتهت الحملة — أرشيف', 'Campaign ended — archive')}</span></div>` : '';
+  body.innerHTML = banner + (cs.length ? `<div class="cmp-grid">${cs.map(c => { const [k, l, t] = phase(c); return `<div class="cmp-card"><span class="cmp-pill">${l}</span><h3>${E(c.title)}</h3><p class="cmp-muted">${E((c.desc || '').slice(0, 140))}</p><span class="cmp-muted">${left(t)}</span><button class="cmp-btn" data-c="${c.id}">${T('فتح المسابقة', 'Open')}</button></div>`; }).join('')}</div>` : `<p class="cmp-muted">${T('لا توجد مسابقات حاليًا — ستظهر هنا فور إنشاء المشرف لأول مسابقة.', 'No competitions yet.')}</p>`);
   body.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { S.comp = cs.find(c => c.id === b.dataset.c); renderCompetitions(); });
 }
 const score = (c, e, votes, maxV) => { const v = votes.filter(x => x.entryId === e.id).length, j = Number(e.jury) || 0, p = Number(c.publicPct) || 0;
@@ -5428,11 +5435,12 @@ async function compView(body) {
   const myVotes = new Set(votes.filter(v => v.uid === uid).map(v => v.entryId));
   body.innerHTML = `<button class="cmp-btn alt" id="cmpBack">← ${T('رجوع', 'Back')}</button><h2 style="margin:12px 0 4px">${E(c.title)} <span class="cmp-pill">${l}</span></h2><p>${E(c.desc || '')}</p>${c.rules ? `<p class="cmp-muted"><b>${T('الشروط:', 'Rules:')}</b> ${E(c.rules)}</p>` : ''}<p class="cmp-muted">${left(t)} · ${T('نظام الفوز', 'Scoring')}: ${c.mode === 'public' ? T('تصويت الجمهور', 'Public vote') : c.mode === 'jury' ? T('لجنة التحكيم', 'Jury') : `${c.publicPct}% ${T('جمهور', 'public')} / ${100 - c.publicPct}% ${T('تحكيم', 'jury')}`}</p>
   ${k === 'reg' ? `<div class="cmp-card" style="margin:12px 0"><b>${T('شارك بخريطتك', 'Submit your map')}</b>${mine.length ? `<span class="cmp-muted">${T('لديك مشاركة بالفعل (الحالة: ', 'You already submitted (status: ')}${E(mine[0].status)})</span>` : `<input class="cmp-in" id="cmpT" placeholder="${T('عنوان الخريطة', 'Map title')}"><textarea class="cmp-in" id="cmpD" rows="2" placeholder="${T('وصف مختصر', 'Short description')}"></textarea><input class="cmp-in" id="cmpSw" placeholder="${T('البرنامج (ArcGIS Pro / QGIS…)', 'Software')}"><input class="cmp-in" id="cmpMt" placeholder="${T('نوع/تخصص الخريطة', 'Map type')}"><input class="cmp-in" id="cmpSrc" placeholder="${T('مصادر البيانات', 'Data sources')}"><input type="file" accept="image/png,image/jpeg,image/webp" id="cmpF" class="cmp-in"><button class="cmp-btn" id="cmpSend">${T('إرسال للمراجعة', 'Submit for review')}</button>`}</div>` : ''}
-  <h3 style="margin:14px 0 8px">${T('معرض الخرائط', 'Gallery')} (${es.length})</h3><div class="cmp-grid">${ranked.map(({ e, s, v }, i) => `<div class="cmp-card"><img src="${E(e.imageUrl)}" loading="lazy" onclick="window.open('${E(e.imageUrl)}','_blank')"><b>#${i + 1} ${E(e.title)}</b><span class="cmp-muted">${E(e.authorName)} · ${E(e.software || '')}</span><p class="cmp-muted">${E((e.desc || '').slice(0, 120))}</p><span>👍 ${v}${c.mode !== 'public' ? ` · ${T('تحكيم', 'Jury')}: ${Number(e.jury) || 0}` : ''}</span>${k === 'vote' ? `<button class="cmp-btn" data-v="${e.id}" ${e.uid === uid || myVotes.has(e.id) ? 'disabled' : ''}>${e.uid === uid ? T('مشاركتك', 'Yours') : myVotes.has(e.id) ? T('تم التصويت ✓', 'Voted ✓') : T('صوّت', 'Vote')}</button>` : ''}</div>`).join('') || `<p class="cmp-muted">${T('لا توجد مشاركات معتمدة بعد.', 'No approved entries yet.')}</p>`}</div>
+  <h3 style="margin:14px 0 8px">${T('معرض الخرائط', 'Gallery')} (${es.length})</h3><div class="cmp-grid">${ranked.map(({ e, s, v }, i) => `<div class="cmp-card"><img src="${E(e.imageUrl)}" loading="lazy" data-e="${e.id}"><b>#${i + 1} ${E(e.title)}</b><span class="cmp-muted">${E(e.authorName)} · ${E(e.software || '')}</span><p class="cmp-muted">${E((e.desc || '').slice(0, 120))}</p><span>🗳️ ${v}${c.mode !== 'public' ? ` · ${T('تحكيم', 'Jury')}: ${Number(e.jury) || 0}` : ''}</span><button class="cmp-btn alt" data-e="${e.id}">${T('عرض والتفاعل', 'View & react')}</button>${k === 'vote' ? `<button class="cmp-btn" data-v="${e.id}" ${e.uid === uid || myVotes.has(e.id) ? 'disabled' : ''}>${e.uid === uid ? T('مشاركتك', 'Yours') : myVotes.has(e.id) ? T('تم التصويت ✓', 'Voted ✓') : T('صوّت', 'Vote')}</button>` : ''}</div>`).join('') || `<p class="cmp-muted">${T('لا توجد مشاركات معتمدة بعد.', 'No approved entries yet.')}</p>`}</div>
   ${c.winners && c.winners.length ? `<h3 style="margin:16px 0 6px">🏆 ${T('الفائزون', 'Winners')}</h3>${c.winners.map((w, i) => `<p>${['🥇', '🥈', '🥉'][i] || '🏅'} ${E(w.title)} — ${E(w.name)}</p>`).join('')}` : ''}`;
   document.getElementById('cmpBack').onclick = () => { S.comp = null; renderCompetitions(); };
+  body.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { S.entry = es.find(x => x.id === b.dataset.e); renderCompetitions(); });
   body.querySelectorAll('[data-v]').forEach(b => b.onclick = async () => { b.disabled = true;
-    try { const eid = b.dataset.v, e = es.find(x => x.id === eid); if (!uid || e.uid === uid) throw 0; const n = Date.now(); if (n < ms(c.voteStart) || n > ms(c.voteEnd)) { toast(T('التصويت غير متاح حاليًا', 'Voting is closed'), true); return; }
+    try { const eid = b.dataset.v, e = es.find(x => x.id === eid); if (!uid || e.uid === uid) throw 0; const n = Date.now(); if (frozen() || n < ms(c.voteStart) || n > ms(c.voteEnd)) { toast(T('التصويت غير متاح حاليًا', 'Voting is closed'), true); return; }
       const ref = doc(db, 'competition_votes', eid + '_' + uid); if ((await getDoc(ref)).exists()) { toast(T('صوّتَّ لهذه المشاركة من قبل', 'Already voted'), true); return; }
       await SD(ref, { entryId: eid, compId: c.id, uid, createdAt: serverTimestamp() }); toast(T('تم تسجيل صوتك', 'Vote recorded')); renderCompetitions(); } catch (er) { toast(T('تعذّر التصويت', 'Vote failed'), true); b.disabled = false; } });
   const send = document.getElementById('cmpSend'); if (send) send.onclick = async () => { const f = document.getElementById('cmpF').files[0], ti = document.getElementById('cmpT').value.trim();
@@ -5443,12 +5451,46 @@ async function compView(body) {
       await SD(doc(db, 'competition_entries', c.id + '_' + uid), { compId: c.id, compTitle: c.title, uid, authorName: au, title: ti, imageUrl: url, desc: document.getElementById('cmpD').value.trim().slice(0, 500), software: document.getElementById('cmpSw').value.trim().slice(0, 60), mapType: document.getElementById('cmpMt').value.trim().slice(0, 60), sources: document.getElementById('cmpSrc').value.trim().slice(0, 300), status: 'pending', jury: 0, createdAt: serverTimestamp() });
       toast(T('تم الإرسال — بانتظار موافقة المشرف', 'Submitted — awaiting approval')); renderCompetitions(); } catch (er) { console.warn(er); toast(T('تعذّر الإرسال', 'Submit failed'), true); send.disabled = false; } };
 }
+/* صفحة الخريطة المستقلة: صورة كبيرة + التفاصيل + إعجاب + تعليقات وردود + مشاركة + إبلاغ */
+async function entryView(body) {
+  const e = S.entry, uid = currentUid, off = frozen();
+  const [lk, cm] = await Promise.all([getDocs(query(collection(db, 'competition_likes'), where('entryId', '==', e.id))), getDocs(query(collection(db, 'competition_comments'), where('entryId', '==', e.id)))]);
+  const likes = lk.docs.map(d => d.data()), liked = likes.some(x => x.uid === uid);
+  const cms = cm.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => !x.hidden).sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
+  const one = x => `<div class="cmp-cm ${x.parentId ? 'rep' : ''}"><b>${E(x.authorName || 'User')}</b><p style="margin:4px 0">${E(x.text)}</p>${!x.parentId && !off ? `<button class="cmp-btn alt" data-rp="${x.id}" style="padding:4px 10px;font-size:12px">${T('رد', 'Reply')}</button>` : ''}</div>`;
+  const tops = cms.filter(x => !x.parentId);
+  body.innerHTML = `<button class="cmp-btn alt" id="cmpBack">← ${T('رجوع', 'Back')}</button><h2 style="margin:12px 0 4px">${E(e.title)}</h2><p class="cmp-muted">${E(e.authorName)} · ${E(e.software || '')} ${e.mapType ? '· ' + E(e.mapType) : ''} · ${E(e.compTitle || '')}</p><img class="cmp-big" src="${E(e.imageUrl)}"><p>${E(e.desc || '')}</p>${e.sources ? `<p class="cmp-muted"><b>${T('مصادر البيانات:', 'Data sources:')}</b> ${E(e.sources)}</p>` : ''}
+  <div class="cmp-row"><button class="cmp-btn ${liked ? '' : 'alt'}" id="cmpLk" ${off ? 'disabled' : ''}>${liked ? '❤️' : '🤍'} ${likes.length}</button><button class="cmp-btn alt" id="cmpSh">🔗 ${T('مشاركة', 'Share')}</button>${e.uid !== uid ? `<button class="cmp-btn alt" id="cmpRp">🚩 ${T('إبلاغ', 'Report')}</button>` : ''}</div>
+  <h3>💬 ${T('التعليقات', 'Comments')} (${cms.length})</h3>${tops.map(x => one(x) + cms.filter(r => r.parentId === x.id).map(one).join('') + `<div id="rb_${x.id}"></div>`).join('') || `<p class="cmp-muted">${T('لا توجد تعليقات بعد.', 'No comments yet.')}</p>`}
+  ${off ? `<p class="cmp-muted">${T('التعليقات مغلقة — انتهت فترة المسابقة.', 'Comments are closed.')}</p>` : `<textarea class="cmp-in" id="cmpC" rows="2" maxlength="400" placeholder="${T('اكتب تعليقًا…', 'Write a comment…')}"></textarea><button class="cmp-btn" id="cmpCs">${T('نشر التعليق', 'Post')}</button>`}`;
+  document.getElementById('cmpBack').onclick = () => { S.entry = null; renderCompetitions(); };
+  const au = () => ((window._userData?.firstName || '') + ' ' + (window._userData?.lastName || '')).trim() || 'User';
+  const post = async (text, parentId) => { text = text.trim().slice(0, 400); if (!text || !uid) return; try { await SD(doc(db, 'competition_comments', e.id + '_' + uid + '_' + Date.now()), { entryId: e.id, compId: e.compId, uid, authorName: au(), text, parentId: parentId || '', hidden: false, createdAt: serverTimestamp() }); renderCompetitions(); } catch (er) { toast(T('تعذّر النشر', 'Failed'), true); } };
+  const lkb = document.getElementById('cmpLk'); lkb.onclick = async () => { if (!uid) return; lkb.disabled = true; try { const r = doc(db, 'competition_likes', e.id + '_' + uid); liked ? await deleteDoc(r) : await SD(r, { entryId: e.id, compId: e.compId, uid, createdAt: serverTimestamp() }); renderCompetitions(); } catch (er) { toast(T('تعذّر الإعجاب', 'Failed'), true); lkb.disabled = false; } };
+  document.getElementById('cmpSh').onclick = async () => { const u = location.href.split('#')[0] + '#/competitions'; try { if (navigator.share) await navigator.share({ title: e.title, text: e.title + ' — ATLASYA', url: u }); else { await navigator.clipboard.writeText(u); toast(T('تم نسخ الرابط', 'Link copied')); } } catch (er) {} };
+  const rp = document.getElementById('cmpRp'); if (rp) rp.onclick = async () => { const why = (prompt(T('سبب الإبلاغ؟', 'Reason?')) || '').trim().slice(0, 200); if (!why) return; try { await SD(doc(db, 'competition_reports', e.id + '_' + uid), { entryId: e.id, compId: e.compId, entryTitle: e.title, uid, reason: why, status: 'open', createdAt: serverTimestamp() }); toast(T('تم إرسال البلاغ للمشرف', 'Report sent')); } catch (er) { toast(T('تعذّر الإرسال', 'Failed'), true); } };
+  const cs = document.getElementById('cmpCs'); if (cs) cs.onclick = () => post(document.getElementById('cmpC').value);
+  body.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { const box = document.getElementById('rb_' + b.dataset.rp); if (box.firstChild) return; box.innerHTML = `<div class="cmp-card" style="margin-inline-start:22px"><input class="cmp-in" maxlength="400" placeholder="${T('اكتب ردًا…', 'Reply…')}"><button class="cmp-btn">${T('رد', 'Reply')}</button></div>`; box.querySelector('button').onclick = () => post(box.querySelector('input').value, b.dataset.rp); });
+}
 async function mine(body) {
   const uid = currentUid, cs = await loadComps();
   const rows = (await Promise.all(cs.map(async c => (await loadEntries(c.id)).filter(e => e.uid === uid).map(e => ({ c, e }))))).flat();
   const votesBy = await Promise.all(rows.map(r => loadVotes(r.c.id)));
-  body.innerHTML = rows.length ? `<div class="cmp-grid">${rows.map(({ c, e }, i) => `<div class="cmp-card"><img src="${E(e.imageUrl)}"><b>${E(e.title)}</b><span class="cmp-muted">${E(c.title)}</span><span class="cmp-pill">${{ pending: T('قيد المراجعة', 'Pending'), approved: T('مقبولة', 'Approved'), rejected: T('مرفوضة', 'Rejected') }[e.status] || E(e.status)}</span><span>👍 ${votesBy[i].filter(v => v.entryId === e.id).length}</span></div>`).join('')}</div>` : `<p class="cmp-muted">${T('لم تشارك في أي مسابقة بعد.', 'No participations yet.')}</p>`;
+  body.innerHTML = rows.length ? `<div class="cmp-grid">${rows.map(({ c, e }, i) => `<div class="cmp-card"><img src="${E(e.imageUrl)}"><b>${E(e.title)}</b><span class="cmp-muted">${E(c.title)}</span><span class="cmp-pill">${{ pending: T('قيد المراجعة', 'Pending'), approved: T('مقبولة', 'Approved'), rejected: T('مرفوضة', 'Rejected') }[e.status] || E(e.status)}</span><span>🗳️ ${votesBy[i].filter(v => v.entryId === e.id).length}</span></div>`).join('')}</div>` : `<p class="cmp-muted">${T('لم تشارك في أي مسابقة بعد.', 'No participations yet.')}</p>`;
 }
+/* ── قسم "العروض والمسابقات" داخل الصفحة الرئيسية (بدل السايد بار) ── */
+const homeSection = async () => {
+  await loadSeason(); const st = seasonState(), s = SEASON || {};
+  if (st === 'off' || (st === 'ended' && s.archive !== 'archive')) return '';
+  const sub = !SEASON ? '' : st === 'live' ? `<span class="cmp-muted" id="cmpHomeCd" data-end="${ms(s.endAt)}">${left(ms(s.endAt))}</span>` : `<span class="cmp-muted">${{ upcoming: T('تبدأ قريبًا', 'Starting soon'), final: T('الفترة الختامية — إعلان النتائج', 'Final period'), ended: T('أرشيف الحملة', 'Campaign archive') }[st]}</span>`;
+  const tiles = [['maps', 'fa-map-location-dot', 'مسابقات الخرائط', 'Map Competitions'], ['mine', 'fa-user-check', 'مشاركاتي', 'My Participations']];
+  return `<section class="fc-sec" id="fcComp"><div class="cmp-hub"><div class="cmp-hub-top"><div><b>🏅 ${T('العروض والمسابقات', 'Offers & Competitions')}</b><div class="cmp-muted">${E(s.name || '')}</div></div>${sub}</div><div class="fc-grid">${tiles.map(([k, ic, a, e]) => `<div class="fc-xcard mini" role="button" tabindex="0" onclick="_cmpOpen('${k}')" onkeydown="if(event.key==='Enter')this.click()"><div class="ic"><i class="fa-solid ${ic}"></i></div><h4>${T(a, e)}</h4><span class="go"><i class="fa-solid ${_hmArrow()}"></i></span></div>`).join('')}</div></div></section>`;
+};
+if (typeof window.renderDashboard === 'function') { const _o = window.renderDashboard;
+  window.renderDashboard = async function (area) { const r = await _o.apply(this, arguments);
+    try { area = area || document.getElementById('contentArea'); if (!document.getElementById('cmpCss')) { const x = document.createElement('style'); x.id = 'cmpCss'; x.textContent = css; document.head.appendChild(x); }
+      const h = await homeSection(), anchor = area.querySelector('.fch .fc-stats'); if (h && anchor && !document.getElementById('fcComp')) anchor.insertAdjacentHTML('afterend', h); } catch (e) { console.warn('[competitions home]', e); }
+    return r; }; }
 })();
 
         /* ─── PORTFOLIO: لايكات وكومنتات (portfolio_likes / portfolio_comments — شوف portfolio-social.sql) ─── */
@@ -9337,7 +9379,7 @@ async function mine(body) {
             { k: 'acct', ic: 'fa-user', ar: 'حسابي', en: 'Account', go: () => goSettings('hub') }
         ];
         const FC_PAGE_KEY = { dashboard: 'home', tools: 'tools', unitconverter: 'tools', levelingcalc: 'tools', traverse: 'tools', playlists: 'learn', courses: 'learn',
-            library: 'res', datasets: 'res', jobs: 'jobs', cvbuilder: 'jobs', account: 'acct', achievements: 'acct', profile: 'acct' };
+            library: 'res', datasets: 'res', competitions: 'offers', jobs: 'jobs', cvbuilder: 'jobs', account: 'acct', achievements: 'acct', profile: 'acct' };
         function fcGoOffers() {
             if (window._currentPage === 'dashboard' && document.getElementById('fcDeals')) { fcScrollTo('fcDeals'); return; }
             window._fcScrollTo = 'fcDeals'; fcGo('dashboard');
@@ -15145,7 +15187,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.13.5';
+        window.ATL_APP_VERSION = '2026.11.13.6';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
