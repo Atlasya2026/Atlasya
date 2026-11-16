@@ -10122,6 +10122,24 @@ const _cT = m => (window.showToast ? showToast(m) : alert(m));
 const _t = (ar, en) => (typeof lang !== 'undefined' && lang === 'AR') ? ar : en;
 const _cStat = s => ({ approved: _t('مقبولة', 'Approved'), rejected: _t('مرفوضة', 'Rejected'), pending: _t('قيد المراجعة', 'Pending') }[s] || s);
 const _cIn = 'width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:13px;margin-bottom:8px;';
+(function () { if (document.getElementById('cpAdminCss')) return; const st = document.createElement('style'); st.id = 'cpAdminCss';
+  st.textContent = `.cmp-muted{color:var(--muted);font-size:12.5px}
+.cmp-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid transparent;background:linear-gradient(135deg,var(--green3),var(--green2));color:#fff;font:700 12.5px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap;transition:transform .15s,filter .15s,background .15s,box-shadow .15s;box-shadow:0 4px 12px -6px rgba(var(--brand-rgb),.6)}
+.cmp-btn:hover{filter:brightness(1.08);transform:translateY(-1px)}.cmp-btn:active{transform:none}
+.cmp-btn.alt{background:transparent;color:var(--text);border-color:var(--border2);box-shadow:none}.cmp-btn.alt:hover{background:rgba(var(--brand-rgb),.1);filter:none}
+.cmp-btn.show{background:linear-gradient(135deg,#16a34a,#15803d)}.cmp-btn.danger{background:linear-gradient(135deg,#dc2626,#b42318)}
+.cpRow{background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.cpRow.hid{opacity:.7;border-style:dashed}.cpRow .cpA{display:flex;gap:8px;flex-wrap:wrap}
+.cpPill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:800;margin-inline-end:6px;background:rgba(var(--brand-rgb),.14);color:var(--green3)}
+.cpPill.hid{background:rgba(120,120,120,.18);color:var(--muted)}.cpPill.end{background:rgba(180,83,9,.16);color:#b45309}
+.cpPanel{background:var(--bg3);border:1px solid var(--border2);border-radius:14px;padding:16px;margin-bottom:18px}
+.cpPanel h3{margin:0 0 10px}.cpChips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.cpChips span{padding:5px 11px;border-radius:99px;border:1px solid var(--border);font-size:12px}
+.cpGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 12px}.cpGrid label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}`;
+  document.head.appendChild(st); })();
+const _cpState = c => c.status === 'hidden' ? ['hid', _t('مخفية عن الطلبة', 'Hidden from students')] : c.status === 'closed' ? ['end', _t('منتهية', 'Closed')] : c.status === 'draft' ? ['', _t('مسودة', 'Draft')] : ['', _t('منشورة', 'Published')];
+const _cpModeLbl = m => ({ public: _t('تصويت الجمهور', 'Public vote'), jury: _t('لجنة التحكيم', 'Jury panel'), mixed: _t('تقييم مشترك', 'Combined') }[m] || m);
+const _cpFmt = iso => { if (!iso) return '—'; const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleString(lang === 'AR' ? 'ar-EG' : 'en-GB', { timeZone: 'Africa/Cairo', dateStyle: 'medium', timeStyle: 'short' }); };
 async function renderAdminCompetitions(area) {
   const { db, doc, getDoc, getDocs, collection, query, where, addDoc, serverTimestamp, increment, updateDoc: _sbUpdateDoc } = _cX();
   area = area || document.getElementById('contentArea');
@@ -10134,13 +10152,47 @@ async function renderAdminCompetitions(area) {
   <select id="cpM" style="${_cIn}"><option value="public">${_t("تصويت الجمهور", "Public vote")}</option><option value="jury">${_t("لجنة التحكيم", "Jury panel")}</option><option value="mixed">${_t("تقييم مشترك", "Combined (public + jury)")}</option></select>
   <input id="cpP" type="number" min="0" max="100" value="30" style="${_cIn}" placeholder="${_t("نسبة تصويت الجمهور % (للمشترك)", "Public vote weight % (for combined)")}"><input id="cpC" type="number" min="0" value="0" style="${_cIn}" placeholder="${_t("عملات ATLAS للفائز الأول (والثاني 60% والثالث 30%)", "ATLAS coins for 1st place (2nd gets 60%, 3rd gets 30%)")}">
   <button id="cpGo" style="padding:10px 18px;border:0;border-radius:10px;background:var(--green3);color:#fff;font-weight:700;cursor:pointer">${_t("إنشاء ونشر", "Create & Publish")}</button></div>
-  <div id="cpList">${cs.map(c => `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px;align-items:center"><div><b>${_cE(c.title)}</b><br><span class="cmp-muted">${c.status === 'draft' ? _t('مسودة', 'Draft') : _t('منشورة', 'Published')}${c.winners?.length ? _t(' · أُعلن الفائزون', ' · Winners announced') : ''}</span></div><div style="display:flex;gap:6px"><button data-m="${c.id}" class="cmp-btn">${_t("المشاركات", "Entries")}</button><button data-h="${c.id}" class="cmp-btn alt">${_t("إخفاء", "Hide")}</button></div></div>`).join('') || '<p class="cmp-muted">' + _t('لا توجد مسابقات.', 'No competitions yet.') + '</p>'}</div><div id="cpEntries"></div>`;
+  <div id="cpList">${cs.map(c => { const [sk, sl] = _cpState(c), hid = c.status === 'hidden'; return `<div class="cpRow ${hid ? 'hid' : ''}"><div><b>${_cE(c.title)}</b><br><span class="cpPill ${sk}">${sl}</span>${c.winners?.length ? `<span class="cpPill">🏆 ${_t('أُعلن الفائزون', 'Winners announced')}</span>` : ''}</div><div class="cpA"><button data-m="${c.id}" class="cmp-btn"><i class="fa-solid fa-images"></i> ${_t("المشاركات", "Entries")}</button><button data-d="${c.id}" class="cmp-btn alt"><i class="fa-solid fa-pen-to-square"></i> ${_t("التفاصيل والتعديل", "Details & Edit")}</button><button data-h="${c.id}" class="cmp-btn ${hid ? 'show' : 'alt'}"><i class="fa-solid ${hid ? 'fa-eye' : 'fa-eye-slash'}"></i> ${hid ? _t("إظهار", "Show") : _t("إخفاء", "Hide")}</button></div></div>`; }).join('') || '<p class="cmp-muted">' + _t('لا توجد مسابقات.', 'No competitions yet.') + '</p>'}</div><div id="cpEntries"></div>`;
   document.getElementById('cpGo').onclick = async () => {
     const g = i => document.getElementById(i).value, t = g('cpT').trim(); if (!t || !g('cpRe') || !g('cpVs') || !g('cpVe')) return _cT(_t('الاسم والتواريخ مطلوبة', 'Name and dates are required'));
     await addDoc(collection(db, 'competitions'), { title: t, desc: g('cpD').trim(), rules: g('cpR').trim(), type: 'map', status: 'open', regEnd: iso(g('cpRe')), voteStart: iso(g('cpVs')), voteEnd: iso(g('cpVe')), mode: g('cpM'), publicPct: Math.min(100, Math.max(0, +g('cpP') || 0)), prizeCoins: Math.max(0, +g('cpC') || 0), winners: [], createdAt: serverTimestamp() });
     _cT(_t('تم إنشاء المسابقة', 'Competition created')); renderAdminCompetitions(area); };
-  area.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => { if (confirm(_t('إخفاء المسابقة عن الطلبة؟', 'Hide this competition from students?'))) { await _sbUpdateDoc(doc(db, 'competitions', b.dataset.h), { status: 'hidden' }); renderAdminCompetitions(area); } });
+  area.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => { const c = cs.find(x => x.id === b.dataset.h); if (!c) return;
+    if (c.status === 'hidden') { await _sbUpdateDoc(doc(db, 'competitions', c.id), { status: c.winners?.length ? 'closed' : 'open' }); _cT(_t('تم إظهار المسابقة للطلبة', 'Competition is visible to students again')); renderAdminCompetitions(area); return; }
+    if (confirm(_t('إخفاء المسابقة عن الطلبة؟ (تقدر تظهرها تاني في أي وقت)', 'Hide this competition from students? (You can show it again anytime)'))) { await _sbUpdateDoc(doc(db, 'competitions', c.id), { status: 'hidden' }); _cT(_t('تم إخفاء المسابقة', 'Competition hidden')); renderAdminCompetitions(area); } });
+  area.querySelectorAll('[data-d]').forEach(b => b.onclick = () => _cDetails(cs.find(c => c.id === b.dataset.d), area));
   area.querySelectorAll('[data-m]').forEach(b => b.onclick = () => _cEntries(cs.find(c => c.id === b.dataset.m)));
+}
+async function _cDetails(c, area) {
+  const { db, doc, getDocs, collection, query, where, updateDoc: _sbUpdateDoc } = _cX();
+  const box = document.getElementById('cpEntries'); if (!box || !c) return;
+  const loc = v => (v && typeof _isoToCairoLocal === 'function' ? _isoToCairoLocal(v) : ''), iso = v => (v ? (typeof _cairoLocalToIso === 'function' ? _cairoLocalToIso(v) : new Date(v).toISOString()) : '');
+  let es = [], vs = 0;
+  try { es = (await getDocs(query(collection(db, 'competition_entries'), where('compId', '==', c.id)))).docs.map(d => d.data()); vs = (await getDocs(query(collection(db, 'competition_votes'), where('compId', '==', c.id)))).docs.length; } catch (e) {}
+  const locked = !!c.winners?.length, [sk, sl] = _cpState(c), dis = locked ? 'disabled' : '';
+  const f = (id, label, val, type) => `<div><label>${label}</label><input id="${id}" type="${type || 'text'}" value="${_cE(val ?? '')}" style="${_cIn}"></div>`;
+  box.innerHTML = `<div class="cpPanel" id="cpDet"><h3>📋 ${_cE(c.title)}</h3>
+    <div class="cpChips"><span class="cpPill ${sk}" style="margin:0">${sl}</span><span>${_t('نظام الفوز: ', 'Mode: ')}${_cpModeLbl(c.mode)}${c.mode === 'mixed' ? ' (' + (c.publicPct ?? 0) + '% ' + _t('جمهور', 'public') + ')' : ''}</span><span>🪙 ${_t('جائزة الأول: ', '1st prize: ')}${c.prizeCoins || 0}</span><span>🖼️ ${_t('المشاركات: ', 'Entries: ')}${es.length} (${es.filter(e => e.status === 'approved').length} ${_t('مقبولة', 'approved')})</span><span>👍 ${_t('الأصوات: ', 'Votes: ')}${vs}</span></div>
+    <div class="cmp-muted" style="margin-bottom:12px">${_t('نهاية التسجيل: ', 'Registration ends: ')}${_cpFmt(c.regEnd)} · ${_t('بداية التصويت: ', 'Voting starts: ')}${_cpFmt(c.voteStart)} · ${_t('نهاية التصويت: ', 'Voting ends: ')}${_cpFmt(c.voteEnd)}</div>
+    ${locked ? `<div class="cmp-muted" style="margin-bottom:10px;color:#b45309">⚠️ ${_t('تم إعلان الفائزين: نظام الفوز والجوائز مقفولين، ولسه تقدر تعدّل النصوص.', 'Winners are announced: mode and prizes are locked; text can still be edited.')}</div>` : ''}
+    ${f('edT', _t('اسم المسابقة', 'Competition name'), c.title)}
+    <label class="cmp-muted">${_t('الوصف', 'Description')}</label><textarea id="edD" rows="3" style="${_cIn}">${_cE(c.desc)}</textarea>
+    <label class="cmp-muted">${_t('شروط المشاركة', 'Participation rules')}</label><textarea id="edR" rows="3" style="${_cIn}">${_cE(c.rules)}</textarea>
+    <div class="cpGrid">${f('edRe', _t('نهاية التسجيل (القاهرة)', 'Registration ends (Cairo)'), loc(c.regEnd), 'datetime-local')}${f('edVs', _t('بداية التصويت', 'Voting starts'), loc(c.voteStart), 'datetime-local')}${f('edVe', _t('نهاية التصويت', 'Voting ends'), loc(c.voteEnd), 'datetime-local')}
+    <div><label>${_t('نظام الفوز', 'Winning mode')}</label><select id="edM" ${dis} style="${_cIn}"><option value="public" ${c.mode === 'public' ? 'selected' : ''}>${_t('تصويت الجمهور', 'Public vote')}</option><option value="jury" ${c.mode === 'jury' ? 'selected' : ''}>${_t('لجنة التحكيم', 'Jury panel')}</option><option value="mixed" ${c.mode === 'mixed' ? 'selected' : ''}>${_t('تقييم مشترك', 'Combined')}</option></select></div>
+    <div><label>${_t('نسبة تصويت الجمهور % (للمشترك)', 'Public vote weight % (combined)')}</label><input id="edP" type="number" min="0" max="100" value="${c.publicPct ?? 30}" ${dis} style="${_cIn}"></div>
+    <div><label>${_t('عملات الفائز الأول', '1st place coins')}</label><input id="edC" type="number" min="0" value="${c.prizeCoins || 0}" ${dis} style="${_cIn}"></div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button id="edGo" class="cmp-btn"><i class="fa-solid fa-floppy-disk"></i> ${_t('حفظ التعديلات', 'Save changes')}</button><button id="edX" class="cmp-btn alt">${_t('إغلاق', 'Close')}</button></div></div>`;
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('edX').onclick = () => { box.innerHTML = ''; };
+  document.getElementById('edGo').onclick = async () => {
+    const g = i => document.getElementById(i).value, t = g('edT').trim();
+    if (!t || !g('edRe') || !g('edVs') || !g('edVe')) return _cT(_t('الاسم والتواريخ مطلوبة', 'Name and dates are required'));
+    if (g('edVs') >= g('edVe')) return _cT(_t('بداية التصويت لازم تسبق نهايته', 'Voting start must be before its end'));
+    const upd = { title: t, desc: g('edD').trim(), rules: g('edR').trim(), regEnd: iso(g('edRe')), voteStart: iso(g('edVs')), voteEnd: iso(g('edVe')) };
+    if (!locked) Object.assign(upd, { mode: g('edM'), publicPct: Math.min(100, Math.max(0, +g('edP') || 0)), prizeCoins: Math.max(0, +g('edC') || 0) });
+    try { await _sbUpdateDoc(doc(db, 'competitions', c.id), upd); _cT(_t('تم حفظ التعديلات ✅', 'Changes saved ✅')); renderAdminCompetitions(area); }
+    catch (e) { console.error(e); _cT(_t('فشل الحفظ (صلاحيات؟)', 'Save failed (permissions?)')); } };
 }
 async function _cEntries(c) {
   const { db, doc, getDoc, getDocs, collection, query, where, addDoc, serverTimestamp, increment, updateDoc: _sbUpdateDoc } = _cX();
