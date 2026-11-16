@@ -4231,9 +4231,10 @@ body.rtl .fc-badge::after{transform:translateX(120%);animation-name:fcShineR}
 .fc-fin{margin-top:16px;font-size:14px;font-weight:800;color:var(--fc-gold);position:relative}
 @keyframes fcFlash{0%,100%{box-shadow:0 0 0 0 rgba(var(--fc-g),0)}30%{box-shadow:0 0 0 4px rgba(var(--fc-g),.55)}}
 .fc-offers.fc-flash{border-radius:16px;animation:fcFlash 1.4s ease-out}
-.fc-deals-btns .fc-btn{-webkit-tap-highlight-color:transparent;outline:none}
-.fc-deals-btns .fc-btn:focus-visible{outline:2px solid rgba(var(--fc-g),.9);outline-offset:2px}
-.fc-deals-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.fc-deals-btns .fc-btn{margin-top:0;padding:11px 20px}
+.fc-deals-row .fc-btn{-webkit-tap-highlight-color:transparent;outline:none;touch-action:manipulation;position:relative;z-index:1}
+.fc-deals-row .fc-btn:focus-visible{outline:2px solid rgba(var(--fc-g),.9);outline-offset:2px}
+.fc-deals-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;transform:none !important;filter:none !important}.fc-deals-row .fc-btn{margin-top:0;padding:11px 20px}
+@media (hover:none){.fc-deals-row .fc-btn:hover{transform:none;filter:none}}
 .fc-comp-info{margin-top:10px;font-size:12.5px;font-weight:700;color:var(--fc-ink);display:flex;gap:8px;flex-wrap:wrap}.fc-comp-info:empty{display:none}.fc-comp-info span{padding:4px 11px;border-radius:99px;background:rgba(var(--fc-g),.2);border:1px solid rgba(var(--fc-g),.4)}
 .fc-count{padding:28px 16px 24px;border-color:rgba(var(--fc-g),.4)}
 .fc-live{display:inline-flex;align-items:center;gap:7px;font:800 10.5px/1 'Space Mono',monospace;letter-spacing:1.6px;padding:6px 12px;border-radius:99px;background:rgba(var(--fc-g),.14);border:1px solid rgba(var(--fc-g),.4);color:var(--fc-gold);margin-bottom:12px;position:relative}
@@ -5436,7 +5437,7 @@ window._cmpOpen = tab => { S = { tab: tab || 'maps', comp: null, entry: null }; 
 window.renderCompetitions = async function (area) {
   area = area || document.getElementById('contentArea');
   if (!document.getElementById('cmpCss')) { const s = document.createElement('style'); s.id = 'cmpCss'; s.textContent = css; document.head.appendChild(s); }
-  const tabs = [['maps', '🗺️ ' + T('مسابقات الخرائط', 'Map Competitions')], ['mine', '👤 ' + T('مشاركاتي', 'My Participations')], ['go:leaderboard', '🏆 ' + T('المتصدرين', 'Leaderboard')], ['go:offers', '🎁 ' + T('العروض والخصومات', 'Offers & Deals')]];
+  const tabs = [['maps', '🗺️ ' + T('مسابقات الخرائط', 'Map Competitions')], ['mine', '👤 ' + T('مشاركاتي', 'My Participations')]];
   area.innerHTML = `<div class="cmp"><button class="cmp-btn alt" id="cmpHome">← ${T('الصفحة الرئيسية', 'Home')}</button><h2 style="margin-top:12px">🏅 ${T('المسابقات', 'Competitions')}</h2><div class="cmp-tabs">${tabs.map(([k, l]) => `<button class="cmp-tab ${S.tab === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div><div id="cmpBody"><div class="spinner" style="margin:30px auto"></div></div></div>`;
   document.getElementById('cmpHome').onclick = () => fcGo('dashboard');
   area.querySelectorAll('.cmp-tab').forEach(b => b.onclick = () => { const k = b.dataset.k; if (k === 'go:offers') return fcGoOffers(); if (k.startsWith('go:')) return fcGo(k.slice(3)); S.tab = k; S.comp = null; S.entry = null; renderCompetitions(area); });
@@ -9269,7 +9270,7 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
                             <div class="s1">${isAR ? 'عروض ومسابقات ديسمبر الحصرية' : 'Exclusive December Offers & Competitions'}</div>
                             <div class="s2">${isAR ? 'نافس، شارك بخريطتك، واكسب جوائز وخصومات — لفترة محدودة!' : "Compete, share your map & win prizes and deals — limited time!"}</div>
                             <div class="fc-comp-info" id="fcCompInfo"></div>
-                            <div class="fc-deals-btns">
+                            <div class="fc-deals-row">
                                 <button class="fc-btn fc-btn-gold" id="fcBtnComp" type="button" onclick="event.stopPropagation();fcDealsAct('comp')"><i class="fa-solid fa-trophy"></i> ${isAR ? 'المسابقات' : 'Competitions'}</button>
                                 <button class="fc-btn fc-btn-glass" id="fcBtnOffers" type="button" onclick="event.stopPropagation();fcDealsAct('offers')"><i class="fa-solid fa-gift"></i> ${isAR ? 'العروض' : 'Offers'}</button>
                             </div>
@@ -15280,7 +15281,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.13.9';
+        window.ATL_APP_VERSION = '2026.11.16.1';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
