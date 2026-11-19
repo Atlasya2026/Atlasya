@@ -5463,6 +5463,7 @@ const frozen = () => ['final', 'ended', 'off'].includes(seasonState());
 const phase = c => { const n = Date.now(); if (c.winners && c.winners.length) return ['won', T('تم إعلان الفائزين', 'Winners announced'), 0];
   if (c.status === 'draft') return ['draft', T('قريبًا', 'Upcoming'), 0];
   if (frozen()) return ['done', T('اكتملت المسابقة', 'Completed'), 0];
+  if (seasonState() === 'upcoming') return ['soon', T('تبدأ قريبًا', 'Starts soon'), ms(SEASON.startAt)];
   if (n < ms(c.regEnd)) return ['reg', T('التسجيل مفتوح', 'Registration open'), ms(c.regEnd)];
   if (n >= ms(c.voteStart) && n < ms(c.voteEnd)) return ['vote', T('التصويت متاح', 'Voting open'), ms(c.voteEnd)];
   if (n < ms(c.voteStart)) return ['wait', T('المسابقة نشطة', 'Active'), ms(c.voteStart)];
@@ -5501,7 +5502,7 @@ window.renderCompetitions = async function (area) {
 };
 async function list(body) {
   const cs = await loadComps(), st = seasonState();
-  const banner = SEASON && SEASON.name ? `<div class="cmp-card" style="margin-bottom:12px"><b>${E(SEASON.name)}</b><span class="cmp-muted">${st === 'live' ? left(ms(SEASON.endAt)) : st === 'final' ? T('الفترة الختامية — إعلان النتائج', 'Final period — results') : st === 'upcoming' ? T('تبدأ قريبًا', 'Starting soon') : T('انتهت الحملة — أرشيف', 'Campaign ended — archive')}</span></div>` : '';
+  const banner = SEASON && SEASON.name ? `<div class="cmp-card" style="margin-bottom:12px"><b>${E(SEASON.name)}</b><span class="cmp-muted">${st === 'live' ? left(ms(SEASON.endAt)) : st === 'upcoming' ? left(ms(SEASON.startAt)) : st === 'final' ? T('الفترة الختامية — إعلان النتائج', 'Final period — results') : st === 'upcoming' ? T('تبدأ قريبًا', 'Starting soon') : T('انتهت الحملة — أرشيف', 'Campaign ended — archive')}</span></div>` : '';
   body.innerHTML = banner + (cs.length ? `<div class="cmp-grid">${cs.map(c => { const [k, l, t] = phase(c); return `<div class="cmp-card"><span class="cmp-pill">${l}</span><h3>${E(c.title)}</h3><p class="cmp-muted">${E((c.desc || '').slice(0, 140))}</p><span class="cmp-muted">${left(t)}</span><button class="cmp-btn" data-c="${c.id}">${T('فتح المسابقة', 'Open')}</button></div>`; }).join('')}</div>` : `<p class="cmp-muted">${T('لا توجد مسابقات حاليًا — ستظهر هنا فور إنشاء المشرف لأول مسابقة.', 'No competitions yet.')}</p>`);
   body.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { S.comp = cs.find(c => c.id === b.dataset.c); renderCompetitions(); });
 }
@@ -5541,6 +5542,7 @@ async function compView(body) {
     inf.textContent = f.size > 15 * 1048576 ? T('الصورة ' + mb + 'MB — الحد الأقصى 15MB', 'Image is ' + mb + 'MB — max 15MB') : T('الصورة ' + mb + 'MB' + (f.size > 4 * 1048576 ? ' — هتتضغط تلقائيًا قبل الرفع' : ''), 'Image ' + mb + 'MB' + (f.size > 4 * 1048576 ? ' — will be compressed before upload' : '')); inf.style.color = f.size > 15 * 1048576 ? '#dc2626' : ''; };
   const send = document.getElementById('cmpSend'); if (send) send.onclick = async () => { const f = document.getElementById('cmpF').files[0], ti = document.getElementById('cmpT').value.trim();
     if (!ti || !f) return toast(T('العنوان وصورة الخريطة مطلوبان', 'Title and image required'), true);
+    if (phase(c)[0] !== 'reg') return toast(T('باب المشاركة غير مفتوح الآن', 'Submissions are not open right now'), true);
     if (!/^image\/(png|jpeg|webp)$/.test(f.type) || f.size > 15 * 1048576) return toast(T('صورة PNG/JPG/WEBP حتى 15MB فقط', 'PNG/JPG/WEBP up to 15MB'), true);
     send.disabled = true; const pg = document.getElementById('cmpProg'), bar = pg.querySelector('i'), pt = pg.querySelector('span'); pg.hidden = false; pg.classList.remove('ok');
     const setP = (p, txt) => { bar.style.width = p + '%'; pt.textContent = txt; };
@@ -15372,7 +15374,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.19.1';
+        window.ATL_APP_VERSION = '2026.11.19.2';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
