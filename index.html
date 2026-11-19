@@ -4713,6 +4713,9 @@ body.rtl .fc-badge::after{transform:translateX(120%);animation-name:fcShineR}
                         <button class="nav-item" id="menuAccount" onclick="goSettings('hub')">
                             <i class="fa-solid fa-gear"></i> <span id="menuAccountTxt">الإعدادات</span>
                         </button>
+                        <button class="nav-item" id="menuTour" onclick="if(window.innerWidth<=768)closeSidebar();setTimeout(function(){atlTour.start()},350)">
+                            <i class="fa-solid fa-circle-question"></i> <span id="menuTourTxt">جولة إرشادية</span>
+                        </button>
                     </div>
                 </div>
 
@@ -5470,6 +5473,17 @@ const loadVotes = async cid => (await getDocs(query(collection(db, 'competition_
 const css = `.cmp{max-width:1100px;margin:0 auto}.cmp-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.cmp-tab{padding:9px 16px;border-radius:99px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;font-family:inherit;font-size:13px}.cmp-tab.on{background:rgba(var(--brand-rgb,30,122,52),.25);border-color:var(--green3);color:var(--green4)}.cmp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}.cmp-card{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}.cmp-card img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;cursor:pointer}.cmp-pill{align-self:flex-start;font-size:11px;font-weight:800;padding:3px 10px;border-radius:99px;background:rgba(var(--brand-rgb,30,122,52),.18);color:var(--green4)}.cmp-btn{padding:9px 14px;border-radius:10px;border:0;background:var(--green3);color:#fff;font-family:inherit;font-weight:700;cursor:pointer}.cmp-btn.alt{background:transparent;border:1px solid var(--border2,var(--border));color:var(--text)}.cmp-btn:disabled{opacity:.5;cursor:not-allowed}.cmp-in{width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--bg2,var(--bg3));color:var(--text);font-family:inherit;margin-bottom:8px}.cmp-muted{color:var(--muted);font-size:12px}.cmp-big{width:100%;max-height:70vh;object-fit:contain;border-radius:14px;background:#000}.cmp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.cmp-cm{padding:10px 12px;border-radius:12px;background:var(--bg3);border:1px solid var(--border);margin-bottom:8px}.cmp-cm.rep{margin-inline-start:22px}.cmp-hub{display:flex;flex-direction:column;gap:12px}.cmp-hub-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;padding:16px 18px;border-radius:18px;border:1px solid var(--border);background:linear-gradient(135deg,rgba(240,192,64,.14),rgba(var(--brand2-rgb,39,163,70),.08))}.cmp-hub-top b{font-size:16px}.cmp-stats{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px}.cmp-st{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:99px;background:var(--bg2,var(--bg3));border:1px solid var(--border);font-size:13px;font-weight:800}.cmp-st small{font-size:11px;font-weight:600;color:var(--muted)}.cmp-st.fire{background:rgba(240,150,40,.16);border-color:rgba(240,150,40,.45)}.cmp-prog{margin:8px 0 10px}.cmp-prog[hidden]{display:none}.cmp-prog-bar{height:10px;border-radius:99px;background:rgba(128,128,128,.22);overflow:hidden}.cmp-prog-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--green3),#f0c040);transition:width .25s ease}.cmp-prog span{display:block;margin-top:6px;font-size:12.5px;font-weight:700}.cmp-prog.ok span{color:var(--green4)}.cmp-hero{padding:18px;border-radius:20px;border:1px solid var(--border2,var(--border));background:linear-gradient(135deg,rgba(var(--brand-rgb,30,122,52),.16),rgba(240,192,64,.1));margin:12px 0 16px}.cmp-hero-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.cmp-hero h2{margin:0;font-size:clamp(19px,4.6vw,26px);line-height:1.3}.cmp-chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.cmp-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;font-size:12px;font-weight:700;background:var(--bg3);border:1px solid var(--border)}.cmp-ibs{display:flex;gap:10px;flex-wrap:wrap}.cmp-ib{display:inline-flex;align-items:center;gap:9px;padding:9px 16px 9px 10px;border-radius:99px;border:1px solid var(--border2,var(--border));background:var(--bg3);color:var(--text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s,border-color .2s,transform .15s}.cmp-ib:hover{border-color:var(--green3);transform:translateY(-1px)}.cmp-ib.on{background:rgba(var(--brand-rgb,30,122,52),.22);border-color:var(--green3);color:var(--green4)}.cmp-ib b{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:800 13px/1 serif;font-style:italic;color:#fff;background:var(--green3);flex-shrink:0}.cmp-ib.rules b{font-style:normal;font-family:inherit;background:#d97706}.cmp-ib::after{content:'';display:none}.cmp-panel{margin-top:12px;padding:14px 16px;border-radius:14px;background:var(--bg3);border:1px solid var(--border);animation:cmpIn .25s ease}.cmp-panel[hidden]{display:none}.cmp-panel h4{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px}.cmp-panel p{margin:0;font-size:14px;line-height:1.85;white-space:pre-line}.cmp-panel ul{margin:0;padding-inline-start:20px;font-size:14px;line-height:1.9}.cmp-panel li::marker{color:var(--green3)}@keyframes cmpIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}.cmp-card h3{margin:2px 0;font-size:16px;line-height:1.4}.cmp-card p.cmp-muted{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.7}`;
 let S = { tab: 'maps', comp: null, entry: null };
 window._cmpOpen = tab => { S = { tab: tab || 'maps', comp: null, entry: null }; fcGo('competitions'); };
+window._cmpOpenEntry = id => { S = { tab: 'maps', comp: null, entry: null, pendingEntry: id }; fcGo('competitions'); };
+/* رابط مشاركة الخريطة (#/competitions/e/<id>): بنحفظه قبل ما شاشة الدخول تمسح الـ hash، وبنفتح المشاركة أول ما الطالب يبقى مسجّل دخول */
+(function () {
+  try { const m = location.hash.match(/^#\/competitions\/e\/([A-Za-z0-9_\-]+)/); if (m) sessionStorage.setItem('cmpDeep', m[1]); } catch (e) {}
+  const pend = () => { try { return sessionStorage.getItem('cmpDeep'); } catch (e) { return null; } };
+  let tries = 0; const iv = setInterval(() => {
+    const id = pend(); if (!id || ++tries > 360) { clearInterval(iv); return; }
+    const app = document.getElementById('mainApp');
+    if (currentUid && app && app.style.display !== 'none') { clearInterval(iv); try { sessionStorage.removeItem('cmpDeep'); } catch (e) {} setTimeout(() => window._cmpOpenEntry(id), 400); }
+  }, 500);
+})();
 window.renderCompetitions = async function (area) {
   area = area || document.getElementById('contentArea');
   if (!document.getElementById('cmpCss')) { const s = document.createElement('style'); s.id = 'cmpCss'; s.textContent = css; document.head.appendChild(s); }
@@ -5477,6 +5491,11 @@ window.renderCompetitions = async function (area) {
   area.innerHTML = `<div class="cmp"><button class="cmp-btn alt" id="cmpHome">← ${T('الصفحة الرئيسية', 'Home')}</button><h2 style="margin-top:12px">🏅 ${T('المسابقات', 'Competitions')}</h2><div class="cmp-tabs">${tabs.map(([k, l]) => `<button class="cmp-tab ${S.tab === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div><div id="cmpBody"><div class="spinner" style="margin:30px auto"></div></div></div>`;
   document.getElementById('cmpHome').onclick = () => fcGo('dashboard');
   area.querySelectorAll('.cmp-tab').forEach(b => b.onclick = () => { const k = b.dataset.k; if (k === 'go:offers') return fcGoOffers(); if (k.startsWith('go:')) return fcGo(k.slice(3)); S.tab = k; S.comp = null; S.entry = null; renderCompetitions(area); });
+  if (S.pendingEntry) { const pid = S.pendingEntry; S.pendingEntry = null;
+    try { const d = await getDoc(doc(db, 'competition_entries', pid)); const en = d.exists() ? { id: d.id, ...d.data() } : null;
+      if (!en) toast(T('المشاركة غير موجودة', 'Entry not found'), true);
+      else { const cd = await getDoc(doc(db, 'competitions', en.compId)); const cc = cd.exists() ? { id: cd.id, ...cd.data() } : null;
+        if (!cc || cc.status === 'hidden' || (en.status !== 'approved' && en.uid !== currentUid)) toast(T('هذه المشاركة غير متاحة', 'This entry is not available'), true); else { S.entry = en; S.comp = cc; } } } catch (er) { console.warn(er); } }
   const body = document.getElementById('cmpBody');
   try { S.tab === 'mine' ? await mine(body) : S.entry ? await entryView(body) : S.comp ? await compView(body) : await list(body); } catch (e) { console.warn('[competitions]', e); body.innerHTML = `<p class="cmp-muted">${T('تعذّر التحميل — تأكد من إعداد جداول المسابقات في Supabase.', 'Could not load — make sure the competition tables exist in Supabase.')}</p>`; }
 };
@@ -5506,7 +5525,8 @@ async function compView(body) {
     ${ruleLines.length ? `<div class="cmp-panel" id="cmpPR" hidden><h4>📜 ${T('شروط المشاركة', 'Participation rules')}</h4>${ruleLines.length > 1 ? `<ul>${ruleLines.map(x => `<li>${E(x)}</li>`).join('')}</ul>` : `<p>${E(ruleLines[0])}</p>`}</div>` : ''}
   </div>
   ${k === 'reg' ? `<div class="cmp-card" style="margin:12px 0"><b>${T('شارك بخريطتك', 'Submit your map')}</b>${mine.length ? `<span class="cmp-muted">${T('لديك مشاركة بالفعل (الحالة: ', 'You already submitted (status: ')}${E(mine[0].status)})</span>` : `<input class="cmp-in" id="cmpT" placeholder="${T('عنوان الخريطة', 'Map title')}"><textarea class="cmp-in" id="cmpD" rows="2" placeholder="${T('وصف مختصر', 'Short description')}"></textarea><input class="cmp-in" id="cmpSw" placeholder="${T('البرنامج (ArcGIS Pro / QGIS…)', 'Software')}"><input class="cmp-in" id="cmpMt" placeholder="${T('نوع/تخصص الخريطة', 'Map type')}"><input class="cmp-in" id="cmpSrc" placeholder="${T('مصادر البيانات', 'Data sources')}"><input type="file" accept="image/png,image/jpeg,image/webp" id="cmpF" class="cmp-in"><div class="cmp-muted" id="cmpFi" style="margin:-4px 0 8px">${T('PNG / JPG / WEBP حتى 15MB — بتتضغط تلقائيًا لو كبيرة', 'PNG / JPG / WEBP up to 15MB — large images are compressed automatically')}</div><div class="cmp-prog" id="cmpProg" hidden><div class="cmp-prog-bar"><i></i></div><span></span></div><button class="cmp-btn" id="cmpSend">${T('إرسال للمراجعة', 'Submit for review')}</button>`}</div>` : ''}
-  <h3 style="margin:14px 0 8px">${T('معرض الخرائط', 'Gallery')} (${es.length})</h3><div class="cmp-grid">${ranked.map(({ e, s, v }, i) => `<div class="cmp-card"><img src="${E(e.imageUrl)}" loading="lazy" data-e="${e.id}"><b>#${i + 1} ${E(e.title)}</b><span class="cmp-muted">${E(e.authorName)} · ${E(e.software || '')}</span><p class="cmp-muted">${E((e.desc || '').slice(0, 120))}</p><div class="cmp-stats"><span class="cmp-st fire" title="${T('إجمالي التفاعل', 'Total interactions')}">🔥 ${nLk(e.id) + nCm(e.id)} <small>${T('تفاعل', 'interactions')}</small></span><span class="cmp-st" title="${T('الإعجابات', 'Likes')}">❤️ ${nLk(e.id)} <small>${T('إعجاب', 'likes')}</small></span><span class="cmp-st" title="${T('التعليقات', 'Comments')}">💬 ${nCm(e.id)} <small>${T('تعليق', 'comments')}</small></span><span class="cmp-st" title="${T('الأصوات', 'Votes')}">🗳️ ${v} <small>${T('صوت', 'votes')}</small></span>${c.mode !== 'public' ? `<span class="cmp-st">⚖️ ${Number(e.jury) || 0} <small>${T('تحكيم', 'jury')}</small></span>` : ''}</div><button class="cmp-btn alt" data-e="${e.id}">${T('عرض والتفاعل', 'View & react')}</button>${k === 'vote' ? `<button class="cmp-btn" data-v="${e.id}" ${e.uid === uid || myVotes.has(e.id) ? 'disabled' : ''}>${e.uid === uid ? T('مشاركتك', 'Yours') : myVotes.has(e.id) ? T('تم التصويت ✓', 'Voted ✓') : T('صوّت', 'Vote')}</button>` : ''}</div>`).join('') || `<p class="cmp-muted">${T('لا توجد مشاركات معتمدة بعد.', 'No approved entries yet.')}</p>`}</div>
+  ${c.mode !== 'jury' && ['reg', 'wait'].includes(k) ? `<div class="cmp-card" style="margin-top:12px"><b>🗳️ ${T('التصويت', 'Voting')}</b><span class="cmp-muted">${Date.now() < ms(c.voteStart) ? T('زر التصويت هيظهر على كل خريطة أول ما يبدأ التصويت: ', 'A Vote button will appear on every map when voting starts: ') + new Date(ms(c.voteStart)).toLocaleString(lang === 'AR' ? 'ar-EG' : 'en-GB', { timeZone: 'Africa/Cairo', dateStyle: 'medium', timeStyle: 'short' }) : T('التصويت مغلق.', 'Voting is closed.')}</span></div>` : ''}
+  <h3 style="margin:14px 0 8px">${T('معرض الخرائط', 'Gallery')} (${es.length})</h3><div class="cmp-grid">${ranked.map(({ e, s, v }, i) => `<div class="cmp-card"><img src="${E(e.imageUrl)}" loading="lazy" data-e="${e.id}"><b>#${i + 1} ${E(e.title)}</b><span class="cmp-muted">${E(e.authorName)} · ${E(e.software || '')}</span><p class="cmp-muted">${E((e.desc || '').slice(0, 120))}</p><div class="cmp-stats"><span class="cmp-st fire" title="${T('إجمالي التفاعل', 'Total interactions')}">🔥 ${nLk(e.id) + nCm(e.id)} <small>${T('تفاعل', 'interactions')}</small></span><span class="cmp-st" title="${T('الإعجابات', 'Likes')}">❤️ ${nLk(e.id)} <small>${T('إعجاب', 'likes')}</small></span><span class="cmp-st" title="${T('التعليقات', 'Comments')}">💬 ${nCm(e.id)} <small>${T('تعليق', 'comments')}</small></span><span class="cmp-st" title="${T('الأصوات', 'Votes')}">🗳️ ${v} <small>${T('صوت', 'votes')}</small></span>${c.mode !== 'public' ? `<span class="cmp-st">⚖️ ${Number(e.jury) || 0} <small>${T('تحكيم', 'jury')}</small></span>` : ''}</div><button class="cmp-btn alt" data-e="${e.id}">${T('عرض والتفاعل', 'View & react')}</button>${k === 'vote' && c.mode !== 'jury' ? `<button class="cmp-btn" data-v="${e.id}" ${e.uid === uid || myVotes.has(e.id) ? 'disabled' : ''}>${e.uid === uid ? T('مشاركتك', 'Yours') : myVotes.has(e.id) ? T('تم التصويت ✓', 'Voted ✓') : T('صوّت', 'Vote')}</button>` : ''}</div>`).join('') || `<p class="cmp-muted">${T('لا توجد مشاركات معتمدة بعد.', 'No approved entries yet.')}</p>`}</div>
   ${c.winners && c.winners.length ? `<h3 style="margin:16px 0 6px">🏆 ${T('الفائزون', 'Winners')}</h3>${c.winners.map((w, i) => `<p>${['🥇', '🥈', '🥉'][i] || '🏅'} ${E(w.title)} — ${E(w.name)}</p>`).join('')}` : ''}`;
   document.getElementById('cmpBack').onclick = () => { S.comp = null; renderCompetitions(); };
   body.querySelectorAll('.cmp-ib').forEach(btn => btn.onclick = () => { const tgt = document.getElementById(btn.dataset.i), open = tgt.hidden;
@@ -5536,20 +5556,30 @@ async function compView(body) {
 /* صفحة الخريطة المستقلة: صورة كبيرة + التفاصيل + إعجاب + تعليقات وردود + مشاركة + إبلاغ */
 async function entryView(body) {
   const e = S.entry, uid = currentUid, off = frozen();
+  let cc = S.comp; if (!cc) { try { const cd = await getDoc(doc(db, 'competitions', e.compId)); if (cd.exists()) cc = { id: cd.id, ...cd.data() }; } catch (er) {} }
+  const vts = await getDocs(query(collection(db, 'competition_votes'), where('entryId', '==', e.id))).then(s => s.docs.map(d => d.data())).catch(() => []);
+  const voted = vts.some(x => x.uid === uid), ph = cc ? phase(cc) : ['', '', 0], votable = !!cc && cc.mode !== 'jury', canVote = votable && ph[0] === 'vote' && e.uid !== uid && !voted;
+  const fmtD = v => new Date(v).toLocaleString(lang === 'AR' ? 'ar-EG' : 'en-GB', { timeZone: 'Africa/Cairo', dateStyle: 'medium', timeStyle: 'short' });
+  const vnote = !cc ? '' : cc.mode === 'jury' ? T('هذه المسابقة بنظام لجنة التحكيم — لا يوجد تصويت جمهور.', 'This competition is judged by a jury — no public voting.') : ph[0] === 'vote' ? (e.uid === uid ? T('لا يمكنك التصويت لمشاركتك.', 'You cannot vote for your own entry.') : voted ? T('تم تسجيل صوتك لهذه الخريطة.', 'Your vote for this map is recorded.') : '') : Date.now() < ms(cc.voteStart) ? T('التصويت يبدأ في ', 'Voting starts ') + fmtD(ms(cc.voteStart)) : T('التصويت مغلق.', 'Voting is closed.');
+  const voteLbl = e.uid === uid ? T('مشاركتك', 'Yours') : voted ? T('تم التصويت ✓', 'Voted ✓') : T('صوّت لهذه الخريطة', 'Vote for this map');
   const [lk, cm] = await Promise.all([getDocs(query(collection(db, 'competition_likes'), where('entryId', '==', e.id))), getDocs(query(collection(db, 'competition_comments'), where('entryId', '==', e.id)))]);
   const likes = lk.docs.map(d => d.data()), liked = likes.some(x => x.uid === uid);
   const cms = cm.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => !x.hidden).sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
   const one = x => `<div class="cmp-cm ${x.parentId ? 'rep' : ''}"><b>${E(x.authorName || 'User')}</b><p style="margin:4px 0">${E(x.text)}</p>${!x.parentId && !off ? `<button class="cmp-btn alt" data-rp="${x.id}" style="padding:4px 10px;font-size:12px">${T('رد', 'Reply')}</button>` : ''}</div>`;
   const tops = cms.filter(x => !x.parentId);
   body.innerHTML = `<button class="cmp-btn alt" id="cmpBack">← ${T('رجوع', 'Back')}</button><h2 style="margin:12px 0 4px">${E(e.title)}</h2><p class="cmp-muted">${E(e.authorName)} · ${E(e.software || '')} ${e.mapType ? '· ' + E(e.mapType) : ''} · ${E(e.compTitle || '')}</p><img class="cmp-big" src="${E(e.imageUrl)}"><p>${E(e.desc || '')}</p>${e.sources ? `<p class="cmp-muted"><b>${T('مصادر البيانات:', 'Data sources:')}</b> ${E(e.sources)}</p>` : ''}
-  <div class="cmp-row"><button class="cmp-btn ${liked ? '' : 'alt'}" id="cmpLk" ${off ? 'disabled' : ''}>${liked ? '❤️' : '🤍'} ${likes.length}</button><button class="cmp-btn alt" id="cmpSh">🔗 ${T('مشاركة', 'Share')}</button>${e.uid !== uid ? `<button class="cmp-btn alt" id="cmpRp">🚩 ${T('إبلاغ', 'Report')}</button>` : ''}</div>
+  <div class="cmp-row"><button class="cmp-btn ${liked ? '' : 'alt'}" id="cmpLk" ${off ? 'disabled' : ''}>${liked ? '❤️' : '🤍'} ${likes.length}</button>${votable ? `<button class="cmp-btn" id="cmpVt" ${canVote ? '' : 'disabled'}>🗳️ ${voteLbl} (${vts.length})</button>` : ''}<button class="cmp-btn alt" id="cmpSh">🔗 ${T('مشاركة', 'Share')}</button>${e.uid !== uid ? `<button class="cmp-btn alt" id="cmpRp">🚩 ${T('إبلاغ', 'Report')}</button>` : ''}</div>${vnote ? `<p class="cmp-muted">${vnote}</p>` : ''}
   <h3>💬 ${T('التعليقات', 'Comments')} (${cms.length})</h3>${tops.map(x => one(x) + cms.filter(r => r.parentId === x.id).map(one).join('') + `<div id="rb_${x.id}"></div>`).join('') || `<p class="cmp-muted">${T('لا توجد تعليقات بعد.', 'No comments yet.')}</p>`}
   ${off ? `<p class="cmp-muted">${T('التعليقات مغلقة — انتهت فترة المسابقة.', 'Comments are closed.')}</p>` : `<textarea class="cmp-in" id="cmpC" rows="2" maxlength="400" placeholder="${T('اكتب تعليقًا…', 'Write a comment…')}"></textarea><button class="cmp-btn" id="cmpCs">${T('نشر التعليق', 'Post')}</button>`}`;
   document.getElementById('cmpBack').onclick = () => { S.entry = null; renderCompetitions(); };
   const au = () => ((window._userData?.firstName || '') + ' ' + (window._userData?.lastName || '')).trim() || 'User';
   const post = async (text, parentId) => { text = text.trim().slice(0, 400); if (!text || !uid) return; try { await SD(doc(db, 'competition_comments', e.id + '_' + uid + '_' + Date.now()), { entryId: e.id, compId: e.compId, uid, authorName: au(), text, parentId: parentId || '', hidden: false, createdAt: serverTimestamp() }); renderCompetitions(); } catch (er) { toast(T('تعذّر النشر', 'Failed'), true); } };
   const lkb = document.getElementById('cmpLk'); lkb.onclick = async () => { if (!uid) return; lkb.disabled = true; try { const r = doc(db, 'competition_likes', e.id + '_' + uid); liked ? await deleteDoc(r) : await SD(r, { entryId: e.id, compId: e.compId, uid, createdAt: serverTimestamp() }); renderCompetitions(); } catch (er) { toast(T('تعذّر الإعجاب', 'Failed'), true); lkb.disabled = false; } };
-  document.getElementById('cmpSh').onclick = async () => { const u = location.href.split('#')[0] + '#/competitions'; try { if (navigator.share) await navigator.share({ title: e.title, text: e.title + ' — ATLASYA', url: u }); else { await navigator.clipboard.writeText(u); toast(T('تم نسخ الرابط', 'Link copied')); } } catch (er) {} };
+  document.getElementById('cmpSh').onclick = async () => { const u = (typeof PLATFORM_BASE_URL === 'string' ? PLATFORM_BASE_URL : location.origin + location.pathname) + '#/competitions/e/' + e.id; try { if (navigator.share) await navigator.share({ title: e.title, text: e.title + ' — ATLASYA', url: u }); else { await navigator.clipboard.writeText(u); toast(T('تم نسخ الرابط', 'Link copied')); } } catch (er) {} };
+  const vt = document.getElementById('cmpVt'); if (vt) vt.onclick = async () => { vt.disabled = true;
+    try { if (!uid || e.uid === uid) throw 0; const nn = Date.now(); if (frozen() || nn < ms(cc.voteStart) || nn > ms(cc.voteEnd)) { toast(T('التصويت غير متاح حاليًا', 'Voting is closed'), true); return; }
+      const ref = doc(db, 'competition_votes', e.id + '_' + uid); if ((await getDoc(ref)).exists()) { toast(T('صوّتَّ لهذه المشاركة من قبل', 'Already voted'), true); return; }
+      await SD(ref, { entryId: e.id, compId: cc.id, uid, createdAt: serverTimestamp() }); toast(T('تم تسجيل صوتك ✅', 'Vote recorded ✅')); renderCompetitions(); } catch (er) { toast(T('تعذّر التصويت', 'Vote failed'), true); vt.disabled = false; } };
   const rp = document.getElementById('cmpRp'); if (rp) rp.onclick = async () => { const why = (prompt(T('سبب الإبلاغ؟', 'Reason?')) || '').trim().slice(0, 200); if (!why) return; try { await SD(doc(db, 'competition_reports', e.id + '_' + uid), { entryId: e.id, compId: e.compId, entryTitle: e.title, uid, reason: why, status: 'open', createdAt: serverTimestamp() }); toast(T('تم إرسال البلاغ للمشرف', 'Report sent')); } catch (er) { toast(T('تعذّر الإرسال', 'Failed'), true); } };
   const cs = document.getElementById('cmpCs'); if (cs) cs.onclick = () => post(document.getElementById('cmpC').value);
   body.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { const box = document.getElementById('rb_' + b.dataset.rp); if (box.firstChild) return; box.innerHTML = `<div class="cmp-card" style="margin-inline-start:22px"><input class="cmp-in" maxlength="400" placeholder="${T('اكتب ردًا…', 'Reply…')}"><button class="cmp-btn">${T('رد', 'Reply')}</button></div>`; box.querySelector('button').onclick = () => post(box.querySelector('input').value, b.dataset.rp); });
@@ -8200,6 +8230,7 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
                 menuPortfolioTxt: 'خرائط الطلبة',
                 menuMentorshipTxt: 'اسأل خبير GIS',
                 menuAccountTxt: 'الإعدادات',
+                menuTourTxt: 'جولة إرشادية',
                 menuAdminMembersTxt: 'قائمة الأعضاء',
                 menuAdminProTxt: 'طلبات Pro',
                 menuAdminCVTxt: 'عمل CV',
@@ -8236,6 +8267,7 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
                 menuPortfolioTxt: 'Student Maps',
                 menuMentorshipTxt: 'Ask a GIS Expert',
                 menuAccountTxt: 'Settings',
+                menuTourTxt: 'Guided tour',
                 menuAdminMembersTxt: 'Members List',
                 menuAdminProTxt: 'Pro Requests',
                 menuAdminCVTxt: 'Build CV',
@@ -8886,6 +8918,7 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
         /* Reads the page name out of the current URL hash (#/page-name), if any. */
         function getPageFromUrl() {
             const raw = (location.hash || '').replace(/^#\/?/, '').trim();
+            if (/^competitions\/e\//.test(raw)) return 'competitions';   // رابط مشاركة خريطة داخل مسابقة
             return raw || null;
         }
 
@@ -9001,6 +9034,7 @@ if (typeof window.renderDashboard === 'function') { const _o = window.renderDash
             if (window._applyContent) window._applyContent();
             try { fcSyncNav(page); } catch (e) {}
             try { fcDecorate(page); } catch (e) {}
+            try { if (window.atlTourMaybe) window.atlTourMaybe(page); } catch (e) {}
         }
 
         /* Handles the browser Back/Forward buttons: re-renders the page encoded
@@ -15338,7 +15372,7 @@ window.openConsultationModal = function () { csTab('book'); };
 
         /* ═══════════ إصدار التطبيق + نافذة التحديث الإجباري (مرة واحدة) + معلومات التطبيق + تقييمات ═══════════
            لما تنزّل نسخة جديدة: غيّر ATL_APP_VERSION هنا + "version" في version.json بنفس القيمة → زر التحديث في الإعدادات بيتفتح للطلبة. */
-        window.ATL_APP_VERSION = '2026.11.16.4';
+        window.ATL_APP_VERSION = '2026.11.19.1';
         try { localStorage.setItem('atl_app_ver_running', window.ATL_APP_VERSION); } catch (e) {}
 
         window.atlCheckVersion = async function () {
@@ -24302,5 +24336,156 @@ html[dir="ltr"] .lv-flip, [dir="ltr"] .lv-flip { transform: none; }
   window.renderTraverseCalc = render;
 })();
 </script>
+<style id="atlTourCss">
+.atl-t-ov{position:fixed;inset:0;z-index:2147482000;background:transparent}
+.atl-t-hole{position:fixed;z-index:2147482001;border-radius:14px;pointer-events:none;box-shadow:0 0 0 9999px rgba(3,12,8,.72),0 0 0 3px #e7c873,0 0 22px 4px rgba(231,200,115,.55);transition:all .28s ease}
+.atl-t-hole.full{box-shadow:0 0 0 9999px rgba(3,12,8,.72)}
+.atl-t-box{position:fixed;z-index:2147482002;width:min(330px,calc(100vw - 24px));box-sizing:border-box;background:#0b2318;color:#f3efe0;border:1px solid rgba(231,200,115,.55);border-radius:16px;padding:16px 16px 12px;box-shadow:0 18px 50px rgba(0,0,0,.5);font-family:inherit;line-height:1.7;animation:atlTIn .25s ease}
+body.light-mode .atl-t-box{background:#fffaf0;color:#4a2a0c;border-color:rgba(217,119,6,.5)}
+@keyframes atlTIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.atl-t-box h4{margin:0 0 4px;font-size:16px;font-weight:800;color:#e7c873}
+body.light-mode .atl-t-box h4{color:#c2410c}
+.atl-t-box p{margin:0 0 12px;font-size:13.5px;opacity:.92}
+.atl-t-row{display:flex;align-items:center;gap:8px}
+.atl-t-cnt{font-size:12px;opacity:.7;margin-inline-end:auto}
+.atl-t-b{border:0;border-radius:10px;padding:8px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;background:rgba(231,200,115,.16);color:inherit}
+.atl-t-b.pri{background:linear-gradient(135deg,#e7c873,#d9a441);color:#1a1205}
+body.light-mode .atl-t-b.pri{background:linear-gradient(135deg,#f97316,#d97706);color:#fff}
+.atl-t-b[disabled]{opacity:.35;cursor:default}
+.atl-t-skip{position:absolute;top:8px;inset-inline-end:10px;border:0;background:none;color:inherit;opacity:.7;font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
+.atl-t-dots{display:flex;gap:3px;margin:0 0 10px;flex-wrap:wrap}
+.atl-t-dots i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.2}
+.atl-t-dots i.on{opacity:1;background:#e7c873}
+</style>
+<script>
+(function(){
+  var KEY='atl_tour_done_v1', T=function(a,e){return (typeof lang!=='undefined'&&lang==='EN')?e:a;};
+  var steps=[],i=0,ov,hole,box,running=false,openedSb=false;
+  function mob(){return window.innerWidth<=768;}
+  function vis(el){if(!el)return false;var r=el.getBoundingClientRect();var cs=getComputedStyle(el);return r.width>0&&r.height>0&&cs.visibility!=='hidden'&&cs.display!=='none';}
+  function S(sel,ar,ea,br,eb){return {sel:sel,t:T(ar,ea),d:T(br,eb)};}
+  function build(){
+    var m=mob(),a=[];
+    a.push({sel:null,t:T('أهلاً بيك في ATLASYA 👋','Welcome to ATLASYA 👋'),d:T('جولة سريعة هتعرّفك على كل زر في المنصة. دوس Next للتالي، Back للرجوع، أو Skip لو عايز تتخطاها.','A quick tour of every button on the platform. Press Next to continue, Back to go back, or Skip to leave.')});
+    if(m){
+      a.push(S('#hamburgerBtnMob','القائمة','Menu','من هنا بتفتح القائمة الجانبية وفيها كل أقسام المنصة.','Opens the side menu with every section of the platform.'));
+    }
+    var side=[
+      ['#menuDash','الرئيسية','Home','لوحة البداية: إحصائياتك، العروض والعد التنازلي.','Your start page: stats, offers and the countdown.'],
+      ['#menuDailyChallenge','التحديات','Challenges','تحديات يومية وأسبوعية تكسب منها نقاط.','Daily and weekly challenges that earn you points.'],
+      ['#menuWheel','عجلة الحظ','Lucky Wheel','لف العجلة واكسب مكافآت.','Spin the wheel and win rewards.'],
+      ['#menuLeaderboard','لوحة المتصدرين','Leaderboard','شوف ترتيبك بين الطلاب.','See how you rank among students.'],
+      ['#menuPlay','قوائم التشغيل','Playlists','فيديوهات تعليمية مرتبة في قوائم.','Learning videos organised into playlists.'],
+      ['#menuLib','المكتبة','Library','كتب ومراجع GIS للتحميل والقراءة.','GIS books and references to read or download.'],
+      ['#menuData','البيانات','Datasets','بيانات جاهزة تستخدمها في مشاريعك.','Ready-made data for your projects.'],
+      ['#menuTool','الأدوات','Tools','أدوات وحاسبات مفيدة للشغل.','Handy tools and calculators.'],
+      ['#menuCourse','الكورسات','Courses','كورسات المنصة.','Platform courses.'],
+      ['#menuJob','الوظائف','Jobs','فرص شغل في مجال GIS.','GIS job opportunities.'],
+      ['#menuCV','سيرتي الذاتية','CV Builder','اعمل CV احترافي بسهولة.','Build a professional CV easily.'],
+      ['#menuCommunity','المجتمع','Community','اتواصل مع باقي الطلاب.','Connect with other students.'],
+      ['#menuMentorship','الإرشاد','Mentorship','استشارات وتوجيه من المتخصصين.','Guidance from specialists.'],
+      ['#menuAccount','الإعدادات','Settings','بياناتك، الحساب وتفضيلاتك.','Your profile, account and preferences.']
+    ];
+    side.forEach(function(s){a.push(S(s[0],s[1],s[2],s[3],s[4]));});
+    if(m){
+      var bn=[['الرئيسية','Home','بترجعك للصفحة الرئيسية.','Takes you back home.'],['العروض','Offers','العروض والخصومات الحالية.','Current offers and deals.'],['التعلّم','Learn','كورسات وقوائم التشغيل.','Courses and playlists.'],['المصادر','Resources','المكتبة والبيانات.','Library and datasets.'],['حسابي','Account','حسابك وإنجازاتك.','Your account and achievements.']];
+      bn.forEach(function(b,k){a.push(S('#fcBnav button:nth-child('+(k+1)+')',b[0],b[1],b[2],b[3]));});
+    }
+    if(document.getElementById('fcExplore')){
+      a.push(S('.fc-hero','واجهة الفصل الأخير','The Final Chapter','أهم رسالة وروابط سريعة للأقسام.','The main banner with quick links.'));
+      a.push(S('.fc-stats','إحصائيات حقيقية','Live stats','أرقام المنصة الحقيقية: كورسات، طلاب وغيرها.','Real platform numbers: courses, students and more.'));
+      a.push(S('#fcExplore','استكشف','Explore','كروت تفتح لك أقسام المنصة بسرعة.','Cards that open platform sections quickly.'));
+      a.push(S('#fcDeals','العروض النهائية','The Final Deals','العروض والمسابقات الجارية.','Active offers and competitions.'));
+      a.push(S('#fcCount','العد التنازلي','Countdown','الوقت المتبقي على نهاية 2026 بتوقيت القاهرة.','Time left until the end of 2026 (Cairo time).'));
+    }
+    var tp=m?['#themeToggleBtnMob','#langBtnMob','#notifBtnMob','#topbarAvatar']:['#themeToggleBtn','#langBtn','#notifBtn','#topbarAvatarDesk'];
+    a.push(S(tp[0],'تبديل المظهر','Theme','بدّل بين الدارك واللايت مود.','Switch between dark and light mode.'));
+    a.push(S(tp[1],'اللغة','Language','بدّل بين العربي والإنجليزي.','Switch between Arabic and English.'));
+    a.push(S(tp[2],'الإشعارات','Notifications','أخبار المسابقات والعروض والرسائل تظهر هنا.','News about competitions, offers and messages appear here.'));
+    a.push(S(tp[3],'حسابك','Your account','دوس هنا لفتح الإعدادات والملف الشخصي.','Tap to open settings and your profile.'));
+    a.push({sel:null,t:T('خلصنا! 🎉','All done! 🎉'),d:T('تقدر تعيد الجولة في أي وقت من زر "جولة إرشادية" في القائمة. بالتوفيق!','You can replay the tour any time from the "Guided tour" button in the menu. Good luck!')});
+    return a;
+  }
+  function closeSb(){ if(openedSb){ var sb=document.querySelector('.sidebar'); if(sb&&sb.classList.contains('open')&&typeof closeSidebar==='function') closeSidebar(); openedSb=false; } }
+  function prep(el){
+    if(!el) return 0;
+    var wait=0, inSb=!!el.closest('.sidebar');
+    if(inSb&&mob()){ var sb=document.querySelector('.sidebar'); if(sb&&!sb.classList.contains('open')){ toggleSidebar(); openedSb=true; wait=400; } }
+    else if(!inSb) closeSb();
+    var sec=el.closest('.nav-section.collapsible');
+    if(sec&&!sec.classList.contains('open')){ document.querySelectorAll('.sidebar .nav-section.collapsible').forEach(function(s){s.classList.remove('open');}); sec.classList.add('open'); wait=Math.max(wait,380); }
+    return wait;
+  }
+  function place(el){
+    var vw=window.innerWidth,vh=window.innerHeight;
+    if(!el){ hole.className='atl-t-hole full'; hole.style.cssText='left:'+(vw/2)+'px;top:'+(vh/2)+'px;width:0;height:0'; box.style.left=Math.max(12,(vw-box.offsetWidth)/2)+'px'; box.style.top=Math.max(12,(vh-box.offsetHeight)/2)+'px'; return; }
+    var r=el.getBoundingClientRect(),p=6;
+    hole.className='atl-t-hole';
+    hole.style.left=(r.left-p)+'px';hole.style.top=(r.top-p)+'px';hole.style.width=(r.width+p*2)+'px';hole.style.height=(r.height+p*2)+'px';
+    var bw=box.offsetWidth,bh=box.offsetHeight,top;
+    if(vh-r.bottom-p>=bh+14) top=r.bottom+p+10; else if(r.top-p>=bh+14) top=r.top-p-10-bh; else top=Math.max(12,vh-bh-12);
+    var left=r.left+r.width/2-bw/2; left=Math.max(12,Math.min(left,vw-bw-12));
+    box.style.left=left+'px';box.style.top=top+'px';
+  }
+  function show(){
+    var s=steps[i]; if(!s) return end(true);
+    var el=s.sel?document.querySelector(s.sel):null;
+    if(s.sel&&!el){ return go(dir); }
+    var w=prep(el);
+    setTimeout(function(){
+      if(!running) return;
+      if(el&&!vis(el)){ return go(dir); }
+      if(el) try{ el.scrollIntoView({block:'center',inline:'nearest'}); }catch(e){}
+      setTimeout(function(){ if(!running) return; render(s,el); },el?260:0);
+    },w);
+  }
+  var dir=1;
+  function go(d){ dir=d; i+=d; if(i<0) i=0; if(i>=steps.length) return end(true); show(); }
+  function render(s,el){
+    var n=steps.length, dots='';
+    for(var k=0;k<n;k++) dots+='<i'+(k===i?' class="on"':'')+'></i>';
+    var last=i===n-1;
+    box.innerHTML='<button class="atl-t-skip" data-a="skip">'+T('تخطي','Skip')+'</button><h4></h4><p></p><div class="atl-t-row"><span class="atl-t-cnt">'+(i+1)+' / '+n+'</span><button class="atl-t-b" data-a="back"'+(i===0?' disabled':'')+'>'+T('السابق','Back')+'</button><button class="atl-t-b pri" data-a="next">'+(last?T('إنهاء','Finish'):T('التالي','Next'))+'</button></div>';
+    box.querySelector('h4').textContent=s.t; box.querySelector('p').textContent=s.d;
+    box.dir=(typeof lang!=='undefined'&&lang==='EN')?'ltr':'rtl';
+    box.style.visibility='hidden'; place(el); box.style.visibility='visible';
+    var nb=box.querySelector('[data-a=next]'); try{nb.focus({preventScroll:true});}catch(e){}
+  }
+  function end(done){
+    running=false; closeSb();
+    [ov,hole,box].forEach(function(x){x&&x.parentNode&&x.parentNode.removeChild(x);});
+    document.removeEventListener('keydown',key,true); window.removeEventListener('resize',rs);
+    if(done){ try{localStorage.setItem(KEY,'1');}catch(e){} }
+  }
+  function key(e){
+    if(e.key==='Escape'){e.stopPropagation();end(true);}
+    else if(e.key==='ArrowRight'){e.preventDefault();go(document.body.classList.contains('rtl')?-1:1);}
+    else if(e.key==='ArrowLeft'){e.preventDefault();go(document.body.classList.contains('rtl')?1:-1);}
+    else if(e.key==='Enter'){ if(document.activeElement&&document.activeElement.dataset&&document.activeElement.dataset.a) return; e.preventDefault(); go(1); }
+  }
+  function rs(){ var s=steps[i]; if(!running||!s) return; place(s.sel?document.querySelector(s.sel):null); }
+  function start(){
+    if(running) return;
+    if(!document.getElementById('mainApp')||!vis(document.getElementById('mainApp'))) return;
+    steps=build(); i=0; dir=1; running=true;
+    ov=document.createElement('div');ov.className='atl-t-ov';
+    hole=document.createElement('div');hole.className='atl-t-hole full';
+    box=document.createElement('div');box.className='atl-t-box';box.setAttribute('role','dialog');
+    box.addEventListener('click',function(e){var a=e.target.getAttribute&&e.target.getAttribute('data-a'); if(a==='next') go(1); else if(a==='back') go(-1); else if(a==='skip') end(true);});
+    document.body.appendChild(ov);document.body.appendChild(hole);document.body.appendChild(box);
+    document.addEventListener('keydown',key,true); window.addEventListener('resize',rs);
+    show();
+  }
+  function seen(){ try{return localStorage.getItem(KEY)==='1';}catch(e){return true;} }
+  window.atlTour={start:start,reset:function(){try{localStorage.removeItem(KEY);}catch(e){}}};
+  window.atlTourMaybe=function(page){
+    if(running||seen()) return;
+    if(page!=='dashboard') return;
+    if(window._atlTourTimer) return;
+    window._atlTourTimer=setTimeout(function(){ window._atlTourTimer=0; if(!seen()&&window._currentPage==='dashboard'&&!document.querySelector('.modal.show,.modal-overlay.active')) start(); },1800);
+  };
+})();
+</script>
+
 </body>
     </html>
