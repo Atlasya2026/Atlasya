@@ -10201,19 +10201,49 @@ async function _cEntries(c) {
   const vs = (await getDocs(query(collection(db, 'competition_votes'), where('compId', '==', c.id)))).docs.map(d => d.data());
   const cnt = e => vs.filter(v => v.entryId === e.id).length, maxV = Math.max(0, ...es.filter(e => e.status === 'approved').map(cnt));
   const sc = e => c.mode === 'public' ? cnt(e) : c.mode === 'jury' ? (+e.jury || 0) : (maxV ? cnt(e) / maxV * 100 : 0) * c.publicPct / 100 + (+e.jury || 0) * (100 - c.publicPct) / 100;
-  box.innerHTML = `<h3>${_t('مشاركات: ', 'Entries: ')}${_cE(c.title)}</h3>${es.map(e => `<div style="display:flex;gap:10px;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px"><img src="${_cE(e.imageUrl)}" style="width:80px;height:60px;object-fit:cover;border-radius:8px"><div style="flex:1"><b>${_cE(e.title)}</b><br><span class="cmp-muted">${_cE(e.authorName)} · ${_cStat(e.status)} · 👍 ${cnt(e)}</span></div><input type="number" min="0" max="100" value="${+e.jury || 0}" data-j="${e.id}" style="width:70px;${_cIn}margin:0" title="${_t("درجة التحكيم 0-100", "Jury score 0-100")}"><button data-a="${e.id}" class="cmp-btn">${_t("قبول", "Approve")}</button><button data-r="${e.id}" class="cmp-btn alt">${_t("رفض", "Reject")}</button></div>`).join('') || '<p class="cmp-muted">' + _t('لا توجد مشاركات.', 'No entries yet.') + '</p>'}<button id="cpWin" class="cmp-btn" style="margin-top:10px">🏆 ${_t("حساب وإعلان الفائزين ومنح الجوائز", "Calculate & announce winners and award prizes")}</button>`;
+  box.innerHTML = `<h3>${_t('مشاركات: ', 'Entries: ')}${_cE(c.title)}</h3>${es.map(e => `<div style="display:flex;gap:10px;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px"><img src="${_cE(e.imageUrl)}" style="width:80px;height:60px;object-fit:cover;border-radius:8px"><div style="flex:1"><b>${_cE(e.title)}</b><br><span class="cmp-muted">${_cE(e.authorName)} · ${_cStat(e.status)} · 👍 ${cnt(e)}</span></div><input type="number" min="0" max="100" value="${+e.jury || 0}" data-j="${e.id}" style="width:70px;${_cIn}margin:0" title="${_t("درجة التحكيم 0-100", "Jury score 0-100")}">${e.status === 'approved' ? `<span class="cpPill">✓ ${_t("مقبولة", "Approved")}</span>` : `<button data-a="${e.id}" class="cmp-btn">${_t("قبول", "Approve")}</button>`}${e.status === 'pending' ? `<button data-r="${e.id}" class="cmp-btn alt">${_t("رفض", "Reject")}</button>` : ''}</div>`).join('') || '<p class="cmp-muted">' + _t('لا توجد مشاركات.', 'No entries yet.') + '</p>'}<button id="cpWin" class="cmp-btn" style="margin-top:10px">🏆 ${_t("حساب وإعلان الفائزين ومنح الجوائز", "Calculate & announce winners and award prizes")}</button>`;
   const setE = (id, d) => _sbUpdateDoc(doc(db, 'competition_entries', id), d).then(() => _cEntries(c));
   box.querySelectorAll('[data-a]').forEach(b => b.onclick = () => setE(b.dataset.a, { status: 'approved' }));
   box.querySelectorAll('[data-r]').forEach(b => b.onclick = () => setE(b.dataset.r, { status: 'rejected' }));
   box.querySelectorAll('[data-j]').forEach(i => i.onchange = () => _sbUpdateDoc(doc(db, 'competition_entries', i.dataset.j), { jury: Math.min(100, Math.max(0, +i.value || 0)) }));
-  document.getElementById('cpWin').onclick = async () => {
+  document.getElementById('cpWin').onclick = () => {
     if (c.winners?.length) return _cT(_t('تم إعلان الفائزين مسبقًا', 'Winners have already been announced'));
-    const top = es.filter(e => e.status === 'approved').sort((a, b) => sc(b) - sc(a)).slice(0, 3); if (!top.length) return _cT(_t('لا توجد مشاركات مقبولة', 'No approved entries'));
-    if (!confirm(_t('إعلان الفائزين نهائي ولا يمكن التراجع عنه. متابعة؟', 'Announcing winners is final and cannot be undone. Continue?'))) return;
-    const pr = [1, .6, .3];
-    for (let i = 0; i < top.length; i++) { const coins = Math.round((c.prizeCoins || 0) * pr[i]); if (coins > 0) await _sbUpdateDoc(doc(db, 'users', top[i].uid), { coins: increment(coins), coinsEarnedTotal: increment(coins) }); }
-    await _sbUpdateDoc(doc(db, 'competitions', c.id), { winners: top.map(e => ({ entryId: e.id, uid: e.uid, name: e.authorName, title: e.title })), status: 'closed' });
-    _cT(_t('تم إعلان الفائزين', 'Winners announced')); renderAdminCompetitions();
+    const ap = es.filter(e => e.status === 'approved'); if (!ap.length) return _cT(_t('لا توجد مشاركات مقبولة', 'No approved entries'));
+    const ranked = ap.map(e => ({ e, v: cnt(e), j: +e.jury || 0, s: sc(e) })).sort((x, y) => y.s - x.s);
+    const pr = [1, .6, .3], coinsOf = i => Math.round((c.prizeCoins || 0) * pr[i]), medals = ['🥇', '🥈', '🥉'], labs = [_t('المركز الأول', '1st place'), _t('المركز الثاني', '2nd place'), _t('المركز الثالث', '3rd place')];
+    const byId = id => ranked.find(r => r.e.id === id);
+    const pick = [0, 1, 2].map(i => ranked[i] ? ranked[i].e.id : '');
+    const drawPick = () => {
+      box.innerHTML = `<div class="cpPanel"><h3>🏆 ${_t('اختيار الفائزين: ', 'Select winners: ')}${_cE(c.title)}</h3>
+        <p class="cmp-muted" style="margin-bottom:10px">${_t('الترتيب بالجدول حسب نظام الفوز المحدد للمسابقة، لكن القرار ليك: اختار الأول والتاني والتالت بنفسك (التلقائي مجرد اقتراح).', 'The table is ranked by the competition scoring mode, but the decision is yours: choose 1st, 2nd and 3rd yourself (the defaults are only a suggestion).')}</p>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px"><thead><tr style="text-align:start;color:var(--muted)"><th style="padding:6px">#</th><th style="padding:6px;text-align:start">${_t('الخريطة', 'Map')}</th><th style="padding:6px;text-align:start">${_t('الطالب', 'Student')}</th><th style="padding:6px">🗳️</th><th style="padding:6px">⚖️</th><th style="padding:6px">${_t('النتيجة', 'Score')}</th></tr></thead><tbody>
+        ${ranked.map((r, i) => `<tr style="border-top:1px solid var(--border)"><td style="padding:6px;text-align:center">${i + 1}</td><td style="padding:6px"><img src="${_cE(r.e.imageUrl)}" style="width:44px;height:32px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-inline-end:8px">${_cE(r.e.title)}</td><td style="padding:6px">${_cE(r.e.authorName)}</td><td style="padding:6px;text-align:center">${r.v}</td><td style="padding:6px;text-align:center">${r.j}</td><td style="padding:6px;text-align:center"><b>${(+r.s).toFixed(1)}</b></td></tr>`).join('')}</tbody></table></div>
+        ${[0, 1, 2].map(i => `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><b style="min-width:120px">${medals[i]} ${labs[i]}</b><select data-w="${i}" style="${_cIn}margin:0;flex:1;min-width:220px"><option value="">— ${i === 0 ? _t('اختر', 'Choose') : _t('بدون', 'None')} —</option>${ranked.map((r, k) => `<option value="${r.e.id}" ${pick[i] === r.e.id ? 'selected' : ''}>#${k + 1} ${_cE(r.e.title)} — ${_cE(r.e.authorName)}</option>`).join('')}</select><span class="cpPill" style="margin:0">🪙 ${coinsOf(i)}</span></div>`).join('')}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button id="wnReview" class="cmp-btn"><i class="fa-solid fa-clipboard-check"></i> ${_t('مراجعة وتأكيد', 'Review & confirm')}</button><button id="wnX" class="cmp-btn alt">${_t('إلغاء', 'Cancel')}</button></div></div>`;
+      box.querySelectorAll('[data-w]').forEach(s => s.onchange = () => { pick[+s.dataset.w] = s.value; });
+      document.getElementById('wnX').onclick = () => _cEntries(c);
+      document.getElementById('wnReview').onclick = () => {
+        if (!pick[0]) return _cT(_t('اختر الفائز بالمركز الأول', 'Choose the 1st place winner'));
+        if (!pick[1] && pick[2]) return _cT(_t('لا يمكن اختيار الثالث بدون الثاني', 'Cannot pick 3rd without 2nd'));
+        const ch = pick.filter(Boolean); if (new Set(ch).size !== ch.length) return _cT(_t('نفس الخريطة مختارة في أكثر من مركز', 'The same entry is chosen for more than one place'));
+        const sel = ch.map(id => byId(id));
+        const dup = new Set(sel.map(r => r.e.uid)); if (dup.size !== sel.length && !confirm(_t('نفس الطالب في أكثر من مركز. متابعة؟', 'The same student appears in more than one place. Continue?'))) return;
+        box.innerHTML = `<div class="cpPanel"><h3>✅ ${_t('تأكيد إعلان الفائزين', 'Confirm winners announcement')}</h3>
+          ${sel.map((r, i) => `<div style="display:flex;gap:12px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px"><span style="font-size:26px">${medals[i]}</span><img src="${_cE(r.e.imageUrl)}" style="width:70px;height:50px;object-fit:cover;border-radius:8px"><div style="flex:1"><b>${_cE(r.e.title)}</b><br><span class="cmp-muted">${_cE(r.e.authorName)} · 🗳️ ${r.v} · ⚖️ ${r.j}</span></div><span class="cpPill" style="margin:0">🪙 ${coinsOf(i)}</span></div>`).join('')}
+          <p class="cmp-muted" style="color:#b45309;margin:10px 0">⚠️ ${_t('الإعلان نهائي: هيتمنح العملات للفائزين ويتقفل التصويت ولا يمكن التراجع.', 'This is final: coins are awarded to the winners and it cannot be undone.')}</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button id="wnGo" class="cmp-btn"><i class="fa-solid fa-trophy"></i> ${_t('تأكيد وإعلان الفائزين', 'Confirm & announce')}</button><button id="wnBack" class="cmp-btn alt">${_t('رجوع للتعديل', 'Back to edit')}</button></div></div>`;
+        document.getElementById('wnBack').onclick = drawPick;
+        document.getElementById('wnGo').onclick = async (ev) => {
+          ev.target.disabled = true;
+          try {
+            for (let i = 0; i < sel.length; i++) { const co = coinsOf(i); if (co > 0) await _sbUpdateDoc(doc(db, 'users', sel[i].e.uid), { coins: increment(co), coinsEarnedTotal: increment(co) }); }
+            await _sbUpdateDoc(doc(db, 'competitions', c.id), { winners: sel.map((r, i) => ({ place: i + 1, entryId: r.e.id, uid: r.e.uid, name: r.e.authorName, title: r.e.title, coins: coinsOf(i) })), status: 'closed' });
+            _cT(_t('تم إعلان الفائزين ومنح الجوائز 🏆', 'Winners announced and prizes awarded 🏆')); renderAdminCompetitions();
+          } catch (er) { console.error(er); _cT(_t('حصل خطأ أثناء الإعلان — راجع الفائزين قبل المحاولة تاني', 'Error while announcing — check winners before retrying')); ev.target.disabled = false; }
+        };
+      };
+    };
+    drawPick(); box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 }
 window.renderAdminCompetitions = renderAdminCompetitions;
